@@ -1,0 +1,20 @@
+{
+  "kind": "collectionType",
+  "collectionName": "success_stories",
+  "info": {
+    "singularName": "success-story",
+    "pluralName": "success-stories",
+    "displayName": "Success Story"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "title": { "type": "string", "required": true },
+    "slug": { "type": "uid", "targetField": "title", "required": true },
+    "operatorName": { "type": "string" },
+    "summary": { "type": "text" },
+    "story": { "type": "blocks" },
+    "impactMetrics": { "type": "json" },
+    "gallery": { "type": "media", "multiple": true, "allowedTypes": ["images", "videos"] }
+  }
+}

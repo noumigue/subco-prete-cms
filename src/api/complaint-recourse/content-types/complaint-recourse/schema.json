@@ -1,0 +1,21 @@
+{
+  "kind": "collectionType",
+  "collectionName": "complaint_recourses",
+  "info": {
+    "singularName": "complaint-recourse",
+    "pluralName": "complaint-recourses",
+    "displayName": "Complaint Recourse"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "fullName": { "type": "string", "required": true },
+    "email": { "type": "email", "required": true },
+    "type": { "type": "enumeration", "enum": ["complaint", "recourse", "eas_hs"], "default": "complaint" },
+    "relatedSubmissionRef": { "type": "string" },
+    "subject": { "type": "string", "required": true },
+    "details": { "type": "text", "required": true },
+    "supportingDocument": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "status": { "type": "enumeration", "enum": ["received", "under_review", "resolved", "closed"], "default": "received" }
+  }
+}

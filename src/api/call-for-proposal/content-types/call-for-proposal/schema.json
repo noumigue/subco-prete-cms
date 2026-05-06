@@ -1,0 +1,22 @@
+{
+  "kind": "collectionType",
+  "collectionName": "call_for_proposals",
+  "info": {
+    "singularName": "call-for-proposal",
+    "pluralName": "call-for-proposals",
+    "displayName": "Call For Proposal"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "title": { "type": "string", "required": true },
+    "slug": { "type": "uid", "targetField": "title", "required": true },
+    "summary": { "type": "text" },
+    "content": { "type": "blocks" },
+    "status": { "type": "enumeration", "enum": ["draft", "open", "closed"], "default": "draft" },
+    "openingDate": { "type": "date" },
+    "deadlineDate": { "type": "date" },
+    "documents": { "type": "media", "multiple": true, "allowedTypes": ["files"] },
+    "coverImage": { "type": "media", "multiple": false, "allowedTypes": ["images"] }
+  }
+}

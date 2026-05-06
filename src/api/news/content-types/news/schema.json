@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType",
+  "collectionName": "news",
+  "info": {
+    "singularName": "news",
+    "pluralName": "news-items",
+    "displayName": "News"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "title": { "type": "string", "required": true },
+    "slug": { "type": "uid", "targetField": "title", "required": true },
+    "excerpt": { "type": "text" },
+    "content": { "type": "blocks" },
+    "publishedAtCustom": { "type": "datetime" },
+    "image": { "type": "media", "multiple": false, "allowedTypes": ["images"] }
+  }
+}

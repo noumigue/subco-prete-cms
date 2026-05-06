@@ -1,0 +1,20 @@
+{
+  "kind": "collectionType",
+  "collectionName": "support_tickets",
+  "info": {
+    "singularName": "support-ticket",
+    "pluralName": "support-tickets",
+    "displayName": "Support Ticket"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "fullName": { "type": "string", "required": true },
+    "email": { "type": "email", "required": true },
+    "category": { "type": "enumeration", "enum": ["technical", "functional", "account", "other"], "default": "other" },
+    "subject": { "type": "string", "required": true },
+    "message": { "type": "text", "required": true },
+    "attachment": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "status": { "type": "enumeration", "enum": ["new", "in_progress", "resolved", "closed"], "default": "new" }
+  }
+}

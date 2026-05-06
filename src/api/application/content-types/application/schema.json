@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "applications",
+  "info": {
+    "singularName": "application",
+    "pluralName": "applications",
+    "displayName": "Application"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "reference": { "type": "uid", "targetField": "projectTitle" },
+    "fullName": { "type": "string", "required": true },
+    "email": { "type": "email", "required": true },
+    "phone": { "type": "string" },
+    "organization": { "type": "string", "required": true },
+    "valueChain": {
+      "type": "enumeration",
+      "enum": ["fruits", "volaille", "lait", "pisciculture", "mines"],
+      "required": true
+    },
+    "projectTitle": { "type": "string", "required": true },
+    "projectSummary": { "type": "text", "required": true },
+    "status": {
+      "type": "enumeration",
+      "enum": ["submitted", "under_review", "incomplete", "approved", "rejected"],
+      "default": "submitted"
+    },
+    "submittedAt": { "type": "datetime" }
+  }
+}
