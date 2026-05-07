@@ -1,0 +1,21 @@
+{
+  "kind": "collectionType",
+  "collectionName": "value_chains",
+  "info": {
+    "singularName": "value-chain",
+    "pluralName": "value-chains",
+    "displayName": "Value Chain"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "name": { "type": "string", "required": true },
+    "slug": { "type": "uid", "targetField": "name", "required": true, "unique": true },
+    "heroImage": { "type": "media", "multiple": false, "allowedTypes": ["images"] },
+    "photoHint": { "type": "text" },
+    "shortIntro": { "type": "text", "required": true },
+    "fullContent": { "type": "blocks" },
+    "priorityOrder": { "type": "integer", "default": 0 },
+    "isFeaturedHome": { "type": "boolean", "default": true }
+  }
+}

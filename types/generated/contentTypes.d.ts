@@ -782,6 +782,43 @@ export interface ApiSupportTicketSupportTicket
   };
 }
 
+export interface ApiValueChainValueChain extends Struct.CollectionTypeSchema {
+  collectionName: 'value_chains';
+  info: {
+    displayName: 'Value Chain';
+    pluralName: 'value-chains';
+    singularName: 'value-chain';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fullContent: Schema.Attribute.Blocks;
+    heroImage: Schema.Attribute.Media<'images'>;
+    isFeaturedHome: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::value-chain.value-chain'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    photoHint: Schema.Attribute.Text;
+    priorityOrder: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    shortIntro: Schema.Attribute.Text & Schema.Attribute.Required;
+    slug: Schema.Attribute.UID<'name'> &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface PluginContentReleasesRelease
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_releases';
@@ -1303,6 +1340,7 @@ declare module '@strapi/strapi' {
       'api::resource-document.resource-document': ApiResourceDocumentResourceDocument;
       'api::success-story.success-story': ApiSuccessStorySuccessStory;
       'api::support-ticket.support-ticket': ApiSupportTicketSupportTicket;
+      'api::value-chain.value-chain': ApiValueChainValueChain;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

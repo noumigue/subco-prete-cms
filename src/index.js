@@ -19,6 +19,7 @@ module.exports = {
   async bootstrap({ strapi }) {
     const publicReadUids = [
       'api::homepage.homepage',
+      'api::value-chain.value-chain',
       'api::call-for-proposal.call-for-proposal',
       'api::event.event',
       'api::news.news',
@@ -168,6 +169,78 @@ module.exports = {
           publishedAt: new Date(),
         },
       });
+    }
+
+    const valueChainUid = 'api::value-chain.value-chain';
+    const legacyCount = await strapi.db.query(valueChainUid).count();
+    const existingDocs = await strapi.documents(valueChainUid).findMany({
+      pagination: { page: 1, pageSize: 1 },
+    });
+
+    if (legacyCount > 0 && (!existingDocs || existingDocs.length === 0)) {
+      await strapi.db.query(valueChainUid).deleteMany({ where: {} });
+    }
+
+    const chains = [
+      {
+        name: 'Fruits tropicaux',
+        slug: 'fruits-tropicaux',
+        photoHint: 'Producteurs manipulant mangues, ananas, avocats ou bananes dans un centre de collecte avec tri visible.',
+        shortIntro: 'Renforcer les infrastructures post-récolte, stockage, transformation et accès marché pour limiter les pertes et créer de la valeur.',
+        fullContent: blocks('Chaîne fruits tropicaux : agrégation, conservation, transformation, qualité et accès marché.'),
+        priorityOrder: 1,
+        isFeaturedHome: true,
+      },
+      {
+        name: 'Lait',
+        slug: 'lait',
+        photoHint: 'Centre de collecte de lait avec bidons inox et tank de refroidissement, test qualité en cours.',
+        shortIntro: 'Structurer la collecte, la chaîne du froid, la transformation et la distribution pour améliorer qualité et revenus des acteurs.',
+        fullContent: blocks('Chaîne lait : centres de collecte, équipements froid, transformation et distribution.'),
+        priorityOrder: 2,
+        isFeaturedHome: true,
+      },
+      {
+        name: 'Volaille',
+        slug: 'volaille',
+        photoHint: 'Élevage avicole propre ou abattoir semi-moderne avec opérateurs en tenue d’hygiène.',
+        shortIntro: 'Soutenir les maillons critiques de transformation, conservation, conditionnement et commercialisation de la filière volaille.',
+        fullContent: blocks('Chaîne volaille : abattage, conservation, transformation et vente structurée.'),
+        priorityOrder: 3,
+        isFeaturedHome: true,
+      },
+      {
+        name: 'Pisciculture et aquaculture',
+        slug: 'pisciculture-aquaculture',
+        photoHint: 'Bassin piscicole ou cage flottante avec manutention du poisson sur glace et conditionnement propre.',
+        shortIntro: 'Développer les infrastructures de traitement, conservation et accès marché pour sécuriser l’offre et la qualité.',
+        fullContent: blocks('Chaîne pisciculture et aquaculture : collecte, froid, transformation et logistique.'),
+        priorityOrder: 4,
+        isFeaturedHome: true,
+      },
+      {
+        name: 'Industrie minière',
+        slug: 'mines',
+        photoHint: 'Site minier encadré avec équipements de traitement, zone de pesage ou laboratoire, EPI visibles.',
+        shortIntro: 'Appuyer les infrastructures de services techniques, qualité, traçabilité et commercialisation dans la chaîne minière.',
+        fullContent: blocks('Chaîne mines : services techniques, traçabilité, contrôle qualité et commercialisation.'),
+        priorityOrder: 5,
+        isFeaturedHome: true,
+      },
+    ];
+
+    for (const chain of chains) {
+      const existing = await strapi.documents(valueChainUid).findMany({
+        filters: { slug: { $eq: chain.slug } },
+        pagination: { page: 1, pageSize: 1 },
+      });
+
+      if (!existing || existing.length === 0) {
+        await strapi.documents(valueChainUid).create({
+          data: chain,
+          status: 'published',
+        });
+      }
     }
   },
 };
