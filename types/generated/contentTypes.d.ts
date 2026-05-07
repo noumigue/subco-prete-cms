@@ -485,6 +485,8 @@ export interface ApiCallForProposalCallForProposal
     draftAndPublish: true;
   };
   attributes: {
+    callStatus: Schema.Attribute.Enumeration<['draft', 'open', 'closed']> &
+      Schema.Attribute.DefaultTo<'draft'>;
     content: Schema.Attribute.Blocks;
     coverImage: Schema.Attribute.Media<'images'>;
     createdAt: Schema.Attribute.DateTime;
@@ -501,8 +503,6 @@ export interface ApiCallForProposalCallForProposal
     openingDate: Schema.Attribute.Date;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
-    status: Schema.Attribute.Enumeration<['draft', 'open', 'closed']> &
-      Schema.Attribute.DefaultTo<'draft'>;
     summary: Schema.Attribute.Text;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;

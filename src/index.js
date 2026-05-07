@@ -99,7 +99,7 @@ module.exports = {
           slug: 'appel-cohorte-1',
           summary: 'Appel pilote pour les opérateurs des chaînes de valeur ciblées.',
           content: blocks('Consultez les critères, les pièces requises et le calendrier de soumission.'),
-          status: 'open',
+          callStatus: 'open',
           openingDate: '2026-05-01',
           deadlineDate: '2026-06-15',
           publishedAt: new Date(),

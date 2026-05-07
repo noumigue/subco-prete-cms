@@ -13,7 +13,7 @@
     "slug": { "type": "uid", "targetField": "title", "required": true },
     "summary": { "type": "text" },
     "content": { "type": "blocks" },
-    "status": { "type": "enumeration", "enum": ["draft", "open", "closed"], "default": "draft" },
+    "callStatus": { "type": "enumeration", "enum": ["draft", "open", "closed"], "default": "draft" },
     "openingDate": { "type": "date" },
     "deadlineDate": { "type": "date" },
     "documents": { "type": "media", "multiple": true, "allowedTypes": ["files"] },
