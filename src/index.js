@@ -151,6 +151,10 @@ module.exports = {
     }
 
     const partnerUid = 'api::partner.partner';
+    await strapi.db.query(partnerUid).deleteMany({
+      where: { name: { $in: ['CECODDA', 'SUBCO'] } },
+    });
+
     const partners = [
       { name: 'PRETE', sortOrder: 1 },
       { name: 'Banque mondiale', sortOrder: 2 },
