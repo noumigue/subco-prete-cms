@@ -20,3 +20,6 @@ public/uploads/*
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# local Strapi data exports
+strapi-editorial-data.sql
