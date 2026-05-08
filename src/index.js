@@ -109,6 +109,14 @@ module.exports = {
       });
     }
 
+    await strapi.db.query('api::event.event').deleteMany({
+      where: { slug: 'atelier-information-candidature' },
+    });
+
+    await strapi.db.query('api::news.news').deleteMany({
+      where: { slug: 'lancement-subco-prete' },
+    });
+
     const existingStory = await strapi.db.query('api::success-story.success-story').findOne({
       where: { slug: 'operateur-fruits-tropicaux' },
     });
