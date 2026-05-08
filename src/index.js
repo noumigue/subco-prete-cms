@@ -26,6 +26,7 @@ module.exports = {
       'api::success-story.success-story',
       'api::resource-document.resource-document',
       'api::faq.faq',
+      'api::partner.partner',
     ];
 
     const publicCreateOnlyUids = [
@@ -169,6 +170,32 @@ module.exports = {
           publishedAt: new Date(),
         },
       });
+    }
+
+    const partnerUid = 'api::partner.partner';
+    const partners = [
+      { name: 'PRETE', sortOrder: 1 },
+      { name: 'Banque mondiale', sortOrder: 2 },
+      { name: 'Gouvernement du Burundi', sortOrder: 3 },
+      { name: 'CECODDA', sortOrder: 4 },
+      { name: 'SUBCO', sortOrder: 5 },
+    ];
+
+    for (const partner of partners) {
+      const existing = await strapi.documents(partnerUid).findMany({
+        filters: { name: { $eq: partner.name } },
+        pagination: { page: 1, pageSize: 1 },
+      });
+
+      if (!existing || existing.length === 0) {
+        await strapi.documents(partnerUid).create({
+          data: {
+            ...partner,
+            isVisible: true,
+          },
+          status: 'published',
+        });
+      }
     }
 
     const valueChainUid = 'api::value-chain.value-chain';

@@ -5,6 +5,7 @@ node_modules/
 .tmp/
 .cache/
 .strapi/client/
+build/
 
 # environment
 .env
