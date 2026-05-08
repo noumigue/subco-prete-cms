@@ -19,6 +19,9 @@ module.exports = {
   async bootstrap({ strapi }) {
     const publicReadUids = [
       'api::homepage.homepage',
+      'api::about-page.about-page',
+      'api::candidature-guide.candidature-guide',
+      'api::footer-link.footer-link',
       'api::value-chain.value-chain',
       'api::call-for-proposal.call-for-proposal',
       'api::event.event',

@@ -1,0 +1,19 @@
+{
+  "kind": "singleType",
+  "collectionName": "candidature_guides",
+  "info": {
+    "singularName": "candidature-guide",
+    "pluralName": "candidature-guides",
+    "displayName": "Candidature Guide"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "kicker": { "type": "string", "default": "Candidature" },
+    "title": { "type": "string", "required": true },
+    "intro": { "type": "text" },
+    "sections": { "type": "json" },
+    "primaryCtaLabel": { "type": "string", "default": "Déposer une candidature" },
+    "primaryCtaUrl": { "type": "string", "default": "/candidature/deposer" }
+  }
+}

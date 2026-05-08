@@ -1,0 +1,22 @@
+{
+  "kind": "collectionType",
+  "collectionName": "footer_links",
+  "info": {
+    "singularName": "footer-link",
+    "pluralName": "footer-links",
+    "displayName": "Footer Link"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "label": { "type": "string", "required": true },
+    "url": { "type": "string", "required": true },
+    "group": {
+      "type": "enumeration",
+      "enum": ["assistance", "institutional", "resources"],
+      "required": true
+    },
+    "sortOrder": { "type": "integer", "default": 0 },
+    "isVisible": { "type": "boolean", "default": true }
+  }
+}

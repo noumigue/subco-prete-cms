@@ -11,6 +11,12 @@
   "attributes": {
     "title": { "type": "string", "required": true },
     "slug": { "type": "uid", "targetField": "title", "required": true },
+    "category": {
+      "type": "enumeration",
+      "enum": ["actualite", "communique", "annonce_resultat"],
+      "default": "actualite",
+      "required": true
+    },
     "excerpt": { "type": "text" },
     "content": { "type": "blocks" },
     "publishedAtCustom": { "type": "datetime" },

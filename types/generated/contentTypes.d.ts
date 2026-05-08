@@ -430,6 +430,38 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiAboutPageAboutPage extends Struct.SingleTypeSchema {
+  collectionName: 'about_pages';
+  info: {
+    displayName: 'About Page';
+    pluralName: 'about-pages';
+    singularName: 'about-page';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    intro: Schema.Attribute.Text;
+    kicker: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'\u00C0 propos'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::about-page.about-page'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    sections: Schema.Attribute.JSON;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiApplicationApplication extends Struct.CollectionTypeSchema {
   collectionName: 'applications';
   info: {
@@ -549,6 +581,42 @@ export interface ApiCallForProposalCallForProposal
   };
 }
 
+export interface ApiCandidatureGuideCandidatureGuide
+  extends Struct.SingleTypeSchema {
+  collectionName: 'candidature_guides';
+  info: {
+    displayName: 'Candidature Guide';
+    pluralName: 'candidature-guides';
+    singularName: 'candidature-guide';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    intro: Schema.Attribute.Text;
+    kicker: Schema.Attribute.String & Schema.Attribute.DefaultTo<'Candidature'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::candidature-guide.candidature-guide'
+    > &
+      Schema.Attribute.Private;
+    primaryCtaLabel: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'D\u00E9poser une candidature'>;
+    primaryCtaUrl: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'/candidature/deposer'>;
+    publishedAt: Schema.Attribute.DateTime;
+    sections: Schema.Attribute.JSON;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiComplaintRecourseComplaintRecourse
   extends Struct.CollectionTypeSchema {
   collectionName: 'complaint_recourses';
@@ -647,6 +715,41 @@ export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiFooterLinkFooterLink extends Struct.CollectionTypeSchema {
+  collectionName: 'footer_links';
+  info: {
+    displayName: 'Footer Link';
+    pluralName: 'footer-links';
+    singularName: 'footer-link';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    group: Schema.Attribute.Enumeration<
+      ['assistance', 'institutional', 'resources']
+    > &
+      Schema.Attribute.Required;
+    isVisible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    label: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::footer-link.footer-link'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    sortOrder: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    url: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
 export interface ApiHomepageHomepage extends Struct.SingleTypeSchema {
   collectionName: 'homepages';
   info: {
@@ -690,6 +793,11 @@ export interface ApiNewsNews extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    category: Schema.Attribute.Enumeration<
+      ['actualite', 'communique', 'annonce_resultat']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'actualite'>;
     content: Schema.Attribute.Blocks;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -1400,11 +1508,14 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::about-page.about-page': ApiAboutPageAboutPage;
       'api::application.application': ApiApplicationApplication;
       'api::call-for-proposal.call-for-proposal': ApiCallForProposalCallForProposal;
+      'api::candidature-guide.candidature-guide': ApiCandidatureGuideCandidatureGuide;
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
       'api::event.event': ApiEventEvent;
       'api::faq.faq': ApiFaqFaq;
+      'api::footer-link.footer-link': ApiFooterLinkFooterLink;
       'api::homepage.homepage': ApiHomepageHomepage;
       'api::news.news': ApiNewsNews;
       'api::partner.partner': ApiPartnerPartner;
