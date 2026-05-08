@@ -109,38 +109,6 @@ module.exports = {
       });
     }
 
-    const existingEvent = await strapi.db.query('api::event.event').findOne({
-      where: { slug: 'atelier-information-candidature' },
-    });
-    if (!existingEvent) {
-      await strapi.db.query('api::event.event').create({
-        data: {
-          title: "Atelier d'information candidature",
-          slug: 'atelier-information-candidature',
-          description: blocks('Session de présentation du mécanisme et des modalités de dépôt.'),
-          eventDate: '2026-05-20T09:00:00.000Z',
-          location: 'Yaounde / En ligne',
-          publishedAt: new Date(),
-        },
-      });
-    }
-
-    const existingNews = await strapi.db.query('api::news.news').findOne({
-      where: { slug: 'lancement-subco-prete' },
-    });
-    if (!existingNews) {
-      await strapi.db.query('api::news.news').create({
-        data: {
-          title: 'Lancement de la plateforme SUBCO PRETE',
-          slug: 'lancement-subco-prete',
-          excerpt: 'Ouverture du portail d’information et de soumission.',
-          content: blocks('La plateforme digitale permet de publier les appels et suivre les candidatures.'),
-          publishedAtCustom: new Date().toISOString(),
-          publishedAt: new Date(),
-        },
-      });
-    }
-
     const existingStory = await strapi.db.query('api::success-story.success-story').findOne({
       where: { slug: 'operateur-fruits-tropicaux' },
     });
