@@ -155,8 +155,6 @@ module.exports = {
       { name: 'PRETE', sortOrder: 1 },
       { name: 'Banque mondiale', sortOrder: 2 },
       { name: 'Gouvernement du Burundi', sortOrder: 3 },
-      { name: 'CECODDA', sortOrder: 4 },
-      { name: 'SUBCO', sortOrder: 5 },
     ];
 
     for (const partner of partners) {
@@ -177,15 +175,6 @@ module.exports = {
     }
 
     const valueChainUid = 'api::value-chain.value-chain';
-    const legacyCount = await strapi.db.query(valueChainUid).count();
-    const existingDocs = await strapi.documents(valueChainUid).findMany({
-      pagination: { page: 1, pageSize: 1 },
-    });
-
-    if (legacyCount > 0 && (!existingDocs || existingDocs.length === 0)) {
-      await strapi.db.query(valueChainUid).deleteMany({ where: {} });
-    }
-
     const chains = [
       {
         name: 'Fruits tropicaux',
