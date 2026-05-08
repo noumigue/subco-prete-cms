@@ -441,28 +441,65 @@ export interface ApiApplicationApplication extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    activities: Schema.Attribute.JSON;
+    address: Schema.Attribute.Text;
+    age: Schema.Attribute.Integer;
+    applicationDocuments: Schema.Attribute.Media<'files' | 'images', true>;
+    commercialName: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    creationDate: Schema.Attribute.Date;
+    creditInterest: Schema.Attribute.Boolean;
     email: Schema.Attribute.Email & Schema.Attribute.Required;
+    financialAccountStatus: Schema.Attribute.Text;
     fullName: Schema.Attribute.String & Schema.Attribute.Required;
+    gender: Schema.Attribute.Enumeration<
+      ['femme', 'homme', 'autre', 'non_precise']
+    >;
+    investmentProject: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::application.application'
     > &
       Schema.Attribute.Private;
+    location: Schema.Attribute.String;
+    operatingData: Schema.Attribute.JSON;
     organization: Schema.Attribute.String & Schema.Attribute.Required;
+    organizationProfile: Schema.Attribute.JSON;
+    organizationType: Schema.Attribute.String;
+    ownContributionEstimate: Schema.Attribute.BigInteger;
+    partners: Schema.Attribute.JSON;
     phone: Schema.Attribute.String;
     projectSummary: Schema.Attribute.Text & Schema.Attribute.Required;
     projectTitle: Schema.Attribute.String & Schema.Attribute.Required;
+    promoterProfile: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
     reference: Schema.Attribute.UID<'projectTitle'>;
+    requestedSupportEstimate: Schema.Attribute.BigInteger;
+    risksAndEnvironment: Schema.Attribute.JSON;
     status: Schema.Attribute.Enumeration<
-      ['submitted', 'under_review', 'incomplete', 'approved', 'rejected']
+      [
+        'draft',
+        'submitted',
+        'received',
+        'incomplete',
+        'additional_info_requested',
+        'completed',
+        'under_admin_review',
+        'preselected',
+        'not_preselected',
+        'committee_review',
+        'approved',
+        'rejected',
+      ]
     > &
       Schema.Attribute.DefaultTo<'submitted'>;
+    strengthsWeaknesses: Schema.Attribute.JSON;
     submittedAt: Schema.Attribute.DateTime;
+    targetObjectives: Schema.Attribute.JSON;
+    umbrellaOrganizations: Schema.Attribute.Text;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -470,6 +507,7 @@ export interface ApiApplicationApplication extends Struct.CollectionTypeSchema {
       ['fruits', 'volaille', 'lait', 'pisciculture', 'mines']
     > &
       Schema.Attribute.Required;
+    yearsOfActivity: Schema.Attribute.Integer;
   };
 }
 

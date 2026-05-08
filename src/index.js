@@ -72,6 +72,8 @@ module.exports = {
         await setPermission(publicRole.id, `${uid}.update`, false);
         await setPermission(publicRole.id, `${uid}.delete`, false);
       }
+
+      await setPermission(publicRole.id, 'plugin::upload.content-api.upload', true);
     }
 
     const blocks = (text) => [{ type: 'paragraph', children: [{ type: 'text', text }] }];
