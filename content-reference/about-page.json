@@ -1,0 +1,81 @@
+{
+  "kicker": "À propos",
+  "title": "Comprendre PRETE / NYUNGANIRA et SUBCO",
+  "intro": "PRETE / NYUNGANIRA accompagne la transformation économique locale en soutenant des investissements productifs capables de renforcer les chaînes de valeur prioritaires, d’améliorer l’accès des MPME aux services essentiels et de mobiliser davantage d’investissement privé.",
+  "sections": [
+    {
+      "title": "Le projet PRETE / NYUNGANIRA",
+      "text": "PRETE soutient la transformation économique locale en améliorant l’accès des MPME aux financements, aux infrastructures productives et aux services nécessaires à leur croissance. Le projet vise des investissements capables de créer des emplois, de renforcer la compétitivité et de produire des effets utiles pour les opérateurs économiques locaux."
+    },
+    {
+      "title": "Pourquoi des subventions de contrepartie ?",
+      "text": "La subvention de contrepartie agit comme un levier. Elle ne remplace pas l’investissement privé : elle permet de déclencher, accélérer ou renforcer des projets cofinancés par les opérateurs, avec une logique de viabilité, d’exploitation durable et de bénéfice pour plusieurs MPME, producteurs, coopératives ou acteurs de marché."
+    },
+    {
+      "title": "La sous-composante SUBCO",
+      "text": "SUBCO porte le dispositif opérationnel dédié aux subventions de contrepartie dans le cadre de PRETE. Il accompagne les investissements liés aux infrastructures productives durables, y compris les solutions numériques, afin de mieux connecter les MPME aux services, aux équipements, aux marchés et aux exigences de qualité."
+    },
+    {
+      "title": "Ce que PRETE cherche à transformer",
+      "text": "Le dispositif répond à des contraintes concrètes des chaînes de valeur : pertes après production, capacités limitées de stockage et de transformation, accès insuffisant à la chaîne du froid, difficultés de traçabilité, qualité irrégulière, coûts logistiques élevés et accès encore limité aux marchés rémunérateurs."
+    },
+    {
+      "title": "Le rôle de la plateforme",
+      "text": "La plateforme SUBCO PRETE centralise les informations officielles du mécanisme : appels à projets, calendriers, annonces, documents de référence, dépôt des candidatures et suivi des principales étapes. Elle vise une information cohérente, accessible et vérifiable pour les candidats et les parties prenantes."
+    },
+    {
+      "title": "Résultats attendus",
+      "text": "PRETE SUBCO vise à accroître le nombre d’infrastructures productives utiles aux chaînes prioritaires, améliorer l’accès des MPME aux services, réduire les pertes, renforcer la qualité des produits, encourager l’investissement privé, soutenir l’emploi et contribuer aux objectifs d’inclusion et de résilience climatique."
+    }
+  ],
+  "briefItems": [
+    {
+      "label": "Dispositif",
+      "text": "Un mécanisme de subventions de contrepartie inscrit dans PRETE / NYUNGANIRA."
+    },
+    {
+      "label": "Cible",
+      "text": "Des opérateurs capables de porter des investissements utiles aux chaînes de valeur prioritaires."
+    },
+    {
+      "label": "Objet",
+      "text": "Des infrastructures productives, matérielles ou immatérielles, au service des MPME."
+    },
+    {
+      "label": "Finalité",
+      "text": "Améliorer l’accès aux services, réduire les pertes, renforcer la qualité et créer des emplois."
+    }
+  ],
+  "platformItems": [
+    {
+      "label": "Appels",
+      "text": "Avis, calendriers, échéances et statuts d’ouverture."
+    },
+    {
+      "label": "Documents",
+      "text": "TDR, guides, formulaires et documents de référence."
+    },
+    {
+      "label": "Candidature",
+      "text": "Orientations pour préparer le dossier et accéder au dépôt en ligne."
+    },
+    {
+      "label": "Suivi",
+      "text": "Traçabilité des soumissions, annonces, clarifications et informations officielles."
+    }
+  ],
+  "institutionalItems": [
+    {
+      "label": "Institutions nationales",
+      "text": "Ancrage dans les priorités publiques de transformation économique et d’appui au secteur privé."
+    },
+    {
+      "label": "Partenaires techniques et financiers",
+      "text": "Appui au cadre de mise en œuvre, à la supervision et aux exigences de transparence du projet."
+    },
+    {
+      "label": "Dispositif opérationnel",
+      "text": "Organisation pratique du mécanisme SUBCO, de l’information publique au suivi des candidatures."
+    }
+  ]
+}

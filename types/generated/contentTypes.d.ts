@@ -441,9 +441,11 @@ export interface ApiAboutPageAboutPage extends Struct.SingleTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    briefItems: Schema.Attribute.JSON;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    institutionalItems: Schema.Attribute.JSON;
     intro: Schema.Attribute.Text;
     kicker: Schema.Attribute.String &
       Schema.Attribute.DefaultTo<'\u00C0 propos'>;
@@ -453,6 +455,7 @@ export interface ApiAboutPageAboutPage extends Struct.SingleTypeSchema {
       'api::about-page.about-page'
     > &
       Schema.Attribute.Private;
+    platformItems: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
     sections: Schema.Attribute.JSON;
     title: Schema.Attribute.String & Schema.Attribute.Required;

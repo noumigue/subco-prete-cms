@@ -12,6 +12,9 @@
     "kicker": { "type": "string", "default": "À propos" },
     "title": { "type": "string", "required": true },
     "intro": { "type": "text" },
-    "sections": { "type": "json" }
+    "sections": { "type": "json" },
+    "briefItems": { "type": "json" },
+    "platformItems": { "type": "json" },
+    "institutionalItems": { "type": "json" }
   }
 }
