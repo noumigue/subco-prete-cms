@@ -865,9 +865,20 @@ export interface ApiResourceDocumentResourceDocument
   };
   attributes: {
     category: Schema.Attribute.Enumeration<
-      ['guide', 'tdr', 'form', 'report', 'other']
+      [
+        'appel',
+        'tdr',
+        'formulaire',
+        'modele',
+        'guide',
+        'grille',
+        'manuel',
+        'note',
+        'rapport',
+        'autre',
+      ]
     > &
-      Schema.Attribute.DefaultTo<'other'>;
+      Schema.Attribute.DefaultTo<'autre'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

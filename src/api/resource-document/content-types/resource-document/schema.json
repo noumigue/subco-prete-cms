@@ -10,7 +10,11 @@
   "pluginOptions": {},
   "attributes": {
     "title": { "type": "string", "required": true },
-    "category": { "type": "enumeration", "enum": ["guide", "tdr", "form", "report", "other"], "default": "other" },
+    "category": {
+      "type": "enumeration",
+      "enum": ["appel", "tdr", "formulaire", "modele", "guide", "grille", "manuel", "note", "rapport", "autre"],
+      "default": "autre"
+    },
     "description": { "type": "text" },
     "file": { "type": "media", "multiple": false, "allowedTypes": ["files"], "required": true }
   }
