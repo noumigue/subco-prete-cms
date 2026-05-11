@@ -599,6 +599,9 @@ export interface ApiCandidatureGuideCandidatureGuide
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    documentItems: Schema.Attribute.JSON;
+    eligibilityItems: Schema.Attribute.JSON;
+    formStepItems: Schema.Attribute.JSON;
     intro: Schema.Attribute.Text;
     kicker: Schema.Attribute.String & Schema.Attribute.DefaultTo<'Candidature'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -607,11 +610,14 @@ export interface ApiCandidatureGuideCandidatureGuide
       'api::candidature-guide.candidature-guide'
     > &
       Schema.Attribute.Private;
+    preStartItems: Schema.Attribute.JSON;
     primaryCtaLabel: Schema.Attribute.String &
       Schema.Attribute.DefaultTo<'D\u00E9poser une candidature'>;
     primaryCtaUrl: Schema.Attribute.String &
       Schema.Attribute.DefaultTo<'/candidature/deposer'>;
+    projectProofItems: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
+    riskItems: Schema.Attribute.JSON;
     sections: Schema.Attribute.JSON;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;

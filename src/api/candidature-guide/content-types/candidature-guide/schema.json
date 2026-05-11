@@ -13,6 +13,12 @@
     "title": { "type": "string", "required": true },
     "intro": { "type": "text" },
     "sections": { "type": "json" },
+    "preStartItems": { "type": "json" },
+    "formStepItems": { "type": "json" },
+    "eligibilityItems": { "type": "json" },
+    "projectProofItems": { "type": "json" },
+    "documentItems": { "type": "json" },
+    "riskItems": { "type": "json" },
     "primaryCtaLabel": { "type": "string", "default": "Déposer une candidature" },
     "primaryCtaUrl": { "type": "string", "default": "/candidature/deposer" }
   }

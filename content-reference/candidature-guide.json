@@ -1,0 +1,157 @@
+{
+  "kicker": "Candidature",
+  "title": "Préparer une candidature solide",
+  "intro": "Vérifiez votre éligibilité, comprenez les attentes du mécanisme SUBCO et rassemblez les documents nécessaires avant de déposer votre demande.",
+  "sections": [
+    {
+      "title": "Qui peut candidater ?",
+      "text": "Les entreprises, coopératives, associations, ONG, fournisseurs de services numériques et plateformes liées aux chaînes de valeur prioritaires peuvent préparer un dossier si elles répondent aux critères de l’appel."
+    },
+    {
+      "title": "Conditions d’éligibilité",
+      "text": "Le candidat doit être actif dans une chaîne de valeur prioritaire, justifier son expérience, proposer un investissement productif viable et mobiliser une contrepartie selon les règles de l’appel."
+    },
+    {
+      "title": "Ce que finance PRETE SUBCO",
+      "text": "Le mécanisme soutient les infrastructures productives matérielles ou immatérielles : équipements, chaîne du froid, transformation, qualité, traçabilité, services techniques, formation ou dispositifs de marché."
+    },
+    {
+      "title": "Documents à préparer",
+      "text": "Préparez les documents d’existence légale, les preuves d’activité, les justificatifs d’actifs, les contrats ou bons de commande, les éléments financiers et tout document utile au projet."
+    },
+    {
+      "title": "Processus de sélection",
+      "text": "Les dossiers sont soumis en ligne, contrôlés pour complétude, analysés selon les critères administratifs et techniques, puis examinés par les instances prévues par le dispositif."
+    }
+  ],
+  "preStartItems": [
+    {
+      "label": "Chaîne ciblée",
+      "text": "Votre projet doit s’inscrire dans une chaîne de valeur prioritaire ou fournir un service directement lié."
+    },
+    {
+      "label": "Expérience",
+      "text": "Préparez les éléments montrant l’activité, l’historique et la capacité de gestion de votre structure."
+    },
+    {
+      "label": "Contrepartie",
+      "text": "Vérifiez votre capacité à mobiliser l’apport propre demandé dans le cadre de l’appel."
+    },
+    {
+      "label": "Pièces prêtes",
+      "text": "Rassemblez les justificatifs administratifs, financiers, techniques et les modèles requis."
+    }
+  ],
+  "formStepItems": [
+    {
+      "label": "Promoteur",
+      "text": "Identité, contacts, localisation et informations du représentant."
+    },
+    {
+      "label": "Structure",
+      "text": "Raison sociale, type d’organisation, ancienneté et chaîne de valeur."
+    },
+    {
+      "label": "Activités",
+      "text": "Offre, actifs de production, marchés desservis, forces et défis."
+    },
+    {
+      "label": "Exploitation",
+      "text": "Volumes, chiffre d’affaires, emplois permanents, femmes, jeunes et temporaires."
+    },
+    {
+      "label": "Partenaires",
+      "text": "Partenariats, appuis reçus, montants, dates et historique utile."
+    },
+    {
+      "label": "Projet",
+      "text": "Infrastructure, investissement, contribution propre, résultats attendus, risques et environnement."
+    },
+    {
+      "label": "Pièces",
+      "text": "Téléversement des documents justificatifs et soumission finale."
+    }
+  ],
+  "eligibilityItems": [
+    {
+      "label": "Chaîne prioritaire",
+      "text": "Le projet doit être lié aux fruits tropicaux, au lait, à la volaille, à la pisciculture/aquaculture ou aux mines."
+    },
+    {
+      "label": "Ancrage au Burundi",
+      "text": "Le candidat doit être domicilié au Burundi et disposer des autorisations applicables."
+    },
+    {
+      "label": "Conformité",
+      "text": "La situation fiscale, réglementaire, environnementale et sociale doit pouvoir être démontrée."
+    },
+    {
+      "label": "Capacité de mise en œuvre",
+      "text": "La structure doit montrer une capacité de gestion, d’exploitation et de maintenance crédible."
+    }
+  ],
+  "projectProofItems": [
+    {
+      "label": "Besoin réel",
+      "text": "L’infrastructure répond à une contrainte concrète de la chaîne de valeur et du marché."
+    },
+    {
+      "label": "Utilité collective",
+      "text": "Le projet bénéficie à plusieurs MPME, producteurs, coopératives ou opérateurs."
+    },
+    {
+      "label": "Viabilité",
+      "text": "Le modèle technique, économique et financier est réaliste et exploitable durablement."
+    },
+    {
+      "label": "Résultats mesurables",
+      "text": "Le dossier indique les effets attendus sur les ventes, l’emploi, les revenus et la qualité."
+    },
+    {
+      "label": "Risques maîtrisés",
+      "text": "Les principaux risques sont identifiés avec des mesures d’atténuation adaptées."
+    },
+    {
+      "label": "Environnement",
+      "text": "Le projet intègre les mesures environnementales, sociales et sanitaires nécessaires."
+    }
+  ],
+  "documentItems": [
+    {
+      "label": "Administratif",
+      "text": "Existence légale, autorisations, localisation, fiscalité et documents de conformité."
+    },
+    {
+      "label": "Financier",
+      "text": "Éléments de chiffre d’affaires, comptes, justificatifs d’apport et capacité de cofinancement."
+    },
+    {
+      "label": "Technique",
+      "text": "Description de l’infrastructure, devis, factures, bons de commande ou contrats disponibles."
+    },
+    {
+      "label": "Modèles",
+      "text": "Formulaires, plan d’affaires, engagements et annexes publiés dans les ressources."
+    }
+  ],
+  "riskItems": [
+    {
+      "label": "Projet hors cible",
+      "text": "Projet non lié aux chaînes prioritaires ou limité à la production primaire seule."
+    },
+    {
+      "label": "Bénéfice trop individuel",
+      "text": "Infrastructure sans effet clair pour plusieurs MPME, producteurs ou acteurs de la chaîne."
+    },
+    {
+      "label": "Contrepartie insuffisante",
+      "text": "Apport propre non démontré ou modèle économique trop fragile."
+    },
+    {
+      "label": "Dossier incomplet",
+      "text": "Pièces manquantes, informations incohérentes ou conformité non démontrée."
+    }
+  ],
+  "primaryCtaLabel": "Déposer une candidature",
+  "primaryCtaUrl": "/candidature/deposer"
+}
