@@ -904,6 +904,53 @@ export interface ApiResourceDocumentResourceDocument
   };
 }
 
+export interface ApiSiteNavigationSiteNavigation
+  extends Struct.SingleTypeSchema {
+  collectionName: 'site_navigations';
+  info: {
+    displayName: 'Site Navigation';
+    pluralName: 'site-navigations';
+    singularName: 'site-navigation';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    brandLabel: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'SUBCO PRETE'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    ctaLabelFr: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'Candidater'>;
+    ctaLabelRn: Schema.Attribute.String & Schema.Attribute.DefaultTo<'Gusaba'>;
+    ctaUrl: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'/candidature/deposer'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::site-navigation.site-navigation'
+    > &
+      Schema.Attribute.Private;
+    newsItems: Schema.Attribute.Component<'navigation.link', true>;
+    newsLabelFr: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'Actualit\u00E9s'>;
+    newsLabelRn: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'Amakuru'>;
+    primaryItems: Schema.Attribute.Component<'navigation.link', true>;
+    publishedAt: Schema.Attribute.DateTime;
+    supportLabelFr: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'Support / Contact'>;
+    supportLabelRn: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'Ubufasha / Twandikire'>;
+    supportUrl: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'/candidature'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiSuccessStorySuccessStory
   extends Struct.CollectionTypeSchema {
   collectionName: 'success_stories';
@@ -1540,6 +1587,7 @@ declare module '@strapi/strapi' {
       'api::news.news': ApiNewsNews;
       'api::partner.partner': ApiPartnerPartner;
       'api::resource-document.resource-document': ApiResourceDocumentResourceDocument;
+      'api::site-navigation.site-navigation': ApiSiteNavigationSiteNavigation;
       'api::success-story.success-story': ApiSuccessStorySuccessStory;
       'api::support-ticket.support-ticket': ApiSupportTicketSupportTicket;
       'api::value-chain.value-chain': ApiValueChainValueChain;

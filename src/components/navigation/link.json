@@ -1,0 +1,29 @@
+{
+  "collectionName": "components_navigation_links",
+  "info": {
+    "displayName": "Navigation Link"
+  },
+  "options": {},
+  "attributes": {
+    "labelFr": {
+      "type": "string",
+      "required": true
+    },
+    "labelRn": {
+      "type": "string",
+      "required": true
+    },
+    "url": {
+      "type": "string",
+      "required": true
+    },
+    "sortOrder": {
+      "type": "integer",
+      "default": 0
+    },
+    "isVisible": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

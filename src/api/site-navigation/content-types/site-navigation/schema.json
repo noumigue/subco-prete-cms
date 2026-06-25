@@ -1,0 +1,32 @@
+{
+  "kind": "singleType",
+  "collectionName": "site_navigations",
+  "info": {
+    "singularName": "site-navigation",
+    "pluralName": "site-navigations",
+    "displayName": "Site Navigation"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "brandLabel": { "type": "string", "default": "SUBCO PRETE" },
+    "supportLabelFr": { "type": "string", "default": "Support / Contact" },
+    "supportLabelRn": { "type": "string", "default": "Ubufasha / Twandikire" },
+    "supportUrl": { "type": "string", "default": "/candidature" },
+    "primaryItems": {
+      "type": "component",
+      "repeatable": true,
+      "component": "navigation.link"
+    },
+    "newsLabelFr": { "type": "string", "default": "Actualités" },
+    "newsLabelRn": { "type": "string", "default": "Amakuru" },
+    "newsItems": {
+      "type": "component",
+      "repeatable": true,
+      "component": "navigation.link"
+    },
+    "ctaLabelFr": { "type": "string", "default": "Candidater" },
+    "ctaLabelRn": { "type": "string", "default": "Gusaba" },
+    "ctaUrl": { "type": "string", "default": "/candidature/deposer" }
+  }
+}
