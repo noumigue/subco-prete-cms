@@ -1,3 +1,68 @@
+# Strapi CMS PRETE
+
+## Lancement
+
+```bash
+npm run develop
+```
+
+## Migration des chaînes de valeur
+
+Une migration applicative est prévue pour exporter les `value-chains` locales avec leur image principale, puis les réimporter sur un autre Strapi via API.
+
+### 1. Export local
+
+Le script lit la base locale PostgreSQL et copie les images originales depuis `public/uploads/`.
+
+```bash
+npm run export:value-chains
+```
+
+Sortie par défaut :
+
+```text
+exports/value-chains/manifest.json
+exports/value-chains/assets/*
+```
+
+Pour n’exporter qu’une entrée :
+
+```bash
+npm run export:value-chains -- --slug projet-transversal
+```
+
+### 2. Import sur le Strapi cible
+
+Variables requises :
+
+```bash
+export TARGET_STRAPI_URL="https://cms.subco-prete.bi"
+export TARGET_STRAPI_TOKEN="..."
+```
+
+Puis :
+
+```bash
+npm run import:value-chains
+```
+
+Le script :
+- charge le manifeste exporté ;
+- upload l’image si elle n’existe pas déjà sur le Strapi cible ;
+- crée ou met à jour chaque `value-chain` par `slug` ;
+- republie automatiquement l’entrée si elle était publiée à la source.
+
+Pour un répertoire d’export spécifique :
+
+```bash
+npm run import:value-chains -- --in-dir /chemin/vers/export
+```
+
+### Notes
+
+- Le flux suit la logique Strapi 5 : upload du média d’abord, création ou mise à jour de l’entrée ensuite.
+- Les exports générés dans `exports/` sont ignorés par Git.
+
 # 🚀 Getting started with Strapi
 
 Strapi comes with a full featured [Command Line Interface](https://docs.strapi.io/dev-docs/cli) (CLI) which lets you scaffold and manage your project in seconds.
