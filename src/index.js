@@ -34,6 +34,7 @@ module.exports = {
       'api::success-story.success-story',
       'api::resource-document.resource-document',
       'api::faq.faq',
+      'api::faq-item.faq-item',
       'api::partner.partner',
       'api::etape-programme.etape-programme',
     ];
@@ -42,6 +43,7 @@ module.exports = {
       'api::application.application',
       'api::support-ticket.support-ticket',
       'api::complaint-recourse.complaint-recourse',
+      'api::notification-ami.notification-ami',
     ];
 
     const setPermission = async (roleId, action, enabled) => {

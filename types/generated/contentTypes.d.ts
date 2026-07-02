@@ -738,6 +738,42 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiFaqItemFaqItem extends Struct.CollectionTypeSchema {
+  collectionName: 'faq_items';
+  info: {
+    description: "Questions fr\u00E9quentes th\u00E9matiques affich\u00E9es sur la page d'accueil et la page FAQ";
+    displayName: 'FAQ Item';
+    pluralName: 'faq-items';
+    singularName: 'faq-item';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::faq-item.faq-item'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.Required;
+    publie: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    publishedAt: Schema.Attribute.DateTime;
+    question: Schema.Attribute.String & Schema.Attribute.Required;
+    reponse: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    theme: Schema.Attribute.Enumeration<
+      ['eligibilite', 'dossier', 'financement', 'selection']
+    > &
+      Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
   collectionName: 'faqs';
   info: {
@@ -861,6 +897,48 @@ export interface ApiNewsNews extends Struct.CollectionTypeSchema {
     publishedAtCustom: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiNotificationAmiNotificationAmi
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'notification_amis';
+  info: {
+    description: "Emails \u00E0 notifier lors de l'ouverture du prochain appel \u00E0 propositions";
+    displayName: 'Notification AMI';
+    pluralName: 'notification-amis';
+    singularName: 'notification-ami';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    cohorte_cible: Schema.Attribute.String;
+    consentement: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    email: Schema.Attribute.Email &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::notification-ami.notification-ami'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    statut_notif: Schema.Attribute.Enumeration<
+      ['en-attente', 'notifie', 'desabonne']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'en-attente'>;
+    token_desinscription: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1623,10 +1701,12 @@ declare module '@strapi/strapi' {
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
       'api::etape-programme.etape-programme': ApiEtapeProgrammeEtapeProgramme;
       'api::event.event': ApiEventEvent;
+      'api::faq-item.faq-item': ApiFaqItemFaqItem;
       'api::faq.faq': ApiFaqFaq;
       'api::footer-link.footer-link': ApiFooterLinkFooterLink;
       'api::homepage.homepage': ApiHomepageHomepage;
       'api::news.news': ApiNewsNews;
+      'api::notification-ami.notification-ami': ApiNotificationAmiNotificationAmi;
       'api::partner.partner': ApiPartnerPartner;
       'api::resource-document.resource-document': ApiResourceDocumentResourceDocument;
       'api::site-navigation.site-navigation': ApiSiteNavigationSiteNavigation;

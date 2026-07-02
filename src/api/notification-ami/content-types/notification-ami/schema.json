@@ -1,0 +1,38 @@
+{
+  "kind": "collectionType",
+  "collectionName": "notification_amis",
+  "info": {
+    "singularName": "notification-ami",
+    "pluralName": "notification-amis",
+    "displayName": "Notification AMI",
+    "description": "Emails à notifier lors de l'ouverture du prochain appel à propositions"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "email": {
+      "type": "email",
+      "required": true,
+      "unique": true
+    },
+    "consentement": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "cohorte_cible": {
+      "type": "string"
+    },
+    "statut_notif": {
+      "type": "enumeration",
+      "enum": ["en-attente", "notifie", "desabonne"],
+      "default": "en-attente",
+      "required": true
+    },
+    "token_desinscription": {
+      "type": "string"
+    }
+  }
+}

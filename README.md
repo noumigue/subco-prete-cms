@@ -84,6 +84,28 @@ npm run populate:program-steps
 - Pour ajouter une nouvelle étape, créer un enregistrement avec la bonne `cohorte` et le bon `ordre`.
 - Pour faire apparaître une nouvelle cohorte, ajouter des étapes avec une nouvelle valeur existante de cohorte, par exemple `cohorte-3`.
 
+## Notifications AMI
+
+La collection `notification-ami` alimente la bande `Être notifié` sur la page d'accueil.
+
+### Usage éditorial
+
+- L'équipe peut suivre les emails inscrits dans l'admin Strapi avec leur `statut_notif` et leur `cohorte_cible`.
+- Les filtres recommandés côté admin sont `statut_notif` et `cohorte_cible`.
+- La lecture publique reste désactivée ; seule la création publique d'inscriptions est autorisée.
+
+## FAQ thématique
+
+La collection `faq-item` alimente la nouvelle FAQ à thèmes sur la page d'accueil et sur la page `/faq`.
+
+### Usage éditorial
+
+- L'équipe peut ajouter de nouvelles questions dans Strapi Admin > `faq-item` sans toucher au code.
+- Le champ `publie` permet de masquer temporairement une question sans la supprimer.
+- Le champ `ordre` permet de réordonner les questions dans un même thème.
+- Le champ `theme` permet de rattacher une question à l'un des 4 onglets front.
+- Les libellés, couleurs et icônes des 4 thèmes restent gérés côté front et nécessitent un redéploiement pour être modifiés.
+
 # 🚀 Getting started with Strapi
 
 Strapi comes with a full featured [Command Line Interface](https://docs.strapi.io/dev-docs/cli) (CLI) which lets you scaffold and manage your project in seconds.
