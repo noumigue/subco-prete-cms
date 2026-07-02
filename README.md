@@ -63,6 +63,27 @@ npm run import:value-chains -- --in-dir /chemin/vers/export
 - Le flux suit la logique Strapi 5 : upload du média d’abord, création ou mise à jour de l’entrée ensuite.
 - Les exports générés dans `exports/` sont ignorés par Git.
 
+## Étapes du programme
+
+La collection `etape-programme` alimente la bande `Prochaines étapes` sur la page d'accueil.
+
+### Peuplement local
+
+```bash
+npm run populate:program-steps
+```
+
+### Règle métier importante
+
+- Une seule étape par cohorte doit avoir le statut `en-cours` à un instant donné.
+- Cette contrainte n'est pas automatiquement enforced par Strapi : l'équipe éditoriale doit la respecter dans l'admin.
+
+### Usage éditorial
+
+- Pour faire avancer le calendrier, il suffit de modifier le champ `statut`.
+- Pour ajouter une nouvelle étape, créer un enregistrement avec la bonne `cohorte` et le bon `ordre`.
+- Pour faire apparaître une nouvelle cohorte, ajouter des étapes avec une nouvelle valeur existante de cohorte, par exemple `cohorte-3`.
+
 # 🚀 Getting started with Strapi
 
 Strapi comes with a full featured [Command Line Interface](https://docs.strapi.io/dev-docs/cli) (CLI) which lets you scaffold and manage your project in seconds.

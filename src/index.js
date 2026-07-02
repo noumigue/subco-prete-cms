@@ -31,6 +31,7 @@ module.exports = {
       'api::resource-document.resource-document',
       'api::faq.faq',
       'api::partner.partner',
+      'api::etape-programme.etape-programme',
     ];
 
     const publicCreateOnlyUids = [

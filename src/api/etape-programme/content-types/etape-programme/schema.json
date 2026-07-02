@@ -1,0 +1,47 @@
+{
+  "kind": "collectionType",
+  "collectionName": "etape_programmes",
+  "info": {
+    "singularName": "etape-programme",
+    "pluralName": "etape-programmes",
+    "displayName": "Étape programme",
+    "description": "Étapes de calendrier des cohortes du programme SUBCO PRETE"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "titre": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "cohorte": {
+      "type": "enumeration",
+      "enum": ["cohorte-1", "cohorte-2", "cohorte-3"],
+      "required": true
+    },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["termine", "en-cours", "a-venir"],
+      "required": true
+    },
+    "date_affichee": {
+      "type": "string",
+      "required": true
+    },
+    "lien_url": {
+      "type": "string"
+    },
+    "lien_label": {
+      "type": "string"
+    },
+    "ordre": {
+      "type": "integer",
+      "required": true
+    }
+  }
+}

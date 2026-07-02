@@ -666,6 +666,47 @@ export interface ApiComplaintRecourseComplaintRecourse
   };
 }
 
+export interface ApiEtapeProgrammeEtapeProgramme
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'etape_programmes';
+  info: {
+    description: '\u00C9tapes de calendrier des cohortes du programme SUBCO PRETE';
+    displayName: '\u00C9tape programme';
+    pluralName: 'etape-programmes';
+    singularName: 'etape-programme';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    cohorte: Schema.Attribute.Enumeration<
+      ['cohorte-1', 'cohorte-2', 'cohorte-3']
+    > &
+      Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    date_affichee: Schema.Attribute.String & Schema.Attribute.Required;
+    description: Schema.Attribute.Text;
+    lien_label: Schema.Attribute.String;
+    lien_url: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::etape-programme.etape-programme'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Enumeration<['termine', 'en-cours', 'a-venir']> &
+      Schema.Attribute.Required;
+    titre: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiEventEvent extends Struct.CollectionTypeSchema {
   collectionName: 'events';
   info: {
@@ -1580,6 +1621,7 @@ declare module '@strapi/strapi' {
       'api::call-for-proposal.call-for-proposal': ApiCallForProposalCallForProposal;
       'api::candidature-guide.candidature-guide': ApiCandidatureGuideCandidatureGuide;
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
+      'api::etape-programme.etape-programme': ApiEtapeProgrammeEtapeProgramme;
       'api::event.event': ApiEventEvent;
       'api::faq.faq': ApiFaqFaq;
       'api::footer-link.footer-link': ApiFooterLinkFooterLink;

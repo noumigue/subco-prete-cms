@@ -13,6 +13,7 @@
     "export:value-chains": "node scripts/export-value-chains.js",
     "import:editorial": "bash scripts/import-editorial-data.sh",
     "import:value-chains": "node scripts/import-value-chains.js",
+    "populate:program-steps": "node scripts/populate-program-steps.js",
     "populate:site-navigation": "node scripts/populate-site-navigation.js",
     "start": "strapi start",
     "strapi": "strapi",
