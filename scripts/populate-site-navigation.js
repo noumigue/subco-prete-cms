@@ -5,6 +5,8 @@ const { loadLocalEnv } = require('./strapi-env');
 
 const projectRoot = path.resolve(__dirname, '..');
 loadLocalEnv(projectRoot);
+process.env.STRAPI_DISABLE_UPLOAD_PROVIDER ??= 'true';
+process.env.STRAPI_SKIP_BOOTSTRAP_PERMISSIONS ??= 'true';
 
 const navigationData = {
   brandLabel: 'SUBCO PRETE',

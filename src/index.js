@@ -17,6 +17,10 @@ module.exports = {
    * run jobs, or perform some special logic.
    */
   async bootstrap({ strapi }) {
+    if (process.env.STRAPI_SKIP_BOOTSTRAP_PERMISSIONS === 'true') {
+      return;
+    }
+
     const publicReadUids = [
       'api::homepage.homepage',
       'api::site-navigation.site-navigation',

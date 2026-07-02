@@ -1,4 +1,8 @@
 module.exports = ({ env }) => {
+  if (env.bool('STRAPI_DISABLE_UPLOAD_PROVIDER', false)) {
+    return {};
+  }
+
   const bucket = env('DO_SPACES_BUCKET');
   const region = env('DO_SPACES_REGION');
   const accessKeyId = env('DO_SPACES_KEY');
