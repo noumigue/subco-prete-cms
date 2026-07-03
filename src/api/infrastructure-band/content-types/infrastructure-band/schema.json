@@ -1,0 +1,14 @@
+{
+  "kind": "singleType",
+  "collectionName": "infrastructure_band",
+  "info": {
+    "singularName": "infrastructure-band",
+    "pluralName": "infrastructure-bands",
+    "displayName": "Bande Infrastructures"
+  },
+  "options": { "draftAndPublish": true },
+  "attributes": {
+    "title": { "type": "string", "required": true },
+    "intro": { "type": "text" }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "kind": "collectionType",
+  "collectionName": "infrastructure_types",
+  "info": {
+    "singularName": "infrastructure-type",
+    "pluralName": "infrastructure-types",
+    "displayName": "Type d'infrastructure"
+  },
+  "options": { "draftAndPublish": true },
+  "attributes": {
+    "title": { "type": "string", "required": true },
+    "slug": { "type": "uid", "targetField": "title", "required": true, "unique": true },
+    "order": { "type": "integer", "required": true, "default": 0 },
+    "nature": {
+      "type": "enumeration",
+      "enum": ["physique", "immaterielle", "mixte"],
+      "default": "physique",
+      "required": true
+    },
+    "icon": { "type": "string", "required": true },
+    "cardText": { "type": "text", "required": true },
+    "lead": { "type": "text", "required": true },
+    "body": { "type": "blocks", "required": true },
+    "highlight": { "type": "boolean", "default": false }
+  }
+}
