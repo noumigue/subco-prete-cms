@@ -89,40 +89,42 @@ module.exports = {
 
     const notificationService = strapi.service('api::notification-ami.notification-ami');
 
-    strapi.db.lifecycles.subscribe({
-      models: ['api::call-for-proposal.call-for-proposal'],
-      async afterCreate(event) {
-        await notificationService.dispatchOpenCallNotifications({
-          callDocumentId: event.result?.documentId,
-          reason: 'afterCreate',
-        });
-      },
-      async afterUpdate(event) {
-        await notificationService.dispatchOpenCallNotifications({
-          callDocumentId: event.result?.documentId,
-          reason: 'afterUpdate',
-        });
-      },
-    });
-
-    strapi.cron.add({
-      dispatchOpenCallNotifications: {
-        task: async () => {
+    if (typeof notificationService?.dispatchOpenCallNotifications === 'function') {
+      strapi.db.lifecycles.subscribe({
+        models: ['api::call-for-proposal.call-for-proposal'],
+        async afterCreate(event) {
           await notificationService.dispatchOpenCallNotifications({
-            reason: 'cron',
+            callDocumentId: event.result?.documentId,
+            reason: 'afterCreate',
           });
         },
-        options: process.env.AMI_NOTIFICATION_CRON || '*/10 * * * *',
-      },
-    });
-
-    setTimeout(() => {
-      notificationService.dispatchOpenCallNotifications({
-        reason: 'startup',
-      }).catch((error) => {
-        strapi.log.error("[notification-ami] Echec de la vérification au démarrage", error);
+        async afterUpdate(event) {
+          await notificationService.dispatchOpenCallNotifications({
+            callDocumentId: event.result?.documentId,
+            reason: 'afterUpdate',
+          });
+        },
       });
-    }, 3000);
+
+      strapi.cron.add({
+        dispatchOpenCallNotifications: {
+          task: async () => {
+            await notificationService.dispatchOpenCallNotifications({
+              reason: 'cron',
+            });
+          },
+          options: process.env.AMI_NOTIFICATION_CRON || '*/10 * * * *',
+        },
+      });
+
+      setTimeout(() => {
+        notificationService.dispatchOpenCallNotifications({
+          reason: 'startup',
+        }).catch((error) => {
+          strapi.log.error("[notification-ami] Echec de la vérification au démarrage", error);
+        });
+      }, 3000);
+    }
 
     // Do not seed, update, or delete editorial content here.
     // Production content is managed in Strapi and data migrations must be explicit.
