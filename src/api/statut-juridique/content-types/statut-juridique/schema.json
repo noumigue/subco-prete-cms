@@ -1,0 +1,15 @@
+{
+  "kind": "collectionType",
+  "collectionName": "statuts_juridiques",
+  "info": {
+    "singularName": "statut-juridique",
+    "pluralName": "statuts-juridiques",
+    "displayName": "Statut juridique"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "libelle": { "type": "string", "required": true },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}

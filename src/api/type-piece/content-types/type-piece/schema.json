@@ -1,0 +1,17 @@
+{
+  "kind": "collectionType",
+  "collectionName": "types_piece",
+  "info": {
+    "singularName": "type-piece",
+    "pluralName": "types-piece",
+    "displayName": "Type piece"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "libelle": { "type": "string", "required": true },
+    "groupe": { "type": "enumeration", "enum": ["administratif", "financier", "technique"], "required": true },
+    "exigence": { "type": "enumeration", "enum": ["obligatoire", "si_applicable", "si_disponible"], "required": true },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}

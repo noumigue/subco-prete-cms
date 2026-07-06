@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "notifications_portail",
+  "info": {
+    "singularName": "notification",
+    "pluralName": "notifications",
+    "displayName": "Notification"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "candidature": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::candidature.candidature",
+      "inversedBy": "notifications"
+    },
+    "canal": { "type": "enumeration", "enum": ["email", "sms", "both"], "default": "email" },
+    "sujet": { "type": "string", "required": true },
+    "corps": { "type": "text" },
+    "envoyeLe": { "type": "datetime" },
+    "lu": { "type": "boolean", "default": false }
+  }
+}
