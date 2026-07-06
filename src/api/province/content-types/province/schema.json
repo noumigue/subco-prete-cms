@@ -1,0 +1,21 @@
+{
+  "kind": "collectionType",
+  "collectionName": "provinces_reforme_2025",
+  "info": {
+    "singularName": "province",
+    "pluralName": "provinces",
+    "displayName": "Province"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "nom": { "type": "string", "required": true },
+    "code": { "type": "string", "required": true, "unique": true },
+    "communes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::commune.commune",
+      "mappedBy": "province"
+    }
+  }
+}

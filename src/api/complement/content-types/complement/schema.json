@@ -1,0 +1,23 @@
+{
+  "kind": "collectionType",
+  "collectionName": "complements_portail",
+  "info": {
+    "singularName": "complement",
+    "pluralName": "complements",
+    "displayName": "Complement"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::candidature.candidature",
+      "inversedBy": "complements"
+    },
+    "pieceDemandee": { "type": "string", "required": true },
+    "echeance": { "type": "date" },
+    "statut": { "type": "enumeration", "enum": ["demande", "fourni"], "default": "demande" },
+    "fichier": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] }
+  }
+}

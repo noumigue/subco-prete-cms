@@ -1,0 +1,18 @@
+{
+  "kind": "collectionType",
+  "collectionName": "statuts_candidature_portail",
+  "info": {
+    "singularName": "statut-candidature",
+    "pluralName": "statuts-candidature",
+    "displayName": "Statut candidature"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "code": { "type": "uid", "targetField": "libelleCandidat", "required": true },
+    "libelleCandidat": { "type": "string", "required": true },
+    "groupe": { "type": "enumeration", "enum": ["brouillon", "en_instruction", "selectionne", "non_retenu"], "required": true },
+    "phase": { "type": "enumeration", "enum": ["recu", "completude", "eligibilite", "evaluation", "decision"], "required": true },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}

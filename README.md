@@ -93,6 +93,31 @@ La collection `notification-ami` alimente la bande `Être notifié` sur la page 
 - L'équipe peut suivre les emails inscrits dans l'admin Strapi avec leur `statut_notif` et leur `cohorte_cible`.
 - Les filtres recommandés côté admin sont `statut_notif` et `cohorte_cible`.
 - La lecture publique reste désactivée ; seule la création publique d'inscriptions est autorisée.
+- Les emails d'alerte partent automatiquement quand un appel publié devient réellement ouvrable.
+
+### Règle d'ouverture utilisée pour l'envoi
+
+- `deadlineDate` passée : l'appel est considéré `closed`, aucun envoi.
+- `callStatus = closed` : aucun envoi.
+- `openingDate` dans le futur : l'appel est considéré `upcoming`, même si `callStatus = open`.
+- `callStatus = open` et `openingDate` absente ou atteinte : l'appel est considéré `open`, l'envoi peut partir.
+
+### Déclencheurs techniques
+
+- Vérification immédiate après création ou mise à jour d'un `call-for-proposal`.
+- Vérification planifiée toutes les 10 minutes par défaut via `AMI_NOTIFICATION_CRON`.
+- Au succès, chaque inscription passe de `en-attente` à `notifie`, ce qui évite les doubles envois.
+
+### Variables d'environnement requises
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `NOTIFICATION_FROM_EMAIL` ou à défaut `SMTP_USER`
+- `PORTAL_BASE_URL`
+- `PUBLIC_CMS_URL`
 
 ## FAQ thématique
 

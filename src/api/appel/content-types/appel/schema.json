@@ -1,0 +1,18 @@
+{
+  "kind": "collectionType",
+  "collectionName": "appels",
+  "info": {
+    "singularName": "appel",
+    "pluralName": "appels",
+    "displayName": "Appel"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "nom": { "type": "string", "required": true },
+    "codeCohorte": { "type": "string", "required": true, "unique": true },
+    "ouvertLe": { "type": "date" },
+    "clotureLe": { "type": "date" },
+    "statut": { "type": "enumeration", "enum": ["ouvert", "ferme", "a_venir"], "default": "a_venir" }
+  }
+}

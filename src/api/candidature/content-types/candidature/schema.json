@@ -1,0 +1,52 @@
+{
+  "kind": "collectionType",
+  "collectionName": "candidatures_portail",
+  "info": {
+    "singularName": "candidature",
+    "pluralName": "candidatures",
+    "displayName": "Candidature"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "appel": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::appel.appel"
+    },
+    "organisation": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::organisation.organisation"
+    },
+    "titreProjet": { "type": "string", "required": true },
+    "statut": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::statut-candidature.statut-candidature"
+    },
+    "numeroDossier": { "type": "string" },
+    "dateDepot": { "type": "datetime" },
+    "donneesProjet": { "type": "json" },
+    "pdfPermanent": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "notificationDecision": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "motifDecisionCourt": { "type": "text" },
+    "complements": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::complement.complement",
+      "mappedBy": "candidature"
+    },
+    "notifications": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::notification.notification",
+      "mappedBy": "candidature"
+    }
+  }
+}

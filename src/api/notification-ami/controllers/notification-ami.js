@@ -19,6 +19,49 @@ module.exports = createCoreController('api::notification-ami.notification-ami', 
     });
 
     if (existing) {
+      if (existing.statut_notif === 'en-attente' && existing.document_id) {
+        ctx.status = 409;
+        ctx.body = {
+          data: null,
+          error: {
+            status: 409,
+            name: 'ConflictError',
+            message: 'Email déjà enregistré',
+            details: {},
+          },
+        };
+        return;
+      }
+
+      if (existing.document_id) {
+        const updated = await strapi.documents(uid).update({
+          documentId: existing.document_id,
+          data: {
+            consentement: true,
+            cohorte_cible: payload.cohorte_cible || null,
+            statut_notif: payload.statut_notif || 'en-attente',
+            token_desinscription: crypto.randomUUID(),
+          },
+        });
+
+        await strapi.documents(uid).publish({
+          documentId: existing.document_id,
+        });
+
+        ctx.status = 200;
+        ctx.body = {
+          data: {
+            id: updated.id,
+            documentId: updated.documentId,
+            email,
+          },
+          meta: {
+            reactivated: true,
+          },
+        };
+        return;
+      }
+
       ctx.status = 409;
       ctx.body = {
         data: null,

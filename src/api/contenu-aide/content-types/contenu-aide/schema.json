@@ -1,0 +1,16 @@
+{
+  "kind": "collectionType",
+  "collectionName": "contenus_aide",
+  "info": {
+    "singularName": "contenu-aide",
+    "pluralName": "contenus-aide",
+    "displayName": "Contenu aide"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "cle": { "type": "uid", "targetField": "titre", "required": true },
+    "titre": { "type": "string", "required": true },
+    "corps": { "type": "blocks" }
+  }
+}

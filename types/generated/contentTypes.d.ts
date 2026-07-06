@@ -465,6 +465,38 @@ export interface ApiAboutPageAboutPage extends Struct.SingleTypeSchema {
   };
 }
 
+export interface ApiAppelAppel extends Struct.CollectionTypeSchema {
+  collectionName: 'appels';
+  info: {
+    displayName: 'Appel';
+    pluralName: 'appels';
+    singularName: 'appel';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    clotureLe: Schema.Attribute.Date;
+    codeCohorte: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::appel.appel'> &
+      Schema.Attribute.Private;
+    nom: Schema.Attribute.String & Schema.Attribute.Required;
+    ouvertLe: Schema.Attribute.Date;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Enumeration<['ouvert', 'ferme', 'a_venir']> &
+      Schema.Attribute.DefaultTo<'a_venir'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiApplicationApplication extends Struct.CollectionTypeSchema {
   collectionName: 'applications';
   info: {
@@ -626,6 +658,90 @@ export interface ApiCandidatureGuideCandidatureGuide
   };
 }
 
+export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
+  collectionName: 'candidatures_portail';
+  info: {
+    displayName: 'Candidature';
+    pluralName: 'candidatures';
+    singularName: 'candidature';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appel: Schema.Attribute.Relation<'manyToOne', 'api::appel.appel'>;
+    complements: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::complement.complement'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dateDepot: Schema.Attribute.DateTime;
+    donneesProjet: Schema.Attribute.JSON;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::candidature.candidature'
+    > &
+      Schema.Attribute.Private;
+    motifDecisionCourt: Schema.Attribute.Text;
+    notificationDecision: Schema.Attribute.Media<'files' | 'images'>;
+    notifications: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::notification.notification'
+    >;
+    numeroDossier: Schema.Attribute.String;
+    organisation: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::organisation.organisation'
+    >;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    pdfPermanent: Schema.Attribute.Media<'files'>;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::statut-candidature.statut-candidature'
+    >;
+    titreProjet: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiCommuneCommune extends Struct.CollectionTypeSchema {
+  collectionName: 'communes_reforme_2025';
+  info: {
+    displayName: 'Commune';
+    pluralName: 'communes';
+    singularName: 'commune';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::commune.commune'
+    > &
+      Schema.Attribute.Private;
+    nom: Schema.Attribute.String & Schema.Attribute.Required;
+    province: Schema.Attribute.Relation<'manyToOne', 'api::province.province'>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiComplaintRecourseComplaintRecourse
   extends Struct.CollectionTypeSchema {
   collectionName: 'complaint_recourses';
@@ -660,6 +776,72 @@ export interface ApiComplaintRecourseComplaintRecourse
     supportingDocument: Schema.Attribute.Media<'files' | 'images'>;
     type: Schema.Attribute.Enumeration<['complaint', 'recourse', 'eas_hs']> &
       Schema.Attribute.DefaultTo<'complaint'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiComplementComplement extends Struct.CollectionTypeSchema {
+  collectionName: 'complements_portail';
+  info: {
+    displayName: 'Complement';
+    pluralName: 'complements';
+    singularName: 'complement';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    candidature: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::candidature.candidature'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    echeance: Schema.Attribute.Date;
+    fichier: Schema.Attribute.Media<'files' | 'images'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::complement.complement'
+    > &
+      Schema.Attribute.Private;
+    pieceDemandee: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Enumeration<['demande', 'fourni']> &
+      Schema.Attribute.DefaultTo<'demande'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiContenuAideContenuAide extends Struct.CollectionTypeSchema {
+  collectionName: 'contenus_aide';
+  info: {
+    displayName: 'Contenu aide';
+    pluralName: 'contenus-aide';
+    singularName: 'contenu-aide';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    cle: Schema.Attribute.UID<'titre'> & Schema.Attribute.Required;
+    corps: Schema.Attribute.Blocks;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::contenu-aide.contenu-aide'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    titre: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -801,6 +983,36 @@ export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiFiliereFiliere extends Struct.CollectionTypeSchema {
+  collectionName: 'filieres';
+  info: {
+    displayName: 'Filiere';
+    pluralName: 'filieres';
+    singularName: 'filiere';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::filiere.filiere'
+    > &
+      Schema.Attribute.Private;
+    nom: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'nom'> & Schema.Attribute.Required;
+    transversal: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiFooterLinkFooterLink extends Struct.CollectionTypeSchema {
   collectionName: 'footer_links';
   info: {
@@ -862,6 +1074,81 @@ export interface ApiHomepageHomepage extends Struct.SingleTypeSchema {
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiInfrastructureBandInfrastructureBand
+  extends Struct.SingleTypeSchema {
+  collectionName: 'infrastructure_band';
+  info: {
+    displayName: 'Bande Infrastructures';
+    pluralName: 'infrastructure-bands';
+    singularName: 'infrastructure-band';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    intro: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::infrastructure-band.infrastructure-band'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiInfrastructureTypeInfrastructureType
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'infrastructure_types';
+  info: {
+    displayName: "Type d'infrastructure";
+    pluralName: 'infrastructure-types';
+    singularName: 'infrastructure-type';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    body: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    cardText: Schema.Attribute.Text & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    highlight: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    icon: Schema.Attribute.String & Schema.Attribute.Required;
+    lead: Schema.Attribute.Text & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::infrastructure-type.infrastructure-type'
+    > &
+      Schema.Attribute.Private;
+    nature: Schema.Attribute.Enumeration<
+      ['physique', 'immaterielle', 'mixte']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'physique'>;
+    order: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'title'> &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -945,6 +1232,94 @@ export interface ApiNotificationAmiNotificationAmi
   };
 }
 
+export interface ApiNotificationNotification
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'notifications_portail';
+  info: {
+    displayName: 'Notification';
+    pluralName: 'notifications';
+    singularName: 'notification';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    canal: Schema.Attribute.Enumeration<['email', 'sms', 'both']> &
+      Schema.Attribute.DefaultTo<'email'>;
+    candidature: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::candidature.candidature'
+    >;
+    corps: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    envoyeLe: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::notification.notification'
+    > &
+      Schema.Attribute.Private;
+    lu: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    sujet: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiOrganisationOrganisation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'organisations_portail';
+  info: {
+    displayName: 'Organisation';
+    pluralName: 'organisations';
+    singularName: 'organisation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    adresse: Schema.Attribute.Text;
+    commune: Schema.Attribute.Relation<'manyToOne', 'api::commune.commune'>;
+    contact: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    filierePrincipale: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::filiere.filiere'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::organisation.organisation'
+    > &
+      Schema.Attribute.Private;
+    nom: Schema.Attribute.String & Schema.Attribute.Required;
+    owner: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+    province: Schema.Attribute.Relation<'manyToOne', 'api::province.province'>;
+    publishedAt: Schema.Attribute.DateTime;
+    statutJuridique: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::statut-juridique.statut-juridique'
+    >;
+    telephone: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiPartnerPartner extends Struct.CollectionTypeSchema {
   collectionName: 'partners';
   info: {
@@ -974,6 +1349,38 @@ export interface ApiPartnerPartner extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     websiteUrl: Schema.Attribute.String;
+  };
+}
+
+export interface ApiProvinceProvince extends Struct.CollectionTypeSchema {
+  collectionName: 'provinces_reforme_2025';
+  info: {
+    displayName: 'Province';
+    pluralName: 'provinces';
+    singularName: 'province';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    communes: Schema.Attribute.Relation<'oneToMany', 'api::commune.commune'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::province.province'
+    > &
+      Schema.Attribute.Private;
+    nom: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1070,6 +1477,75 @@ export interface ApiSiteNavigationSiteNavigation
   };
 }
 
+export interface ApiStatutCandidatureStatutCandidature
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'statuts_candidature_portail';
+  info: {
+    displayName: 'Statut candidature';
+    pluralName: 'statuts-candidature';
+    singularName: 'statut-candidature';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    code: Schema.Attribute.UID<'libelleCandidat'> & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    groupe: Schema.Attribute.Enumeration<
+      ['brouillon', 'en_instruction', 'selectionne', 'non_retenu']
+    > &
+      Schema.Attribute.Required;
+    libelleCandidat: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::statut-candidature.statut-candidature'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    phase: Schema.Attribute.Enumeration<
+      ['recu', 'completude', 'eligibilite', 'evaluation', 'decision']
+    > &
+      Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiStatutJuridiqueStatutJuridique
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'statuts_juridiques';
+  info: {
+    displayName: 'Statut juridique';
+    pluralName: 'statuts-juridiques';
+    singularName: 'statut-juridique';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::statut-juridique.statut-juridique'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiSuccessStorySuccessStory
   extends Struct.CollectionTypeSchema {
   collectionName: 'success_stories';
@@ -1140,6 +1616,73 @@ export interface ApiSupportTicketSupportTicket
     > &
       Schema.Attribute.DefaultTo<'new'>;
     subject: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiTypeContrepartieTypeContrepartie
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'types_contrepartie';
+  info: {
+    displayName: 'Type contrepartie';
+    pluralName: 'types-contrepartie';
+    singularName: 'type-contrepartie';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::type-contrepartie.type-contrepartie'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiTypePieceTypePiece extends Struct.CollectionTypeSchema {
+  collectionName: 'types_piece';
+  info: {
+    displayName: 'Type piece';
+    pluralName: 'types-piece';
+    singularName: 'type-piece';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    exigence: Schema.Attribute.Enumeration<
+      ['obligatoire', 'si_applicable', 'si_disponible']
+    > &
+      Schema.Attribute.Required;
+    groupe: Schema.Attribute.Enumeration<
+      ['administratif', 'financier', 'technique']
+    > &
+      Schema.Attribute.Required;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::type-piece.type-piece'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1695,23 +2238,38 @@ declare module '@strapi/strapi' {
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
       'api::about-page.about-page': ApiAboutPageAboutPage;
+      'api::appel.appel': ApiAppelAppel;
       'api::application.application': ApiApplicationApplication;
       'api::call-for-proposal.call-for-proposal': ApiCallForProposalCallForProposal;
       'api::candidature-guide.candidature-guide': ApiCandidatureGuideCandidatureGuide;
+      'api::candidature.candidature': ApiCandidatureCandidature;
+      'api::commune.commune': ApiCommuneCommune;
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
+      'api::complement.complement': ApiComplementComplement;
+      'api::contenu-aide.contenu-aide': ApiContenuAideContenuAide;
       'api::etape-programme.etape-programme': ApiEtapeProgrammeEtapeProgramme;
       'api::event.event': ApiEventEvent;
       'api::faq-item.faq-item': ApiFaqItemFaqItem;
       'api::faq.faq': ApiFaqFaq;
+      'api::filiere.filiere': ApiFiliereFiliere;
       'api::footer-link.footer-link': ApiFooterLinkFooterLink;
       'api::homepage.homepage': ApiHomepageHomepage;
+      'api::infrastructure-band.infrastructure-band': ApiInfrastructureBandInfrastructureBand;
+      'api::infrastructure-type.infrastructure-type': ApiInfrastructureTypeInfrastructureType;
       'api::news.news': ApiNewsNews;
       'api::notification-ami.notification-ami': ApiNotificationAmiNotificationAmi;
+      'api::notification.notification': ApiNotificationNotification;
+      'api::organisation.organisation': ApiOrganisationOrganisation;
       'api::partner.partner': ApiPartnerPartner;
+      'api::province.province': ApiProvinceProvince;
       'api::resource-document.resource-document': ApiResourceDocumentResourceDocument;
       'api::site-navigation.site-navigation': ApiSiteNavigationSiteNavigation;
+      'api::statut-candidature.statut-candidature': ApiStatutCandidatureStatutCandidature;
+      'api::statut-juridique.statut-juridique': ApiStatutJuridiqueStatutJuridique;
       'api::success-story.success-story': ApiSuccessStorySuccessStory;
       'api::support-ticket.support-ticket': ApiSupportTicketSupportTicket;
+      'api::type-contrepartie.type-contrepartie': ApiTypeContrepartieTypeContrepartie;
+      'api::type-piece.type-piece': ApiTypePieceTypePiece;
       'api::value-chain.value-chain': ApiValueChainValueChain;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

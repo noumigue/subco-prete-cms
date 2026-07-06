@@ -1,0 +1,42 @@
+{
+  "kind": "collectionType",
+  "collectionName": "organisations_portail",
+  "info": {
+    "singularName": "organisation",
+    "pluralName": "organisations",
+    "displayName": "Organisation"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "owner": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "nom": { "type": "string", "required": true },
+    "statutJuridique": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::statut-juridique.statut-juridique"
+    },
+    "filierePrincipale": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::filiere.filiere"
+    },
+    "province": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::province.province"
+    },
+    "commune": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::commune.commune"
+    },
+    "adresse": { "type": "text" },
+    "telephone": { "type": "string" },
+    "contact": { "type": "string" }
+  }
+}

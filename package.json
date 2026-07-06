@@ -14,6 +14,8 @@
     "import:editorial": "bash scripts/import-editorial-data.sh",
     "import:value-chains": "node scripts/import-value-chains.js",
     "populate:faq-items": "node scripts/populate-faq-items.js",
+    "populate:infrastructure-types": "node scripts/populate-infrastructure-types.js",
+    "populate:value-chain-articles": "node scripts/populate-value-chain-articles.js",
     "populate:program-steps": "node scripts/populate-program-steps.js",
     "populate:site-navigation": "node scripts/populate-site-navigation.js",
     "start": "strapi start",
@@ -26,13 +28,13 @@
     "@strapi/plugin-users-permissions": "5.41.1",
     "@strapi/provider-upload-aws-s3": "^5.41.1",
     "@strapi/strapi": "5.41.1",
+    "nodemailer": "^6.10.1",
     "pg": "8.20.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0",
     "styled-components": "^6.0.0"
   },
-  "devDependencies": {},
   "engines": {
     "node": ">=20.0.0 <=24.x.x",
     "npm": ">=6.0.0"
