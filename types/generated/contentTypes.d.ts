@@ -868,6 +868,81 @@ export interface ApiHomepageHomepage extends Struct.SingleTypeSchema {
   };
 }
 
+export interface ApiInfrastructureBandInfrastructureBand
+  extends Struct.SingleTypeSchema {
+  collectionName: 'infrastructure_band';
+  info: {
+    displayName: 'Bande Infrastructures';
+    pluralName: 'infrastructure-bands';
+    singularName: 'infrastructure-band';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    intro: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::infrastructure-band.infrastructure-band'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiInfrastructureTypeInfrastructureType
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'infrastructure_types';
+  info: {
+    displayName: "Type d'infrastructure";
+    pluralName: 'infrastructure-types';
+    singularName: 'infrastructure-type';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    body: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    cardText: Schema.Attribute.Text & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    highlight: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    icon: Schema.Attribute.String & Schema.Attribute.Required;
+    lead: Schema.Attribute.Text & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::infrastructure-type.infrastructure-type'
+    > &
+      Schema.Attribute.Private;
+    nature: Schema.Attribute.Enumeration<
+      ['physique', 'immaterielle', 'mixte']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'physique'>;
+    order: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'title'> &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiNewsNews extends Struct.CollectionTypeSchema {
   collectionName: 'news';
   info: {
@@ -1705,6 +1780,8 @@ declare module '@strapi/strapi' {
       'api::faq.faq': ApiFaqFaq;
       'api::footer-link.footer-link': ApiFooterLinkFooterLink;
       'api::homepage.homepage': ApiHomepageHomepage;
+      'api::infrastructure-band.infrastructure-band': ApiInfrastructureBandInfrastructureBand;
+      'api::infrastructure-type.infrastructure-type': ApiInfrastructureTypeInfrastructureType;
       'api::news.news': ApiNewsNews;
       'api::notification-ami.notification-ami': ApiNotificationAmiNotificationAmi;
       'api::partner.partner': ApiPartnerPartner;
