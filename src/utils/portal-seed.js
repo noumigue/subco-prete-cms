@@ -148,6 +148,16 @@ async function ensurePortalRolesAndSettings(strapi) {
     await setPermission(strapi, publicRole.id, action, true);
   }
 
+  // Le public peut déposer une réclamation / un recours (page publique /reclamations,
+  // option anonyme). Lecture réservée à l'UGP côté admin.
+  const publicWriteActions = [
+    'api::complaint-recourse.complaint-recourse.create',
+  ];
+
+  for (const action of publicWriteActions) {
+    await setPermission(strapi, publicRole.id, action, true);
+  }
+
   const candidateActions = [
     'api::organisation.organisation.find',
     'api::organisation.organisation.findOne',

@@ -13,7 +13,7 @@
     "url": { "type": "string", "required": true },
     "group": {
       "type": "enumeration",
-      "enum": ["assistance", "institutional", "resources"],
+      "enum": ["assistance", "institutional", "resources", "programme", "candidater", "aide", "legal"],
       "required": true
     },
     "sortOrder": { "type": "integer", "default": 0 },

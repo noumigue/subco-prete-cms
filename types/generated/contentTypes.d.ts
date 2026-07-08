@@ -1028,7 +1028,15 @@ export interface ApiFooterLinkFooterLink extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     group: Schema.Attribute.Enumeration<
-      ['assistance', 'institutional', 'resources']
+      [
+        'assistance',
+        'institutional',
+        'resources',
+        'programme',
+        'candidater',
+        'aide',
+        'legal',
+      ]
     > &
       Schema.Attribute.Required;
     isVisible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;

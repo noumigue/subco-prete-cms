@@ -24,3 +24,6 @@ yarn-error.log*
 # local Strapi data exports
 strapi-editorial-data.sql
 exports/
+
+# OS junk
+.DS_Store
