@@ -283,11 +283,18 @@ async function ensureReferentials(strapi) {
     await upsertDocument(strapi, 'api::type-contrepartie.type-contrepartie', { libelle: row.libelle }, row);
   }
 
+  // typePiece (Annexe 9) — remediation 2.6 : couvrir les 3 groupes x 3 niveaux d'exigence
+  // en PLACEHOLDERS (sans inventer les 18 libelles reels ni les 42 communes : « a confirmer UGP »).
   for (const row of [
     { libelle: 'Statuts ou acte constitutif', groupe: 'administratif', exigence: 'obligatoire', ordre: 10 },
     { libelle: 'Attestation fiscale recente', groupe: 'administratif', exigence: 'si_applicable', ordre: 20 },
-    { libelle: 'Etats financiers', groupe: 'financier', exigence: 'obligatoire', ordre: 30 },
-    { libelle: 'Plan d affaires ou note technique', groupe: 'technique', exigence: 'obligatoire', ordre: 40 },
+    { libelle: 'Piece administrative complementaire (a confirmer UGP)', groupe: 'administratif', exigence: 'si_disponible', ordre: 30 },
+    { libelle: 'Etats financiers', groupe: 'financier', exigence: 'obligatoire', ordre: 40 },
+    { libelle: 'Justificatif de contrepartie (a confirmer UGP)', groupe: 'financier', exigence: 'si_applicable', ordre: 50 },
+    { libelle: 'Piece financiere complementaire (a confirmer UGP)', groupe: 'financier', exigence: 'si_disponible', ordre: 60 },
+    { libelle: 'Plan d affaires ou note technique', groupe: 'technique', exigence: 'obligatoire', ordre: 70 },
+    { libelle: 'Devis ou plans d infrastructure (a confirmer UGP)', groupe: 'technique', exigence: 'si_applicable', ordre: 80 },
+    { libelle: 'Piece technique complementaire (a confirmer UGP)', groupe: 'technique', exigence: 'si_disponible', ordre: 90 },
   ]) {
     await upsertDocument(strapi, 'api::type-piece.type-piece', { libelle: row.libelle }, row);
   }
