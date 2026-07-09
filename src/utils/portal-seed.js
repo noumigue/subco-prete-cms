@@ -174,13 +174,22 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::complement.complement.find',
     'api::complement.complement.findOne',
     'api::complement.complement.create',
+    'api::complement.complement.update',
     'plugin::upload.content-api.upload',
     'plugin::users-permissions.user.me',
   ];
 
+  // Hygiene des permissions (remediation 1.8) : les permissions portail vivent sur `candidat`
+  // (et `beneficiaire` a l'extension), jamais sur `authenticated`. Un user `authenticated` brut
+  // ne doit atteindre aucune collection transactionnelle.
   for (const action of candidateActions) {
     await setPermission(strapi, candidateRole.id, action, true);
-    await setPermission(strapi, authenticatedRole.id, action, true);
+  }
+
+  // Nettoyage defensif : si une passe anterieure a copie les permissions sur `authenticated`,
+  // on les desactive explicitement (idempotent).
+  for (const action of candidateActions) {
+    await setPermission(strapi, authenticatedRole.id, action, false);
   }
 
   return {
@@ -189,11 +198,21 @@ async function ensurePortalRolesAndSettings(strapi) {
 }
 
 async function ensureReferentials(strapi) {
+  // Un appel OUVERT (cloture future) pour tester les CTA, + un appel A_VENIR pour tester le bandeau
+  // d'information (remediation 1.2). Seul `ouvert` est candidatable cote serveur.
   const cohort = await upsertDocument(strapi, 'api::appel.appel', { codeCohorte: 'C1' }, {
     nom: 'Appel a propositions - Cohorte 1',
     codeCohorte: 'C1',
-    ouvertLe: '2026-07-15',
-    clotureLe: '2026-08-15',
+    ouvertLe: '2026-07-01',
+    clotureLe: '2026-12-31',
+    statut: 'ouvert',
+  });
+
+  await upsertDocument(strapi, 'api::appel.appel', { codeCohorte: 'C2' }, {
+    nom: 'Appel a propositions - Cohorte 2',
+    codeCohorte: 'C2',
+    ouvertLe: '2027-01-15',
+    clotureLe: '2027-03-15',
     statut: 'a_venir',
   });
 
@@ -210,12 +229,15 @@ async function ensureReferentials(strapi) {
     await upsertDocument(strapi, 'api::filiere.filiere', { slug: filiere.slug }, filiere);
   }
 
+  // 5 provinces du decoupage actuel + table de remap (`anciensNoms`) editable au CMS (remediation 1.4).
+  // Toute valeur de l'ancien decoupage lue cote portail est remappee vers la province actuelle,
+  // jamais reinjectee telle quelle a l'ecriture. Rattachements « a confirmer UGP ».
   const provinces = [
-    { nom: 'Bujumbura', code: 'BJM' },
-    { nom: 'Butanyerera', code: 'BTN' },
-    { nom: 'Burunga', code: 'BRG' },
-    { nom: 'Gitega', code: 'GIT' },
-    { nom: 'Buhumuza', code: 'BHM' },
+    { nom: 'Bujumbura', code: 'BJM', anciensNoms: ['Bujumbura Mairie', 'Bujumbura Rural', 'Bubanza', 'Cibitoke'] },
+    { nom: 'Butanyerera', code: 'BTN', anciensNoms: ['Ngozi', 'Kayanza', 'Kirundo', 'Muyinga'] },
+    { nom: 'Burunga', code: 'BRG', anciensNoms: ['Bururi', 'Rumonge', 'Makamba', 'Rutana'] },
+    { nom: 'Gitega', code: 'GIT', anciensNoms: ['Karuzi', 'Mwaro', 'Muramvya'] },
+    { nom: 'Buhumuza', code: 'BHM', anciensNoms: ['Cankuzo', 'Ruyigi'] },
   ];
 
   const provinceDocs = {};
@@ -318,10 +340,10 @@ async function ensureDemoPortalData(strapi, candidateRole) {
     });
   }
 
-  const [appel, statutBrouillon, statutEvaluation, statutNonRetenu, cooperative, province, commune, filiere] = await Promise.all([
+  const [appel, statutBrouillon, statutSoumis, statutNonRetenu, cooperative, province, commune, filiere] = await Promise.all([
     findOneBy(strapi, 'api::appel.appel', { codeCohorte: 'C1' }),
     findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'brouillon' }),
-    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'evaluation' }),
+    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'soumis' }),
     findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'non_retenu' }),
     findOneBy(strapi, 'api::statut-juridique.statut-juridique', { libelle: 'Cooperative' }),
     findOneBy(strapi, 'api::province.province', { code: 'BTN' }),
@@ -358,7 +380,7 @@ async function ensureDemoPortalData(strapi, candidateRole) {
     appel: connectRelation(appel),
     organisation: connectRelation(organisation),
     titreProjet: 'Unite de sechage de mangues',
-    statut: connectRelation(statutEvaluation),
+    statut: connectRelation(statutSoumis),
     numeroDossier: 'PRETE-AP-C1-2026-00042',
     dateDepot: '2026-07-12T09:00:00.000Z',
     donneesProjet: { stub: true },

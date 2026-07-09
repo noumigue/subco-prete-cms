@@ -2,7 +2,7 @@
 
 const { createCoreController } = require('@strapi/strapi').factories;
 const { getUserId, withOwnerFilter } = require('../../../utils/portal-owner');
-const { isActiveStatus } = require('../../../utils/portal-status');
+const { evaluateCandidatureGuard } = require('../../../utils/portal-status');
 
 async function getStatusByCode(code) {
   return strapi.documents('api::statut-candidature.statut-candidature').findFirst({
@@ -10,10 +10,12 @@ async function getStatusByCode(code) {
   });
 }
 
+// Predicat strict (remediation 1.2) : seul `statut === 'ouvert'` compte comme appel candidatable.
+// `a_venir` = bandeau d'information cote portail, jamais un rattachement.
 async function getOpenCall() {
   return strapi.documents('api::appel.appel').findFirst({
     filters: {
-      statut: { $in: ['ouvert', 'a_venir'] },
+      statut: 'ouvert',
     },
     sort: ['ouvertLe:asc'],
   });
@@ -62,14 +64,9 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     const payload = ctx.request.body?.data || {};
     const existing = await strapi.documents('api::candidature.candidature').findMany({
       filters: { owner: { id: userId } },
-      populate: ['statut'],
+      populate: ['statut', 'appel'],
       sort: ['updatedAt:desc'],
     });
-    const hasActive = existing.some((item) => isActiveStatus(item?.statut?.code));
-
-    if (hasActive) {
-      return ctx.badRequest('Une candidature en cours existe deja.');
-    }
 
     const [statusDraft, openCall] = await Promise.all([
       getStatusByCode('brouillon'),
@@ -78,6 +75,12 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
 
     if (!openCall?.documentId) {
       return ctx.badRequest("Aucun appel ouvert n'est disponible.");
+    }
+
+    // Garde serveur mono-candidature (a/b/c) — refus explicite avant toute creation.
+    const guard = evaluateCandidatureGuard(existing, openCall.documentId);
+    if (!guard.ok) {
+      return ctx.badRequest(guard.message);
     }
 
     const organisation = await strapi.documents('api::organisation.organisation').findFirst({

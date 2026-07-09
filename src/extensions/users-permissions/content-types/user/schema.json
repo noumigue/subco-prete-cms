@@ -1,0 +1,10 @@
+{
+  "attributes": {
+    "orgName": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    }
+  }
+}
