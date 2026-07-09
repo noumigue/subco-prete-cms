@@ -1371,6 +1371,7 @@ export interface ApiProvinceProvince extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    anciensNoms: Schema.Attribute.JSON;
     code: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
@@ -2210,11 +2211,13 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
+    orgName: Schema.Attribute.String;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    phone: Schema.Attribute.String;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;

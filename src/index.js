@@ -5,6 +5,7 @@ const {
   ensurePortalRolesAndSettings,
   ensureReferentials,
 } = require('./utils/portal-seed');
+const { ensureRevalidateWebhook } = require('./utils/portal-webhook');
 
 module.exports = {
   /**
@@ -26,6 +27,7 @@ module.exports = {
     const { candidateRole } = await ensurePortalRolesAndSettings(strapi);
     await ensureReferentials(strapi);
     await ensureDemoPortalData(strapi, candidateRole);
+    await ensureRevalidateWebhook(strapi);
 
     const notificationService = strapi.service('api::notification-ami.notification-ami');
 

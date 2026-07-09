@@ -338,11 +338,13 @@ async function ensureDemoPortalData(strapi, candidateRole) {
       blocked: false,
       provider: 'local',
       role: candidateRole.id,
+      // orgName persiste sur le compte (remediation 1.1) — la salutation ne repose jamais sur l'e-mail.
+      orgName: 'Cooperative Girumwete',
     });
-  } else if (!user.confirmed || user.role?.type !== 'candidat') {
+  } else if (!user.confirmed || user.role?.type !== 'candidat' || !user.orgName) {
     user = await strapi.db.query('plugin::users-permissions.user').update({
       where: { id: user.id },
-      data: { confirmed: true, blocked: false, role: candidateRole.id },
+      data: { confirmed: true, blocked: false, role: candidateRole.id, orgName: user.orgName || 'Cooperative Girumwete' },
       populate: ['role'],
     });
   }
