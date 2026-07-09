@@ -168,6 +168,9 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::candidature.candidature.create',
     'api::candidature.candidature.update',
     'api::candidature.candidature.delete',
+    'api::candidature.candidature.soumettre',
+    'api::candidature.candidature.pdfBrouillon',
+    'api::portal-compte.portal-compte.updateTelephone',
     'api::notification.notification.find',
     'api::notification.notification.findOne',
     'api::notification.notification.update',
@@ -303,18 +306,26 @@ async function ensureReferentials(strapi) {
     await upsertDocument(strapi, 'api::statut-candidature.statut-candidature', { code: row.code }, row);
   }
 
+  // Exemples de types d'infrastructure (3.1.3) : contenu editorial, JAMAIS une liste imposee.
+  // Un item de liste = une ligne du panneau « (i) exemples » du formulaire.
   await upsertDocument(strapi, 'api::contenu-aide.contenu-aide', { cle: 'exemples-infrastructure' }, {
     cle: 'exemples-infrastructure',
     titre: "Exemples d'infrastructures eligibles",
     corps: [
       {
-        type: 'paragraph',
+        type: 'list',
+        format: 'unordered',
         children: [
-          {
-            type: 'text',
-            text: 'Plateformes logistiques, numerique, certification, chaines du froid, ateliers mutualises.',
-          },
-        ],
+          'Unite de transformation ou atelier',
+          'Entrepot, chambre froide ou chaine du froid',
+          'Centre de collecte, distribution ou logistique',
+          'Laboratoire ou dispositif de controle qualite',
+          'Plateforme numerique ou application de mise en relation',
+          'Infrastructure immaterielle ou systeme de gestion',
+        ].map((text) => ({
+          type: 'list-item',
+          children: [{ type: 'text', text }],
+        })),
       },
     ],
   });
