@@ -15,7 +15,7 @@
     "relatedSubmissionRef": { "type": "string" },
     "subject": { "type": "string", "required": true },
     "details": { "type": "text", "required": true },
-    "supportingDocument": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "supportingDocuments": { "type": "media", "multiple": true, "allowedTypes": ["files", "images"] },
     "status": { "type": "enumeration", "enum": ["received", "under_review", "resolved", "closed"], "default": "received" }
   }
 }

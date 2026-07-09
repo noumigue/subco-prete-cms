@@ -773,7 +773,7 @@ export interface ApiComplaintRecourseComplaintRecourse
     > &
       Schema.Attribute.DefaultTo<'received'>;
     subject: Schema.Attribute.String & Schema.Attribute.Required;
-    supportingDocument: Schema.Attribute.Media<'files' | 'images'>;
+    supportingDocuments: Schema.Attribute.Media<'files' | 'images', true>;
     type: Schema.Attribute.Enumeration<['complaint', 'recourse', 'eas_hs']> &
       Schema.Attribute.DefaultTo<'complaint'>;
     updatedAt: Schema.Attribute.DateTime;
