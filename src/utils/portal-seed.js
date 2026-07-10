@@ -1,9 +1,74 @@
 'use strict';
 
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
+const fs = require('fs/promises');
+
 const { CANONICAL_STATUS_ORDER } = require('./portal-status');
+const { buildCandidaturePdf } = require('./portal-pdf');
 
 const DEMO_EMAIL = 'demo-candidat@subco-prete.bi';
 const DEMO_PASSWORD = 'SubcoDemo2026!';
+
+// Donnees de projet de demo (alimentent le PDF permanent des dossiers de demo).
+const DEMO_DONNEES = {
+  etape: 4,
+  eligibilite: [
+    { libelle: 'Structure legalement constituee', confirme: true },
+    { libelle: 'Conformite fiscale sans contentieux majeur', confirme: true },
+    { libelle: 'Aucune activite exclue par le mecanisme', confirme: true },
+    { libelle: 'Capacite de mobiliser une contrepartie d au moins 20 %', confirme: true },
+    { libelle: "Aucun conflit d interet avec le projet ou l UGP", confirme: true },
+  ],
+  operateur: { nif: '4001234567', rc: 'RC/BTN/2023/1024', email: DEMO_EMAIL, telephone: '+257 79 00 00 01' },
+  projet: {
+    filiere: 'Fruits tropicaux',
+    typeInfrastructure: 'Unite de sechage solaire de mangues d une capacite de 2 tonnes par jour, avec chambre de conditionnement et stockage ventile.',
+    siteProvince: 'Butanyerera', siteCommune: 'Kayanza', memeSiege: true,
+    statutSite: 'Propriete', usageCollectif: 'Oui', mpmeDesservies: '40', maturite: 'Semi-mature',
+    noteConceptuelle: 'Le projet reduit les pertes post-recolte de mangues via une unite de sechage solaire mutualisee au benefice de 40 MPME et cooperatives de la zone.',
+  },
+  financement: { budgetTotal: 120000000, contrepartie: 24000000, typeContrepartie: 'Numeraire', modeleEconomique: 'Frais de service preleves sur les volumes seches.' },
+  impact: { mpme: '40', femmes: '24', jeunes: '10', refugies: '8', emplois: '15', porteParFemme: 'Oui', zoneRurale: 'Oui' },
+  es: { reponses: [{ libelle: 'Travaux ou construction', reponse: 'Oui' }, { libelle: 'Pollution, dechets ou nuisances', reponse: 'Non' }], risqueDeclare: true },
+  pieces: [
+    { libelle: "Attestation d'existence legale (RC / acte constitutif)", depose: true, nomFichier: 'rc.pdf' },
+    { libelle: 'Etats financiers recents (3 exercices)', depose: true, nomFichier: 'etats.pdf' },
+    { libelle: 'Note conceptuelle du projet', depose: true, nomFichier: 'note.pdf' },
+  ],
+};
+
+// Genere + attache un PDF permanent a un dossier de demo (idempotent : seulement si absent).
+async function ensureDemoPdf(strapi, candidatureDoc, organisation, appel) {
+  const current = await strapi.documents('api::candidature.candidature').findOne({
+    documentId: candidatureDoc.documentId,
+    populate: ['pdfPermanent'],
+  });
+  if (current?.pdfPermanent) return;
+
+  const buffer = await buildCandidaturePdf({
+    candidature: { ...candidatureDoc, donneesProjet: DEMO_DONNEES },
+    organisation,
+    appel,
+    mode: 'permanent',
+  });
+
+  const tmpPath = path.join(os.tmpdir(), `subco-demo-${crypto.randomUUID()}.pdf`);
+  await fs.writeFile(tmpPath, buffer);
+  try {
+    const [uploaded] = await strapi.plugin('upload').service('upload').upload({
+      data: { fileInfo: { name: `${candidatureDoc.numeroDossier || 'dossier'}.pdf` } },
+      files: { filepath: tmpPath, originalFilename: `${candidatureDoc.numeroDossier || 'dossier'}.pdf`, mimetype: 'application/pdf', size: buffer.length },
+    });
+    await strapi.documents('api::candidature.candidature').update({
+      documentId: candidatureDoc.documentId,
+      data: { pdfPermanent: uploaded?.id || null },
+    });
+  } finally {
+    await fs.unlink(tmpPath).catch(() => undefined);
+  }
+}
 
 async function findOneBy(strapi, uid, where) {
   const items = await strapi.documents(uid).findMany({ filters: where, limit: 1 });
@@ -564,6 +629,11 @@ async function ensureDemoPortalData(strapi, candidateRole) {
   ]) {
     await upsertDocument(strapi, 'api::notification.notification', { sujet: row.sujet, envoyeLe: row.envoyeLe }, row);
   }
+
+  // PDF permanent des dossiers de demo « en instruction » et « non retenu »
+  // (pour que « PDF du dossier » soit telechargeable en demo).
+  await ensureDemoPdf(strapi, inProgress, organisation, appel);
+  await ensureDemoPdf(strapi, rejected, organisation, appel);
 }
 
 module.exports = {

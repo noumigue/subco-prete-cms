@@ -15,7 +15,10 @@ const LINE = '#dfdccf';
 function formatAmount(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) return null;
-  return `${new Intl.NumberFormat('fr-FR').format(number)} BIF`;
+  // Separateurs de milliers fr-FR (espaces fines insecables U+202F/U+2009/U+00A0)
+  // absents des polices PDF de base (ils s affichent « / ») -> espace normale.
+  const formatted = new Intl.NumberFormat("fr-FR").format(number).replace(/[\u202f\u2009\u00a0]/g, " ");
+  return `${formatted} BIF`;
 }
 
 function formatDate(value) {
@@ -27,36 +30,58 @@ function formatDate(value) {
 
 function drawWatermark(doc) {
   const { width, height } = doc.page;
+  // Preserver le curseur : dessiner le filigrane ne doit pas decaler le flux du texte.
+  const savedX = doc.x;
+  const savedY = doc.y;
   doc.save();
   doc.rotate(-38, { origin: [width / 2, height / 2] });
   doc.font('Helvetica-Bold').fontSize(46).fillColor('#9aa9a2').opacity(0.18);
   doc.text('BROUILLON — NON SOUMIS', 0, height / 2 - 30, { width, align: 'center' });
   doc.restore();
   doc.opacity(1);
+  doc.x = savedX;
+  doc.y = savedY;
 }
 
 function sectionTitle(doc, title) {
+  const left = doc.page.margins.left;
   doc.moveDown(0.9);
-  doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE).text(title.toUpperCase());
-  doc.moveTo(doc.page.margins.left, doc.y + 2)
+  doc.x = left;
+  // x explicite : sinon le titre herite du curseur laisse dans la colonne valeur par kv().
+  doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE)
+    .text(title.toUpperCase(), left, doc.y, { width: doc.page.width - doc.page.margins.right - left });
+  doc.moveTo(left, doc.y + 2)
     .lineTo(doc.page.width - doc.page.margins.right, doc.y + 2)
     .strokeColor(LINE)
     .lineWidth(1)
     .stroke();
+  doc.x = left;
   doc.moveDown(0.4);
 }
 
+// Ligne label/valeur en 2 colonnes, hauteur de ligne mesuree (pas de chevauchement sur
+// valeur multi-lignes) et curseur x remis a la marge gauche apres chaque ligne.
 function kv(doc, label, value) {
   if (value == null || value === '') return;
-  const x = doc.page.margins.left;
-  const labelWidth = 190;
-  const valueWidth = doc.page.width - doc.page.margins.right - x - labelWidth - 10;
+  const left = doc.page.margins.left;
+  const labelWidth = 175;
+  const gap = 12;
+  const valueWidth = doc.page.width - doc.page.margins.right - left - labelWidth - gap;
+
+  doc.font('Helvetica').fontSize(9.5);
+  const labelH = doc.heightOfString(String(label), { width: labelWidth });
+  const valueH = doc.heightOfString(String(value), { width: valueWidth });
+  const rowH = Math.max(labelH, valueH);
+
+  if (doc.y + rowH > doc.page.height - doc.page.margins.bottom) {
+    doc.addPage();
+  }
+
   const y = doc.y;
-  doc.font('Helvetica').fontSize(9.5).fillColor(MUTED).text(String(label), x, y, { width: labelWidth });
-  const labelBottom = doc.y;
-  doc.font('Helvetica').fontSize(9.5).fillColor(INK).text(String(value), x + labelWidth + 10, y, { width: valueWidth });
-  doc.y = Math.max(doc.y, labelBottom);
-  doc.moveDown(0.25);
+  doc.fillColor(MUTED).text(String(label), left, y, { width: labelWidth });
+  doc.fillColor(INK).text(String(value), left + labelWidth + gap, y, { width: valueWidth });
+  doc.x = left;
+  doc.y = y + rowH + 3;
 }
 
 /**
