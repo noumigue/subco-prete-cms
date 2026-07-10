@@ -71,6 +71,16 @@
     },
     "phone": {
       "type": "string"
+    },
+    "pendingEmail": {
+      "type": "string",
+      "private": true,
+      "configurable": false
+    },
+    "emailChangeToken": {
+      "type": "string",
+      "private": true,
+      "configurable": false
     }
   }
 }

@@ -848,6 +848,37 @@ export interface ApiContenuAideContenuAide extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiDocumentTelechargeableDocumentTelechargeable
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'documents_telechargeables';
+  info: {
+    displayName: 'Document telechargeable';
+    pluralName: 'documents-telechargeables';
+    singularName: 'document-telechargeable';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fichier: Schema.Attribute.Media<'files' | 'images'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::document-telechargeable.document-telechargeable'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    titre: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiEtapeProgrammeEtapeProgramme
   extends Struct.CollectionTypeSchema {
   collectionName: 'etape_programmes';
@@ -914,6 +945,36 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
     registrationUrl: Schema.Attribute.String;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiFaqEntreeFaqEntree extends Struct.CollectionTypeSchema {
+  collectionName: 'faq_entrees';
+  info: {
+    displayName: 'FAQ entree';
+    pluralName: 'faq-entrees';
+    singularName: 'faq-entree';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::faq-entree.faq-entree'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    question: Schema.Attribute.String & Schema.Attribute.Required;
+    reponse: Schema.Attribute.Blocks;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2205,6 +2266,7 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    emailChangeToken: Schema.Attribute.String & Schema.Attribute.Private;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -2217,6 +2279,7 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    pendingEmail: Schema.Attribute.String & Schema.Attribute.Private;
     phone: Schema.Attribute.String;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
@@ -2258,8 +2321,10 @@ declare module '@strapi/strapi' {
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
       'api::complement.complement': ApiComplementComplement;
       'api::contenu-aide.contenu-aide': ApiContenuAideContenuAide;
+      'api::document-telechargeable.document-telechargeable': ApiDocumentTelechargeableDocumentTelechargeable;
       'api::etape-programme.etape-programme': ApiEtapeProgrammeEtapeProgramme;
       'api::event.event': ApiEventEvent;
+      'api::faq-entree.faq-entree': ApiFaqEntreeFaqEntree;
       'api::faq-item.faq-item': ApiFaqItemFaqItem;
       'api::faq.faq': ApiFaqFaq;
       'api::filiere.filiere': ApiFiliereFiliere;

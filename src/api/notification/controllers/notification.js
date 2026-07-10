@@ -55,4 +55,25 @@ module.exports = createCoreController('api::notification.notification', ({ strap
 
     return this.transformResponse(updated);
   },
+
+  // Tout marquer comme lu (owner-scoped) — Lot 1.
+  async toutMarquerLu(ctx) {
+    const userId = getUserId(ctx);
+    if (!userId) return;
+
+    const unread = await strapi.documents('api::notification.notification').findMany({
+      filters: { owner: { id: userId }, lu: false },
+      fields: ['documentId'],
+      limit: 500,
+    });
+
+    for (const item of unread) {
+      await strapi.documents('api::notification.notification').update({
+        documentId: item.documentId,
+        data: { lu: true },
+      });
+    }
+
+    ctx.body = { ok: true, count: unread.length };
+  },
 }));
