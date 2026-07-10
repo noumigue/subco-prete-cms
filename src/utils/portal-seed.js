@@ -77,7 +77,7 @@ async function ensurePortalRolesAndSettings(strapi) {
   const publicRole = await ensureRole(strapi, 'public', 'Public');
   const authenticatedRole = await ensureRole(strapi, 'authenticated', 'Authenticated');
   const candidateRole = await ensureRole(strapi, 'candidat', 'Candidat');
-  await ensureRole(strapi, 'beneficiaire', 'Beneficiaire');
+  const beneficiaireRole = await ensureRole(strapi, 'beneficiaire', 'Beneficiaire');
   await ensureRole(strapi, 'instructeur', 'Instructeur');
   await ensureRole(strapi, 'ugp', 'UGP');
   await ensureRole(strapi, 'comite', 'Comite');
@@ -130,6 +130,10 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::contenu-aide.contenu-aide',
     'api::faq-entree.faq-entree',
     'api::document-telechargeable.document-telechargeable',
+    'api::modalite-decaissement.modalite-decaissement',
+    'api::type-rapport.type-rapport',
+    'api::etape-contractuelle.etape-contractuelle',
+    'api::statut-demande.statut-demande',
   ];
 
   for (const uid of publicReadUids) {
@@ -172,6 +176,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::candidature.candidature.delete',
     'api::candidature.candidature.soumettre',
     'api::candidature.candidature.pdfBrouillon',
+    'api::portal-compte.portal-compte.moi',
     'api::portal-compte.portal-compte.updateTelephone',
     'api::portal-compte.portal-compte.requestEmailChange',
     'api::notification.notification.find',
@@ -182,15 +187,36 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::complement.complement.findOne',
     'api::complement.complement.create',
     'api::complement.complement.update',
+    // « Ma subvention » en PREPARATION : le candidat lit sa subvention et depose sur
+    // une condition `action_requise` (le role reste candidat jusqu'a la signature).
+    'api::subvention.subvention.find',
+    'api::subvention.subvention.findOne',
+    'api::condition-prealable.condition-prealable.deposer',
     'plugin::upload.content-api.upload',
     'plugin::users-permissions.user.me',
   ];
 
   // Hygiene des permissions (remediation 1.8) : les permissions portail vivent sur `candidat`
-  // (et `beneficiaire` a l'extension), jamais sur `authenticated`. Un user `authenticated` brut
+  // (et `beneficiaire`), jamais sur `authenticated`. Un user `authenticated` brut
   // ne doit atteindre aucune collection transactionnelle.
   for (const action of candidateActions) {
     await setPermission(strapi, candidateRole.id, action, true);
+  }
+
+  // Le beneficiaire conserve les acces du candidat (il navigue le meme portail)
+  // + les droits « Ma subvention » (Lot 2), en ecriture strictement limitee aux depots.
+  const beneficiaireActions = [
+    ...candidateActions,
+    'api::demande-decaissement.demande-decaissement.find',
+    'api::demande-decaissement.demande-decaissement.create',
+    'api::demande-decaissement.demande-decaissement.update',
+    'api::demande-decaissement.demande-decaissement.soumettre',
+    'api::demande-decaissement.demande-decaissement.justifier',
+    'api::rapport-requis.rapport-requis.deposer',
+    'api::mesure-corrective.mesure-corrective.deposer',
+  ];
+  for (const action of beneficiaireActions) {
+    await setPermission(strapi, beneficiaireRole.id, action, true);
   }
 
   // Nettoyage defensif : si une passe anterieure a copie les permissions sur `authenticated`,

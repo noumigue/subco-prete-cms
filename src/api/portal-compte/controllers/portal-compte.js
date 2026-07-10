@@ -7,6 +7,29 @@ const { isEmailDeliveryConfigured, sendMail } = require('../../../utils/notifica
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 module.exports = {
+  // Identite de session fiable : /users/me ne peuple PAS le role en Strapi 5.
+  // Cet endpoint renvoie le compte connecte AVEC son role (source de verite de la session).
+  async moi(ctx) {
+    const userId = getUserId(ctx);
+    if (!userId) return;
+
+    const user = await strapi.db.query('plugin::users-permissions.user').findOne({
+      where: { id: userId },
+      populate: { role: true },
+    });
+    if (!user) return ctx.notFound();
+
+    ctx.body = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      orgName: user.orgName || null,
+      phone: user.phone || null,
+      confirmed: Boolean(user.confirmed),
+      role: user.role ? { type: user.role.type, name: user.role.name } : null,
+    };
+  },
+
   // Met a jour le telephone de notification du compte connecte (D1).
   async updateTelephone(ctx) {
     const userId = getUserId(ctx);

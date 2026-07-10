@@ -1,7 +1,7 @@
 'use strict';
 
 const { createCoreController } = require('@strapi/strapi').factories;
-const { getUserId, withOwnerFilter } = require('../../../utils/portal-owner');
+const { getUserId, withOwnerFilter, fetchOwned } = require('../../../utils/portal-owner');
 
 module.exports = createCoreController('api::notification.notification', ({ strapi }) => ({
   async find(ctx) {
@@ -21,11 +21,7 @@ module.exports = createCoreController('api::notification.notification', ({ strap
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const item = await strapi.documents('api::notification.notification').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-      populate: ['candidature'],
-    });
+    const item = await fetchOwned(strapi, 'api::notification.notification', (ctx.params.documentId || ctx.params.id), userId, ['candidature']);
 
     if (!item) {
       return ctx.notFound('Notification introuvable.');
@@ -38,10 +34,7 @@ module.exports = createCoreController('api::notification.notification', ({ strap
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const item = await strapi.documents('api::notification.notification').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-    });
+    const item = await fetchOwned(strapi, 'api::notification.notification', (ctx.params.documentId || ctx.params.id), userId);
 
     if (!item?.documentId) {
       return ctx.notFound('Notification introuvable.');

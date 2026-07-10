@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const fs = require('fs/promises');
 
 const { createCoreController } = require('@strapi/strapi').factories;
-const { getUserId, withOwnerFilter } = require('../../../utils/portal-owner');
+const { getUserId, withOwnerFilter, fetchOwned } = require('../../../utils/portal-owner');
 const { evaluateCandidatureGuard } = require('../../../utils/portal-status');
 const { buildCandidaturePdf } = require('../../../utils/portal-pdf');
 const { sendPortalNotification } = require('../../../utils/portal-notify');
@@ -128,11 +128,8 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const entity = await strapi.documents('api::candidature.candidature').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-      populate: ['appel', 'organisation', 'statut', 'pdfPermanent', 'notificationDecision', 'complements.fichier', 'notifications'],
-    });
+    const entity = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId,
+      ['appel', 'organisation', 'statut', 'pdfPermanent', 'notificationDecision', 'complements.fichier', 'notifications']);
 
     if (!entity) {
       return ctx.notFound('Candidature introuvable.');
@@ -190,11 +187,7 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const existing = await strapi.documents('api::candidature.candidature').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-      populate: ['statut'],
-    });
+    const existing = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId, ['statut']);
 
     if (!existing?.documentId) {
       return ctx.notFound('Candidature introuvable.');
@@ -221,11 +214,7 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const existing = await strapi.documents('api::candidature.candidature').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-      populate: ['statut'],
-    });
+    const existing = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId, ['statut']);
 
     if (!existing?.documentId) {
       return ctx.notFound('Candidature introuvable.');
@@ -249,15 +238,11 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const candidature = await strapi.documents('api::candidature.candidature').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-      populate: {
-        statut: true,
-        appel: true,
-        organisation: { populate: ['statutJuridique', 'province', 'commune', 'filierePrincipale'] },
-        owner: { fields: ['id', 'email', 'phone'] },
-      },
+    const candidature = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId, {
+      statut: true,
+      appel: true,
+      organisation: { populate: ['statutJuridique', 'province', 'commune', 'filierePrincipale'] },
+      owner: { fields: ['id', 'email', 'phone'] },
     });
 
     if (!candidature?.documentId) {
@@ -326,14 +311,10 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const candidature = await strapi.documents('api::candidature.candidature').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-      populate: {
-        statut: true,
-        appel: true,
-        organisation: { populate: ['statutJuridique', 'province', 'commune', 'filierePrincipale'] },
-      },
+    const candidature = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId, {
+      statut: true,
+      appel: true,
+      organisation: { populate: ['statutJuridique', 'province', 'commune', 'filierePrincipale'] },
     });
 
     if (!candidature?.documentId) {

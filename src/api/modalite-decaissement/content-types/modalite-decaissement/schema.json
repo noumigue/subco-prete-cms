@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "modalites_decaissement",
+  "info": {
+    "singularName": "modalite-decaissement",
+    "pluralName": "modalites-decaissement",
+    "displayName": "Modalite decaissement"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "code": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "libelle": {
+      "type": "string",
+      "required": true
+    },
+    "piecesRequises": {
+      "type": "json"
+    },
+    "ordre": {
+      "type": "integer",
+      "default": 0
+    }
+  }
+}

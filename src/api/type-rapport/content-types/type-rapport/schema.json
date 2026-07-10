@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "types_rapport",
+  "info": {
+    "singularName": "type-rapport",
+    "pluralName": "types-rapport",
+    "displayName": "Type rapport"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "code": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "libelle": {
+      "type": "string",
+      "required": true
+    },
+    "ordre": {
+      "type": "integer",
+      "default": 0
+    }
+  }
+}

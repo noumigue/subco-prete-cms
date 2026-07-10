@@ -7,6 +7,12 @@
 module.exports = {
   routes: [
     {
+      method: 'GET',
+      path: '/portal-compte/moi',
+      handler: 'portal-compte.moi',
+      config: { policies: [] },
+    },
+    {
       method: 'PUT',
       path: '/portal-compte/telephone',
       handler: 'portal-compte.updateTelephone',

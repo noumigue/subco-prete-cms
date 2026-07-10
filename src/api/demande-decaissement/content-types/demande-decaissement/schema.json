@@ -1,0 +1,49 @@
+{
+  "kind": "collectionType",
+  "collectionName": "demandes_decaissement",
+  "info": {
+    "singularName": "demande-decaissement",
+    "pluralName": "demandes-decaissement",
+    "displayName": "Demande decaissement"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "subvention": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::subvention.subvention",
+      "inversedBy": "demandes"
+    },
+    "numero": { "type": "integer" },
+    "modalite": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::modalite-decaissement.modalite-decaissement"
+    },
+    "montant": { "type": "biginteger" },
+    "objet": { "type": "text" },
+    "pieces": { "type": "media", "multiple": true, "allowedTypes": ["files", "images"] },
+    "statut": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::statut-demande.statut-demande"
+    },
+    "avisTechnique": {
+      "type": "enumeration",
+      "enum": ["favorable", "defavorable", "favorable_reserve"]
+    },
+    "avisFiduciaire": {
+      "type": "enumeration",
+      "enum": ["approuve", "rejete", "complements"]
+    },
+    "motifRejet": { "type": "text" },
+    "aJustifier": { "type": "boolean", "default": false },
+    "justificationPieces": { "type": "media", "multiple": true, "allowedTypes": ["files", "images"] },
+    "justificationStatut": {
+      "type": "enumeration",
+      "enum": ["non_requise", "attendue", "soumise", "validee"],
+      "default": "non_requise"
+    }
+  }
+}

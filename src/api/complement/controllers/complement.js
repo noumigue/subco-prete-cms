@@ -1,11 +1,22 @@
 'use strict';
 
 const { createCoreController } = require('@strapi/strapi').factories;
-const { getUserId } = require('../../../utils/portal-owner');
+const { getUserId, fetchOwned } = require('../../../utils/portal-owner');
 
 function connectRelation(document) {
   if (!document?.documentId) return null;
   return { connect: [document.documentId] };
+}
+
+// Complement PAR documentId, appartenance verifiee via candidature.owner (owner indirect).
+async function fetchOwnedComplement(strapi, documentId, userId) {
+  if (!documentId) return null;
+  const item = await strapi.documents('api::complement.complement').findOne({
+    documentId,
+    populate: { candidature: { populate: { owner: { fields: ['id'] } } }, fichier: true },
+  });
+  if (!item) return null;
+  return item.candidature?.owner?.id === userId ? item : null;
 }
 
 module.exports = createCoreController('api::complement.complement', ({ strapi }) => ({
@@ -30,15 +41,7 @@ module.exports = createCoreController('api::complement.complement', ({ strapi })
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const item = await strapi.documents('api::complement.complement').findFirst({
-      documentId: ctx.params.documentId,
-      filters: {
-        candidature: {
-          owner: { id: userId },
-        },
-      },
-      populate: ['candidature', 'fichier'],
-    });
+    const item = await fetchOwnedComplement(strapi, (ctx.params.documentId || ctx.params.id), userId);
 
     if (!item) {
       return ctx.notFound('Complement introuvable.');
@@ -52,10 +55,7 @@ module.exports = createCoreController('api::complement.complement', ({ strapi })
     if (!userId) return;
 
     const payload = ctx.request.body?.data || {};
-    const candidature = await strapi.documents('api::candidature.candidature').findFirst({
-      documentId: payload.candidature,
-      filters: { owner: { id: userId } },
-    });
+    const candidature = await fetchOwned(strapi, 'api::candidature.candidature', payload.candidature, userId);
 
     if (!candidature?.documentId) {
       return ctx.badRequest('Candidature invalide.');
@@ -80,11 +80,7 @@ module.exports = createCoreController('api::complement.complement', ({ strapi })
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const existing = await strapi.documents('api::complement.complement').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { candidature: { owner: { id: userId } } },
-      populate: ['candidature'],
-    });
+    const existing = await fetchOwnedComplement(strapi, (ctx.params.documentId || ctx.params.id), userId);
 
     if (!existing?.documentId) {
       return ctx.notFound('Complement introuvable.');

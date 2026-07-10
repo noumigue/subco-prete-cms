@@ -1,0 +1,27 @@
+{
+  "kind": "collectionType",
+  "collectionName": "jalons_projet",
+  "info": {
+    "singularName": "jalon-projet",
+    "pluralName": "jalons-projet",
+    "displayName": "Jalon projet"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "subvention": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::subvention.subvention",
+      "inversedBy": "jalons"
+    },
+    "etape": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::etape-contractuelle.etape-contractuelle"
+    },
+    "datePrevue": { "type": "date" },
+    "dateReelle": { "type": "date" },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}
