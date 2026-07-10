@@ -1,0 +1,27 @@
+{
+  "kind": "collectionType",
+  "collectionName": "messages_assistance",
+  "info": {
+    "singularName": "message-assistance",
+    "pluralName": "messages-assistance",
+    "displayName": "Message assistance"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "demande": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::demande-assistance.demande-assistance",
+      "inversedBy": "messages"
+    },
+    "auteur": {
+      "type": "enumeration",
+      "enum": ["operateur", "equipe"],
+      "default": "operateur"
+    },
+    "corps": { "type": "text" },
+    "pieces": { "type": "media", "multiple": true, "allowedTypes": ["files", "images"] },
+    "envoyeLe": { "type": "datetime" }
+  }
+}

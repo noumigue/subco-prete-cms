@@ -1,0 +1,55 @@
+{
+  "kind": "collectionType",
+  "collectionName": "demandes_assistance",
+  "info": {
+    "singularName": "demande-assistance",
+    "pluralName": "demandes-assistance",
+    "displayName": "Demande assistance"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "objet": { "type": "string", "required": true },
+    "categorie": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::categorie-assistance.categorie-assistance"
+    },
+    "concerneCandidature": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::candidature.candidature"
+    },
+    "concerneSubvention": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::subvention.subvention"
+    },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["ouverte", "en_cours", "resolue"],
+      "default": "ouverte"
+    },
+    "origine": {
+      "type": "enumeration",
+      "enum": ["operateur", "ugp"],
+      "default": "operateur"
+    },
+    "resolueLe": { "type": "datetime" },
+    "resoluePar": {
+      "type": "enumeration",
+      "enum": ["operateur", "equipe"]
+    },
+    "messages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::message-assistance.message-assistance",
+      "mappedBy": "demande"
+    }
+  }
+}
