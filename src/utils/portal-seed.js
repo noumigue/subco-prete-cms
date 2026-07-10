@@ -267,10 +267,10 @@ async function ensureReferentials(strapi) {
   // jamais reinjectee telle quelle a l'ecriture. Rattachements « a confirmer UGP ».
   const provinces = [
     { nom: 'Bujumbura', code: 'BJM', anciensNoms: ['Bujumbura Mairie', 'Bujumbura Rural', 'Bubanza', 'Cibitoke'] },
-    { nom: 'Butanyerera', code: 'BTN', anciensNoms: ['Ngozi', 'Kayanza', 'Kirundo', 'Muyinga'] },
+    { nom: 'Butanyerera', code: 'BTN', anciensNoms: ['Ngozi', 'Kayanza', 'Kirundo'] },
     { nom: 'Burunga', code: 'BRG', anciensNoms: ['Bururi', 'Rumonge', 'Makamba', 'Rutana'] },
     { nom: 'Gitega', code: 'GIT', anciensNoms: ['Karuzi', 'Mwaro', 'Muramvya'] },
-    { nom: 'Buhumuza', code: 'BHM', anciensNoms: ['Cankuzo', 'Ruyigi'] },
+    { nom: 'Buhumuza', code: 'BHM', anciensNoms: ['Cankuzo', 'Ruyigi', 'Muyinga'] },
   ];
 
   const provinceDocs = {};
@@ -279,17 +279,25 @@ async function ensureReferentials(strapi) {
     provinceDocs[province.code] = await upsertDocument(strapi, 'api::province.province', { code: province.code }, province);
   }
 
+  // 42 communes du decoupage 2025 (source : referentiel provinces/communes valide equipe).
   const communes = [
-    ['Mukaza', 'BJM'],
-    ['Ntahangwa', 'BJM'],
-    ['Kayanza', 'BTN'],
-    ['Ngozi', 'BTN'],
-    ['Rumonge', 'BRG'],
-    ['Makamba', 'BRG'],
-    ['Gitega', 'GIT'],
-    ['Muramvya', 'GIT'],
-    ['Muyinga', 'BHM'],
-    ['Ruyigi', 'BHM'],
+    // Buhumuza (7)
+    ['Butaganzwa', 'BHM'], ['Butihinda', 'BHM'], ['Cankuzo', 'BHM'], ['Gisagara', 'BHM'],
+    ['Gisuru', 'BHM'], ['Muyinga', 'BHM'], ['Ruyigi', 'BHM'],
+    // Bujumbura (11)
+    ['Bubanza', 'BJM'], ['Bukinanyana', 'BJM'], ['Cibitoke', 'BJM'], ['Isare', 'BJM'],
+    ['Mpanda', 'BJM'], ['Mugere', 'BJM'], ['Mugina', 'BJM'], ['Muhuta', 'BJM'],
+    ['Mukaza', 'BJM'], ['Ntahangwa', 'BJM'], ['Rwibaga', 'BJM'],
+    // Burunga (7)
+    ['Bururi', 'BRG'], ['Makamba', 'BRG'], ['Matana', 'BRG'], ['Musongati', 'BRG'],
+    ['Nyanza', 'BRG'], ['Rumonge', 'BRG'], ['Rutana', 'BRG'],
+    // Butanyerera (8)
+    ['Busoni', 'BTN'], ['Kayanza', 'BTN'], ['Kiremba', 'BTN'], ['Kirundo', 'BTN'],
+    ['Matongo', 'BTN'], ['Muhanga', 'BTN'], ['Ngozi', 'BTN'], ['Tangara', 'BTN'],
+    // Gitega (9)
+    ['Bugendana', 'GIT'], ['Gishubi', 'GIT'], ['Gitega', 'GIT'], ['Karusi', 'GIT'],
+    ['Kiganda', 'GIT'], ['Muramvya', 'GIT'], ['Mwaro', 'GIT'], ['Nyabihanga', 'GIT'],
+    ['Shombo', 'GIT'],
   ];
 
   for (const [nom, provinceCode] of communes) {
@@ -316,18 +324,44 @@ async function ensureReferentials(strapi) {
     await upsertDocument(strapi, 'api::type-contrepartie.type-contrepartie', { libelle: row.libelle }, row);
   }
 
-  // typePiece (Annexe 9) — remediation 2.6 : couvrir les 3 groupes x 3 niveaux d'exigence
-  // en PLACEHOLDERS (sans inventer les 18 libelles reels ni les 42 communes : « a confirmer UGP »).
+  // typePiece (Annexe 9) — liste reelle issue des maquettes validees + Module 3.
+  // Nettoyage des anciens libelles semes (placeholders « (a confirmer UGP) » + libelles
+  // heritees du scaffold), superseeds par la liste canonique ci-dessous. On ne touche
+  // qu'a nos propres artefacts historiques (pas aux ajouts UGP eventuels).
+  const LEGACY_PIECE_LIBELLES = [
+    'Statuts ou acte constitutif',
+    'Attestation fiscale recente',
+    'Etats financiers',
+    'Plan d affaires ou note technique',
+  ];
+  const stalePieces = await strapi.documents('api::type-piece.type-piece').findMany({
+    filters: {
+      $or: [
+        { libelle: { $contains: '(a confirmer UGP)' } },
+        { libelle: { $in: LEGACY_PIECE_LIBELLES } },
+      ],
+    },
+    limit: 50,
+  });
+  for (const stale of stalePieces) {
+    await strapi.documents('api::type-piece.type-piece').delete({ documentId: stale.documentId });
+  }
+
   for (const row of [
-    { libelle: 'Statuts ou acte constitutif', groupe: 'administratif', exigence: 'obligatoire', ordre: 10 },
-    { libelle: 'Attestation fiscale recente', groupe: 'administratif', exigence: 'si_applicable', ordre: 20 },
-    { libelle: 'Piece administrative complementaire (a confirmer UGP)', groupe: 'administratif', exigence: 'si_disponible', ordre: 30 },
-    { libelle: 'Etats financiers', groupe: 'financier', exigence: 'obligatoire', ordre: 40 },
-    { libelle: 'Justificatif de contrepartie (a confirmer UGP)', groupe: 'financier', exigence: 'si_applicable', ordre: 50 },
-    { libelle: 'Piece financiere complementaire (a confirmer UGP)', groupe: 'financier', exigence: 'si_disponible', ordre: 60 },
-    { libelle: 'Plan d affaires ou note technique', groupe: 'technique', exigence: 'obligatoire', ordre: 70 },
-    { libelle: 'Devis ou plans d infrastructure (a confirmer UGP)', groupe: 'technique', exigence: 'si_applicable', ordre: 80 },
-    { libelle: 'Piece technique complementaire (a confirmer UGP)', groupe: 'technique', exigence: 'si_disponible', ordre: 90 },
+    // Administratives
+    { libelle: "Attestation d'existence legale (RC / acte constitutif)", groupe: 'administratif', exigence: 'obligatoire', ordre: 10 },
+    { libelle: "Numero d'identification fiscale (NIF)", groupe: 'administratif', exigence: 'obligatoire', ordre: 20 },
+    { libelle: 'Attestation de non-redevance fiscale', groupe: 'administratif', exigence: 'si_applicable', ordre: 30 },
+    { libelle: "Declaration de conflit d'interet", groupe: 'administratif', exigence: 'obligatoire', ordre: 40 },
+    // Financieres
+    { libelle: 'Etats financiers recents (3 exercices)', groupe: 'financier', exigence: 'obligatoire', ordre: 50 },
+    { libelle: 'Justificatif de mobilisation de la contrepartie', groupe: 'financier', exigence: 'obligatoire', ordre: 60 },
+    { libelle: "Plan d'affaires / budget detaille", groupe: 'financier', exigence: 'obligatoire', ordre: 70 },
+    // Techniques
+    { libelle: 'Note conceptuelle du projet', groupe: 'technique', exigence: 'obligatoire', ordre: 80 },
+    { libelle: 'Preuve de disponibilite du site', groupe: 'technique', exigence: 'obligatoire', ordre: 90 },
+    { libelle: "Devis / plans d'infrastructure", groupe: 'technique', exigence: 'si_disponible', ordre: 100 },
+    { libelle: 'Plan de gestion environnementale et sociale (PGES)', groupe: 'technique', exigence: 'si_applicable', ordre: 110 },
   ]) {
     await upsertDocument(strapi, 'api::type-piece.type-piece', { libelle: row.libelle }, row);
   }
