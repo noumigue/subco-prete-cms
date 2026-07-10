@@ -1,7 +1,7 @@
 'use strict';
 
 const { createCoreController } = require('@strapi/strapi').factories;
-const { getUserId, withOwnerFilter } = require('../../../utils/portal-owner');
+const { getUserId, withOwnerFilter, fetchOwned } = require('../../../utils/portal-owner');
 
 module.exports = createCoreController('api::notification.notification', ({ strapi }) => ({
   async find(ctx) {
@@ -21,11 +21,7 @@ module.exports = createCoreController('api::notification.notification', ({ strap
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const item = await strapi.documents('api::notification.notification').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-      populate: ['candidature'],
-    });
+    const item = await fetchOwned(strapi, 'api::notification.notification', (ctx.params.documentId || ctx.params.id), userId, ['candidature']);
 
     if (!item) {
       return ctx.notFound('Notification introuvable.');
@@ -38,10 +34,7 @@ module.exports = createCoreController('api::notification.notification', ({ strap
     const userId = getUserId(ctx);
     if (!userId) return;
 
-    const item = await strapi.documents('api::notification.notification').findFirst({
-      documentId: ctx.params.documentId,
-      filters: { owner: { id: userId } },
-    });
+    const item = await fetchOwned(strapi, 'api::notification.notification', (ctx.params.documentId || ctx.params.id), userId);
 
     if (!item?.documentId) {
       return ctx.notFound('Notification introuvable.');
@@ -54,5 +47,26 @@ module.exports = createCoreController('api::notification.notification', ({ strap
     });
 
     return this.transformResponse(updated);
+  },
+
+  // Tout marquer comme lu (owner-scoped) — Lot 1.
+  async toutMarquerLu(ctx) {
+    const userId = getUserId(ctx);
+    if (!userId) return;
+
+    const unread = await strapi.documents('api::notification.notification').findMany({
+      filters: { owner: { id: userId }, lu: false },
+      fields: ['documentId'],
+      limit: 500,
+    });
+
+    for (const item of unread) {
+      await strapi.documents('api::notification.notification').update({
+        documentId: item.documentId,
+        data: { lu: true },
+      });
+    }
+
+    ctx.body = { ok: true, count: unread.length };
   },
 }));

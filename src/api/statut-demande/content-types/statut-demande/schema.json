@@ -1,0 +1,27 @@
+{
+  "kind": "collectionType",
+  "collectionName": "statuts_demande",
+  "info": {
+    "singularName": "statut-demande",
+    "pluralName": "statuts-demande",
+    "displayName": "Statut demande"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "code": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "libelleBeneficiaire": {
+      "type": "string"
+    },
+    "ordre": {
+      "type": "integer",
+      "default": 0
+    }
+  }
+}

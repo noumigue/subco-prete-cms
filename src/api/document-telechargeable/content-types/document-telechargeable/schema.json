@@ -1,0 +1,16 @@
+{
+  "kind": "collectionType",
+  "collectionName": "documents_telechargeables",
+  "info": {
+    "singularName": "document-telechargeable",
+    "pluralName": "documents-telechargeables",
+    "displayName": "Document telechargeable"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "titre": { "type": "string", "required": true },
+    "fichier": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}

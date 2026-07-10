@@ -818,6 +818,47 @@ export interface ApiComplementComplement extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiConditionPrealableConditionPrealable
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'conditions_prealables';
+  info: {
+    displayName: 'Condition prealable';
+    pluralName: 'conditions-prealables';
+    singularName: 'condition-prealable';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dateValidation: Schema.Attribute.Date;
+    echeance: Schema.Attribute.Date;
+    fichierDepose: Schema.Attribute.Media<'files' | 'images'>;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::condition-prealable.condition-prealable'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Enumeration<
+      ['validee', 'en_cours_ugp', 'action_requise']
+    > &
+      Schema.Attribute.DefaultTo<'en_cours_ugp'>;
+    subvention: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::subvention.subvention'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiContenuAideContenuAide extends Struct.CollectionTypeSchema {
   collectionName: 'contenus_aide';
   info: {
@@ -842,6 +883,164 @@ export interface ApiContenuAideContenuAide extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     titre: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDemandeDecaissementDemandeDecaissement
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'demandes_decaissement';
+  info: {
+    displayName: 'Demande decaissement';
+    pluralName: 'demandes-decaissement';
+    singularName: 'demande-decaissement';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    aJustifier: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    avisFiduciaire: Schema.Attribute.Enumeration<
+      ['approuve', 'rejete', 'complements']
+    >;
+    avisTechnique: Schema.Attribute.Enumeration<
+      ['favorable', 'defavorable', 'favorable_reserve']
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    justificationPieces: Schema.Attribute.Media<'files' | 'images', true>;
+    justificationStatut: Schema.Attribute.Enumeration<
+      ['non_requise', 'attendue', 'soumise', 'validee']
+    > &
+      Schema.Attribute.DefaultTo<'non_requise'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::demande-decaissement.demande-decaissement'
+    > &
+      Schema.Attribute.Private;
+    modalite: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::modalite-decaissement.modalite-decaissement'
+    >;
+    montant: Schema.Attribute.BigInteger;
+    motifRejet: Schema.Attribute.Text;
+    numero: Schema.Attribute.Integer;
+    objet: Schema.Attribute.Text;
+    pieces: Schema.Attribute.Media<'files' | 'images', true>;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::statut-demande.statut-demande'
+    >;
+    subvention: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::subvention.subvention'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDocumentContractuelDocumentContractuel
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'documents_contractuels';
+  info: {
+    displayName: 'Document contractuel';
+    pluralName: 'documents-contractuels';
+    singularName: 'document-contractuel';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fichier: Schema.Attribute.Media<'files'>;
+    lettre: Schema.Attribute.Enumeration<
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::document-contractuel.document-contractuel'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    subvention: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::subvention.subvention'
+    >;
+    titre: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDocumentTelechargeableDocumentTelechargeable
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'documents_telechargeables';
+  info: {
+    displayName: 'Document telechargeable';
+    pluralName: 'documents-telechargeables';
+    singularName: 'document-telechargeable';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fichier: Schema.Attribute.Media<'files' | 'images'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::document-telechargeable.document-telechargeable'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    titre: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiEtapeContractuelleEtapeContractuelle
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'etapes_contractuelles';
+  info: {
+    displayName: 'Etape contractuelle';
+    pluralName: 'etapes-contractuelles';
+    singularName: 'etape-contractuelle';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::etape-contractuelle.etape-contractuelle'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -914,6 +1113,36 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
     registrationUrl: Schema.Attribute.String;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
     title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiFaqEntreeFaqEntree extends Struct.CollectionTypeSchema {
+  collectionName: 'faq_entrees';
+  info: {
+    displayName: 'FAQ entree';
+    pluralName: 'faq-entrees';
+    singularName: 'faq-entree';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::faq-entree.faq-entree'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    question: Schema.Attribute.String & Schema.Attribute.Required;
+    reponse: Schema.Attribute.Blocks;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1163,6 +1392,115 @@ export interface ApiInfrastructureTypeInfrastructureType
   };
 }
 
+export interface ApiJalonProjetJalonProjet extends Struct.CollectionTypeSchema {
+  collectionName: 'jalons_projet';
+  info: {
+    displayName: 'Jalon projet';
+    pluralName: 'jalons-projet';
+    singularName: 'jalon-projet';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    datePrevue: Schema.Attribute.Date;
+    dateReelle: Schema.Attribute.Date;
+    etape: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::etape-contractuelle.etape-contractuelle'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::jalon-projet.jalon-projet'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    subvention: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::subvention.subvention'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiMesureCorrectiveMesureCorrective
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'mesures_correctives';
+  info: {
+    displayName: 'Mesure corrective';
+    pluralName: 'mesures-correctives';
+    singularName: 'mesure-corrective';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text;
+    echeance: Schema.Attribute.Date;
+    fichierRegularisation: Schema.Attribute.Media<'files' | 'images'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::mesure-corrective.mesure-corrective'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Enumeration<['en_cours', 'regularisee']> &
+      Schema.Attribute.DefaultTo<'en_cours'>;
+    subvention: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::subvention.subvention'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiModaliteDecaissementModaliteDecaissement
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'modalites_decaissement';
+  info: {
+    displayName: 'Modalite decaissement';
+    pluralName: 'modalites-decaissement';
+    singularName: 'modalite-decaissement';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::modalite-decaissement.modalite-decaissement'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    piecesRequises: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiNewsNews extends Struct.CollectionTypeSchema {
   collectionName: 'news';
   info: {
@@ -1371,6 +1709,7 @@ export interface ApiProvinceProvince extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    anciensNoms: Schema.Attribute.JSON;
     code: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
@@ -1386,6 +1725,49 @@ export interface ApiProvinceProvince extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     nom: Schema.Attribute.String & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiRapportRequisRapportRequis
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'rapports_requis';
+  info: {
+    displayName: 'Rapport requis';
+    pluralName: 'rapports-requis';
+    singularName: 'rapport-requis';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dateTransmission: Schema.Attribute.Date;
+    echeance: Schema.Attribute.Date;
+    fichier: Schema.Attribute.Media<'files'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::rapport-requis.rapport-requis'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    periodeLibelle: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Enumeration<['a_venir', 'echu', 'transmis']> &
+      Schema.Attribute.DefaultTo<'a_venir'>;
+    subvention: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::subvention.subvention'
+    >;
+    type: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::type-rapport.type-rapport'
+    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1524,6 +1906,39 @@ export interface ApiStatutCandidatureStatutCandidature
   };
 }
 
+export interface ApiStatutDemandeStatutDemande
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'statuts_demande';
+  info: {
+    displayName: 'Statut demande';
+    pluralName: 'statuts-demande';
+    singularName: 'statut-demande';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelleBeneficiaire: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::statut-demande.statut-demande'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiStatutJuridiqueStatutJuridique
   extends Struct.CollectionTypeSchema {
   collectionName: 'statuts_juridiques';
@@ -1548,6 +1963,78 @@ export interface ApiStatutJuridiqueStatutJuridique
       Schema.Attribute.Private;
     ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSubventionSubvention extends Struct.CollectionTypeSchema {
+  collectionName: 'subventions';
+  info: {
+    displayName: 'Subvention';
+    pluralName: 'subventions';
+    singularName: 'subvention';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    avenants: Schema.Attribute.Media<'files', true>;
+    candidature: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::candidature.candidature'
+    >;
+    conditionsPrealables: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::condition-prealable.condition-prealable'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dateSignature: Schema.Attribute.Date;
+    demandes: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::demande-decaissement.demande-decaissement'
+    >;
+    documentsContractuels: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::document-contractuel.document-contractuel'
+    >;
+    jalons: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::jalon-projet.jalon-projet'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::subvention.subvention'
+    > &
+      Schema.Attribute.Private;
+    mesuresCorrectives: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::mesure-corrective.mesure-corrective'
+    >;
+    montantContrepartie: Schema.Attribute.BigInteger;
+    montantDecaisse: Schema.Attribute.BigInteger &
+      Schema.Attribute.DefaultTo<'0'>;
+    montantSubvention: Schema.Attribute.BigInteger;
+    montantTotal: Schema.Attribute.BigInteger;
+    numeroConvention: Schema.Attribute.String;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    pdfConvention: Schema.Attribute.Media<'files'>;
+    publishedAt: Schema.Attribute.DateTime;
+    rapports: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::rapport-requis.rapport-requis'
+    >;
+    statut: Schema.Attribute.Enumeration<
+      ['preparation', 'active', 'suspendue', 'cloturee']
+    > &
+      Schema.Attribute.DefaultTo<'preparation'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1687,6 +2174,38 @@ export interface ApiTypePieceTypePiece extends Struct.CollectionTypeSchema {
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::type-piece.type-piece'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiTypeRapportTypeRapport extends Struct.CollectionTypeSchema {
+  collectionName: 'types_rapport';
+  info: {
+    displayName: 'Type rapport';
+    pluralName: 'types-rapport';
+    singularName: 'type-rapport';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::type-rapport.type-rapport'
     > &
       Schema.Attribute.Private;
     ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
@@ -2204,17 +2723,21 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    emailChangeToken: Schema.Attribute.String & Schema.Attribute.Private;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
+    orgName: Schema.Attribute.String;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    pendingEmail: Schema.Attribute.String & Schema.Attribute.Private;
+    phone: Schema.Attribute.String;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
@@ -2254,9 +2777,15 @@ declare module '@strapi/strapi' {
       'api::commune.commune': ApiCommuneCommune;
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
       'api::complement.complement': ApiComplementComplement;
+      'api::condition-prealable.condition-prealable': ApiConditionPrealableConditionPrealable;
       'api::contenu-aide.contenu-aide': ApiContenuAideContenuAide;
+      'api::demande-decaissement.demande-decaissement': ApiDemandeDecaissementDemandeDecaissement;
+      'api::document-contractuel.document-contractuel': ApiDocumentContractuelDocumentContractuel;
+      'api::document-telechargeable.document-telechargeable': ApiDocumentTelechargeableDocumentTelechargeable;
+      'api::etape-contractuelle.etape-contractuelle': ApiEtapeContractuelleEtapeContractuelle;
       'api::etape-programme.etape-programme': ApiEtapeProgrammeEtapeProgramme;
       'api::event.event': ApiEventEvent;
+      'api::faq-entree.faq-entree': ApiFaqEntreeFaqEntree;
       'api::faq-item.faq-item': ApiFaqItemFaqItem;
       'api::faq.faq': ApiFaqFaq;
       'api::filiere.filiere': ApiFiliereFiliere;
@@ -2264,20 +2793,27 @@ declare module '@strapi/strapi' {
       'api::homepage.homepage': ApiHomepageHomepage;
       'api::infrastructure-band.infrastructure-band': ApiInfrastructureBandInfrastructureBand;
       'api::infrastructure-type.infrastructure-type': ApiInfrastructureTypeInfrastructureType;
+      'api::jalon-projet.jalon-projet': ApiJalonProjetJalonProjet;
+      'api::mesure-corrective.mesure-corrective': ApiMesureCorrectiveMesureCorrective;
+      'api::modalite-decaissement.modalite-decaissement': ApiModaliteDecaissementModaliteDecaissement;
       'api::news.news': ApiNewsNews;
       'api::notification-ami.notification-ami': ApiNotificationAmiNotificationAmi;
       'api::notification.notification': ApiNotificationNotification;
       'api::organisation.organisation': ApiOrganisationOrganisation;
       'api::partner.partner': ApiPartnerPartner;
       'api::province.province': ApiProvinceProvince;
+      'api::rapport-requis.rapport-requis': ApiRapportRequisRapportRequis;
       'api::resource-document.resource-document': ApiResourceDocumentResourceDocument;
       'api::site-navigation.site-navigation': ApiSiteNavigationSiteNavigation;
       'api::statut-candidature.statut-candidature': ApiStatutCandidatureStatutCandidature;
+      'api::statut-demande.statut-demande': ApiStatutDemandeStatutDemande;
       'api::statut-juridique.statut-juridique': ApiStatutJuridiqueStatutJuridique;
+      'api::subvention.subvention': ApiSubventionSubvention;
       'api::success-story.success-story': ApiSuccessStorySuccessStory;
       'api::support-ticket.support-ticket': ApiSupportTicketSupportTicket;
       'api::type-contrepartie.type-contrepartie': ApiTypeContrepartieTypeContrepartie;
       'api::type-piece.type-piece': ApiTypePieceTypePiece;
+      'api::type-rapport.type-rapport': ApiTypeRapportTypeRapport;
       'api::value-chain.value-chain': ApiValueChainValueChain;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

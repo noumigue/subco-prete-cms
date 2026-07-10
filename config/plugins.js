@@ -1,6 +1,19 @@
 module.exports = ({ env }) => {
+  // Champs additionnels persistes par l'endpoint /auth/local/register.
+  // orgName : nom d'organisation saisi a l'inscription (alimente la session, jamais de repli sur l'e-mail).
+  // phone   : capte a la 1re candidature (D1), remonte au compte.
+  const config = {
+    'users-permissions': {
+      config: {
+        register: {
+          allowedFields: ['orgName', 'phone'],
+        },
+      },
+    },
+  };
+
   if (env.bool('STRAPI_DISABLE_UPLOAD_PROVIDER', false)) {
-    return {};
+    return config;
   }
 
   const bucket = env('DO_SPACES_BUCKET');
@@ -9,13 +22,14 @@ module.exports = ({ env }) => {
   const secretAccessKey = env('DO_SPACES_SECRET');
 
   if (!bucket || !region || !accessKeyId || !secretAccessKey) {
-    return {};
+    return config;
   }
 
   const endpoint = env('DO_SPACES_ENDPOINT', `https://${region}.digitaloceanspaces.com`);
   const baseUrl = env('DO_SPACES_BASE_URL', `https://${bucket}.${region}.digitaloceanspaces.com`);
 
   return {
+    ...config,
     upload: {
       config: {
         provider: 'aws-s3',

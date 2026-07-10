@@ -1,0 +1,72 @@
+{
+  "kind": "collectionType",
+  "collectionName": "subventions",
+  "info": {
+    "singularName": "subvention",
+    "pluralName": "subventions",
+    "displayName": "Subvention"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "candidature": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::candidature.candidature"
+    },
+    "numeroConvention": { "type": "string" },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["preparation", "active", "suspendue", "cloturee"],
+      "default": "preparation"
+    },
+    "dateSignature": { "type": "date" },
+    "montantTotal": { "type": "biginteger" },
+    "montantSubvention": { "type": "biginteger" },
+    "montantContrepartie": { "type": "biginteger" },
+    "montantDecaisse": { "type": "biginteger", "default": "0" },
+    "pdfConvention": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "avenants": { "type": "media", "multiple": true, "allowedTypes": ["files"] },
+    "documentsContractuels": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::document-contractuel.document-contractuel",
+      "mappedBy": "subvention"
+    },
+    "conditionsPrealables": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::condition-prealable.condition-prealable",
+      "mappedBy": "subvention"
+    },
+    "jalons": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::jalon-projet.jalon-projet",
+      "mappedBy": "subvention"
+    },
+    "rapports": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::rapport-requis.rapport-requis",
+      "mappedBy": "subvention"
+    },
+    "mesuresCorrectives": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::mesure-corrective.mesure-corrective",
+      "mappedBy": "subvention"
+    },
+    "demandes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::demande-decaissement.demande-decaissement",
+      "mappedBy": "subvention"
+    }
+  }
+}

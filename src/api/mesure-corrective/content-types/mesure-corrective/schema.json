@@ -1,0 +1,27 @@
+{
+  "kind": "collectionType",
+  "collectionName": "mesures_correctives",
+  "info": {
+    "singularName": "mesure-corrective",
+    "pluralName": "mesures-correctives",
+    "displayName": "Mesure corrective"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "subvention": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::subvention.subvention",
+      "inversedBy": "mesuresCorrectives"
+    },
+    "description": { "type": "text" },
+    "echeance": { "type": "date" },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["en_cours", "regularisee"],
+      "default": "en_cours"
+    },
+    "fichierRegularisation": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] }
+  }
+}

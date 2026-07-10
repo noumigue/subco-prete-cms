@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "conditions_prealables",
+  "info": {
+    "singularName": "condition-prealable",
+    "pluralName": "conditions-prealables",
+    "displayName": "Condition prealable"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "subvention": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::subvention.subvention",
+      "inversedBy": "conditionsPrealables"
+    },
+    "libelle": { "type": "string", "required": true },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["validee", "en_cours_ugp", "action_requise"],
+      "default": "en_cours_ugp"
+    },
+    "echeance": { "type": "date" },
+    "fichierDepose": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "dateValidation": { "type": "date" },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}

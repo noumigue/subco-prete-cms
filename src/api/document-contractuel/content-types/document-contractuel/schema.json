@@ -1,0 +1,25 @@
+{
+  "kind": "collectionType",
+  "collectionName": "documents_contractuels",
+  "info": {
+    "singularName": "document-contractuel",
+    "pluralName": "documents-contractuels",
+    "displayName": "Document contractuel"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "subvention": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::subvention.subvention",
+      "inversedBy": "documentsContractuels"
+    },
+    "lettre": {
+      "type": "enumeration",
+      "enum": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+    },
+    "titre": { "type": "string" },
+    "fichier": { "type": "media", "multiple": false, "allowedTypes": ["files"] }
+  }
+}

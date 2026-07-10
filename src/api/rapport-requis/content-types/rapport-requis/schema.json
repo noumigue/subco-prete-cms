@@ -1,0 +1,34 @@
+{
+  "kind": "collectionType",
+  "collectionName": "rapports_requis",
+  "info": {
+    "singularName": "rapport-requis",
+    "pluralName": "rapports-requis",
+    "displayName": "Rapport requis"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "subvention": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::subvention.subvention",
+      "inversedBy": "rapports"
+    },
+    "type": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::type-rapport.type-rapport"
+    },
+    "periodeLibelle": { "type": "string" },
+    "echeance": { "type": "date" },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["a_venir", "echu", "transmis"],
+      "default": "a_venir"
+    },
+    "fichier": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "dateTransmission": { "type": "date" },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}
