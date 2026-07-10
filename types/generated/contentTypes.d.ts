@@ -713,6 +713,39 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCategorieAssistanceCategorieAssistance
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'categories_assistance';
+  info: {
+    displayName: 'Categorie assistance';
+    pluralName: 'categories-assistance';
+    singularName: 'categorie-assistance';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::categorie-assistance.categorie-assistance'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiCommuneCommune extends Struct.CollectionTypeSchema {
   collectionName: 'communes_reforme_2025';
   info: {
@@ -883,6 +916,61 @@ export interface ApiContenuAideContenuAide extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     titre: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDemandeAssistanceDemandeAssistance
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'demandes_assistance';
+  info: {
+    displayName: 'Demande assistance';
+    pluralName: 'demandes-assistance';
+    singularName: 'demande-assistance';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    categorie: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::categorie-assistance.categorie-assistance'
+    >;
+    concerneCandidature: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::candidature.candidature'
+    >;
+    concerneSubvention: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::subvention.subvention'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::demande-assistance.demande-assistance'
+    > &
+      Schema.Attribute.Private;
+    messages: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::message-assistance.message-assistance'
+    >;
+    objet: Schema.Attribute.String & Schema.Attribute.Required;
+    origine: Schema.Attribute.Enumeration<['operateur', 'ugp']> &
+      Schema.Attribute.DefaultTo<'operateur'>;
+    owner: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    resolueLe: Schema.Attribute.DateTime;
+    resoluePar: Schema.Attribute.Enumeration<['operateur', 'equipe']>;
+    statut: Schema.Attribute.Enumeration<['ouverte', 'en_cours', 'resolue']> &
+      Schema.Attribute.DefaultTo<'ouverte'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1424,6 +1512,43 @@ export interface ApiJalonProjetJalonProjet extends Struct.CollectionTypeSchema {
       'manyToOne',
       'api::subvention.subvention'
     >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiMessageAssistanceMessageAssistance
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'messages_assistance';
+  info: {
+    displayName: 'Message assistance';
+    pluralName: 'messages-assistance';
+    singularName: 'message-assistance';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    auteur: Schema.Attribute.Enumeration<['operateur', 'equipe']> &
+      Schema.Attribute.DefaultTo<'operateur'>;
+    corps: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    demande: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::demande-assistance.demande-assistance'
+    >;
+    envoyeLe: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::message-assistance.message-assistance'
+    > &
+      Schema.Attribute.Private;
+    pieces: Schema.Attribute.Media<'files' | 'images', true>;
+    publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2775,11 +2900,13 @@ declare module '@strapi/strapi' {
       'api::call-for-proposal.call-for-proposal': ApiCallForProposalCallForProposal;
       'api::candidature-guide.candidature-guide': ApiCandidatureGuideCandidatureGuide;
       'api::candidature.candidature': ApiCandidatureCandidature;
+      'api::categorie-assistance.categorie-assistance': ApiCategorieAssistanceCategorieAssistance;
       'api::commune.commune': ApiCommuneCommune;
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
       'api::complement.complement': ApiComplementComplement;
       'api::condition-prealable.condition-prealable': ApiConditionPrealableConditionPrealable;
       'api::contenu-aide.contenu-aide': ApiContenuAideContenuAide;
+      'api::demande-assistance.demande-assistance': ApiDemandeAssistanceDemandeAssistance;
       'api::demande-decaissement.demande-decaissement': ApiDemandeDecaissementDemandeDecaissement;
       'api::document-contractuel.document-contractuel': ApiDocumentContractuelDocumentContractuel;
       'api::document-telechargeable.document-telechargeable': ApiDocumentTelechargeableDocumentTelechargeable;
@@ -2795,6 +2922,7 @@ declare module '@strapi/strapi' {
       'api::infrastructure-band.infrastructure-band': ApiInfrastructureBandInfrastructureBand;
       'api::infrastructure-type.infrastructure-type': ApiInfrastructureTypeInfrastructureType;
       'api::jalon-projet.jalon-projet': ApiJalonProjetJalonProjet;
+      'api::message-assistance.message-assistance': ApiMessageAssistanceMessageAssistance;
       'api::mesure-corrective.mesure-corrective': ApiMesureCorrectiveMesureCorrective;
       'api::modalite-decaissement.modalite-decaissement': ApiModaliteDecaissementModaliteDecaissement;
       'api::news.news': ApiNewsNews;

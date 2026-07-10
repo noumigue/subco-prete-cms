@@ -199,6 +199,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::type-rapport.type-rapport',
     'api::etape-contractuelle.etape-contractuelle',
     'api::statut-demande.statut-demande',
+    'api::categorie-assistance.categorie-assistance',
   ];
 
   for (const uid of publicReadUids) {
@@ -244,6 +245,12 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::portal-compte.portal-compte.moi',
     'api::portal-compte.portal-compte.updateTelephone',
     'api::portal-compte.portal-compte.requestEmailChange',
+    // Assistance (canal bidirectionnel) — candidat ET beneficiaire (heritage).
+    'api::demande-assistance.demande-assistance.find',
+    'api::demande-assistance.demande-assistance.findOne',
+    'api::demande-assistance.demande-assistance.create',
+    'api::demande-assistance.demande-assistance.repondre',
+    'api::demande-assistance.demande-assistance.resoudre',
     'api::notification.notification.find',
     'api::notification.notification.findOne',
     'api::notification.notification.update',
@@ -492,6 +499,16 @@ async function ensureReferentials(strapi) {
     await upsertDocument(strapi, 'api::document-telechargeable.document-telechargeable', { titre: row.titre }, row);
   }
 
+  // Categories d'assistance (referentiel A.2) — jamais en dur cote portail.
+  for (const row of [
+    { code: 'ma_candidature', libelle: 'Ma candidature', ordre: 10 },
+    { code: 'ma_subvention', libelle: 'Ma subvention', ordre: 20 },
+    { code: 'probleme_technique', libelle: 'Probleme technique', ordre: 30 },
+    { code: 'autre', libelle: 'Autre', ordre: 40 },
+  ]) {
+    await upsertDocument(strapi, 'api::categorie-assistance.categorie-assistance', { code: row.code }, row);
+  }
+
   return { cohort };
 }
 
@@ -634,6 +651,91 @@ async function ensureDemoPortalData(strapi, candidateRole) {
   // (pour que « PDF du dossier » soit telechargeable en demo).
   await ensureDemoPdf(strapi, inProgress, organisation, appel);
   await ensureDemoPdf(strapi, rejected, organisation, appel);
+
+  // Demandes d'assistance de demo.
+  await ensureDemoAssistance(strapi, user, inProgress);
+}
+
+async function uploadDemoPieceImage(strapi, label) {
+  // Petit PDF « capture » servant de piece jointe de demo (A4).
+  const { buildCandidaturePdf } = require('./portal-pdf');
+  const buffer = await buildCandidaturePdf({
+    candidature: { titreProjet: label, donneesProjet: {} },
+    organisation: { nom: 'Capture de demonstration' },
+    appel: { nom: 'Assistance' },
+    mode: 'brouillon',
+  });
+  const tmpPath = path.join(os.tmpdir(), `subco-att-${crypto.randomUUID()}.pdf`);
+  await fs.writeFile(tmpPath, buffer);
+  try {
+    const [uploaded] = await strapi.plugin('upload').service('upload').upload({
+      data: { fileInfo: { name: 'capture.pdf' } },
+      files: { filepath: tmpPath, originalFilename: 'capture.pdf', mimetype: 'application/pdf', size: buffer.length },
+    });
+    return uploaded?.id || null;
+  } finally {
+    await fs.unlink(tmpPath).catch(() => undefined);
+  }
+}
+
+async function ensureDemoAssistance(strapi, user, candidatureLiee) {
+  const OBJET_EN_COURS = "Je n'arrive pas a joindre mon etat financier";
+  const OBJET_RESOLUE = 'Comment modifier mon numero de telephone ?';
+
+  const [catCandidature, catAutre] = await Promise.all([
+    findOneBy(strapi, 'api::categorie-assistance.categorie-assistance', { code: 'ma_candidature' }),
+    findOneBy(strapi, 'api::categorie-assistance.categorie-assistance', { code: 'autre' }),
+  ]);
+
+  // 1. Demande EN COURS (message operateur + piece, puis reponse equipe -> lifecycle en_cours + notif).
+  if (!(await findOneBy(strapi, 'api::demande-assistance.demande-assistance', { objet: OBJET_EN_COURS }))) {
+    const demande = await strapi.documents('api::demande-assistance.demande-assistance').create({
+      data: {
+        owner: user.id,
+        objet: OBJET_EN_COURS,
+        categorie: connectRelation(catCandidature),
+        concerneCandidature: connectRelation(candidatureLiee),
+        statut: 'ouverte',
+        origine: 'operateur',
+      },
+    });
+    const pieceId = await uploadDemoPieceImage(strapi, 'Capture ecran');
+    await strapi.documents('api::message-assistance.message-assistance').create({
+      data: {
+        demande: connectRelation(demande),
+        auteur: 'operateur',
+        corps: "Quand je clique sur le slot « Etats financiers », rien ne se passe. J'ai essaye deux fois.",
+        pieces: pieceId ? [pieceId] : undefined,
+        envoyeLe: '2026-07-12T10:04:00.000Z',
+      },
+    });
+    // Reponse equipe -> declenche le lifecycle (en_cours + notification).
+    await strapi.documents('api::message-assistance.message-assistance').create({
+      data: {
+        demande: connectRelation(demande),
+        auteur: 'equipe',
+        corps: 'Bonjour, merci pour la capture. Depuis quel appareil vous connectez-vous ? En attendant, essayez depuis un autre navigateur.',
+        envoyeLe: '2026-07-14T09:12:00.000Z',
+      },
+    });
+  }
+
+  // 2. Demande RESOLUE (resolue par l'operateur).
+  if (!(await findOneBy(strapi, 'api::demande-assistance.demande-assistance', { objet: OBJET_RESOLUE }))) {
+    const demande = await strapi.documents('api::demande-assistance.demande-assistance').create({
+      data: { owner: user.id, objet: OBJET_RESOLUE, categorie: connectRelation(catAutre), statut: 'ouverte', origine: 'operateur' },
+    });
+    await strapi.documents('api::message-assistance.message-assistance').create({
+      data: { demande: connectRelation(demande), auteur: 'operateur', corps: "J'ai change de numero, ou puis-je le mettre a jour pour recevoir les SMS ?", envoyeLe: '2026-07-06T15:40:00.000Z' },
+    });
+    await strapi.documents('api::message-assistance.message-assistance').create({
+      data: { demande: connectRelation(demande), auteur: 'equipe', corps: 'Bonjour, rendez-vous dans « Mon compte » -> « Numero de notification (SMS) ». Enregistrez le nouveau numero.', envoyeLe: '2026-07-07T08:55:00.000Z' },
+    });
+    await strapi.documents('api::demande-assistance.demande-assistance').update({
+      documentId: demande.documentId,
+      data: { statut: 'resolue', resolueLe: '2026-07-08T09:00:00.000Z', resoluePar: 'operateur' },
+    });
+  }
 }
 
 module.exports = {
