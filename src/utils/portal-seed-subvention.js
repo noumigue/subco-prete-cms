@@ -3,12 +3,50 @@
 // Seed « Ma subvention » (Lot 2) — referentiels + 2 subventions de demo multi-etats.
 // User A (demo-candidat) : subvention en PREPARATION. User B (demo-beneficiaire) : subvention ACTIVE.
 
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
+const fs = require('fs/promises');
+const PDFDocument = require('pdfkit');
+
 const { DEMO_EMAIL, DEMO_PASSWORD } = require('./portal-seed');
 
 const DEMO_B_EMAIL = 'demo-beneficiaire@subco-prete.bi';
 
 function connect(documentId) {
   return documentId ? { connect: [documentId] } : undefined;
+}
+
+// Petit PDF de demonstration (pour meubler les documents de la convention en demo).
+function simplePdf(title, lines) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margins: { top: 64, bottom: 64, left: 56, right: 56 } });
+    const chunks = [];
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    doc.font('Helvetica-Bold').fontSize(16).fillColor('#155446').text('SUBCO-PRETE');
+    doc.moveDown(0.3).font('Helvetica-Bold').fontSize(13).fillColor('#1f2d28').text(title);
+    doc.moveDown(0.6).font('Helvetica').fontSize(10.5).fillColor('#5c6b64');
+    (lines || []).forEach((l) => doc.text(l, { paragraphGap: 4 }));
+    doc.moveDown(2).fontSize(9).fillColor('#9aa9a2')
+      .text('Document de demonstration — Projet PRETE Nyunganira. En production, la piece officielle est jointe par l’UGP.');
+    doc.end();
+  });
+}
+
+async function uploadPdfBuffer(strapi, buffer, filename) {
+  const tmpPath = path.join(os.tmpdir(), `subco-cv-${crypto.randomUUID()}.pdf`);
+  await fs.writeFile(tmpPath, buffer);
+  try {
+    const [uploaded] = await strapi.plugin('upload').service('upload').upload({
+      data: { fileInfo: { name: filename } },
+      files: { filepath: tmpPath, originalFilename: filename, mimetype: 'application/pdf', size: buffer.length },
+    });
+    return uploaded;
+  } finally {
+    await fs.unlink(tmpPath).catch(() => undefined);
+  }
 }
 
 async function findOneBy(strapi, uid, where) {
@@ -54,6 +92,13 @@ async function ensureReferentielsDecaissement(strapi) {
       libelle: 'Avance (cas exceptionnel)',
       ordre: 30,
       piecesRequises: ['Plan de tresorerie', "Calendrier d'activites", 'Demande officielle de decaissement'],
+      // Pieces attendues pour JUSTIFIER une avance payee (11.3.2) — editable au CMS.
+      piecesJustification: [
+        "Rapport technique d'avancement",
+        'Etat des depenses realisees',
+        'Factures et preuves de paiement',
+        'PV ou attestations de reception',
+      ],
     },
     {
       code: 'jalon',
@@ -309,11 +354,89 @@ async function ensureSubventionB(strapi, userB) {
   }
 }
 
+// Enrichissement idempotent de la subvention B (s'applique meme si elle existe deja) :
+// candidature liee (remplit « Le projet »), PDF de convention + fichiers des documents A-I.
+const DEMO_DONNEES_B = {
+  etape: 4,
+  operateur: { nif: '4002233445', rc: 'RC/BJM/2022/0512', email: DEMO_B_EMAIL, telephone: '+257 79 22 33 44' },
+  projet: {
+    filiere: 'Fruits tropicaux',
+    typeInfrastructure: 'Unite de sechage de mangues',
+    siteProvince: 'Bujumbura', siteCommune: 'Mukaza', memeSiege: true,
+    statutSite: 'Propriete', usageCollectif: 'Oui', mpmeDesservies: '120', maturite: 'Mature',
+    noteConceptuelle: "Unite de sechage de mangues au benefice de 120 MPME de la chaine de valeur fruits tropicaux.",
+  },
+  financement: { budgetTotal: 120000000, contrepartie: 24000000, typeContrepartie: 'Numeraire' },
+  impact: { mpme: '120', femmes: '65', jeunes: '30', refugies: '12', emplois: '18', porteParFemme: 'Oui', zoneRurale: 'Oui' },
+};
+
+async function ensureSubventionBContent(strapi) {
+  const userB = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email: DEMO_B_EMAIL } });
+  if (!userB) return;
+
+  const subvention = await strapi.documents('api::subvention.subvention').findFirst({
+    filters: { owner: { id: userB.id } },
+    populate: { candidature: true, pdfConvention: true, documentsContractuels: { populate: ['fichier'] } },
+  });
+  if (!subvention?.documentId) return;
+
+  // 1. Candidature liee (pour que « Le projet » de la convention soit rempli).
+  if (!subvention.candidature) {
+    const [appel, statutSel, organisation] = await Promise.all([
+      findOneBy(strapi, 'api::appel.appel', { codeCohorte: 'C1' }),
+      findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'selectionne' }),
+      findOneBy(strapi, 'api::organisation.organisation', { nom: 'Cooperative Twungubumwe' }),
+    ]);
+    const candidature = await upsert(strapi, 'api::candidature.candidature', { titreProjet: 'Unite de sechage de mangues' }, {
+      owner: userB.id,
+      appel: connect(appel?.documentId),
+      organisation: connect(organisation?.documentId),
+      titreProjet: 'Unite de sechage de mangues',
+      statut: connect(statutSel?.documentId),
+      numeroDossier: 'PRETE-AP-C1-2026-00031',
+      dateDepot: '2026-07-10T09:00:00.000Z',
+      donneesProjet: DEMO_DONNEES_B,
+    });
+    await strapi.documents('api::subvention.subvention').update({
+      documentId: subvention.documentId,
+      data: { candidature: connect(candidature.documentId) },
+    });
+  }
+
+  // 2. PDF de convention + fichiers des documents contractuels (placeholder de demo partage).
+  const docs = subvention.documentsContractuels || [];
+  const needsDocs = docs.some((d) => !d.fichier);
+  if (!subvention.pdfConvention || needsDocs) {
+    const buffer = await simplePdf('Convention de subvention (specimen)', [
+      `Numero : ${subvention.numeroConvention || ''}`,
+      'Objet : convention type de subvention de contrepartie PRETE.',
+      'Ce specimen illustre l’emplacement du document signe telecharge par le beneficiaire.',
+    ]);
+    const uploaded = await uploadPdfBuffer(strapi, buffer, `${subvention.numeroConvention || 'convention'}.pdf`);
+
+    if (!subvention.pdfConvention && uploaded?.id) {
+      await strapi.documents('api::subvention.subvention').update({
+        documentId: subvention.documentId,
+        data: { pdfConvention: uploaded.id },
+      });
+    }
+    for (const d of docs) {
+      if (!d.fichier && uploaded?.id) {
+        await strapi.documents('api::document-contractuel.document-contractuel').update({
+          documentId: d.documentId,
+          data: { fichier: uploaded.id },
+        });
+      }
+    }
+  }
+}
+
 // Donnees de DEMO uniquement (les referentiels sont provisionnes separement, toujours).
 async function ensureSubventionDemo(strapi) {
   const userB = await ensureUserB(strapi);
   await ensureSubventionA(strapi);
   await ensureSubventionB(strapi, userB);
+  await ensureSubventionBContent(strapi);
 }
 
 module.exports = { ensureReferentielsDecaissement, ensureSubventionDemo, DEMO_B_EMAIL };
