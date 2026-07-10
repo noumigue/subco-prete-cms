@@ -25,11 +25,25 @@ module.exports = {
    * run jobs, or perform some special logic.
    */
   async bootstrap({ strapi }) {
+    // Roles, referentiels (editables au CMS) et webhook : toujours provisionnes.
     const { candidateRole } = await ensurePortalRolesAndSettings(strapi);
     await ensureReferentials(strapi);
-    await ensureDemoPortalData(strapi, candidateRole);
-    await ensureSubventionDemo(strapi);
     await ensureRevalidateWebhook(strapi);
+
+    // Donnees de DEMO (comptes/candidatures/subventions fictifs) : JAMAIS en production
+    // sauf activation explicite. Par defaut : seed demo hors production uniquement.
+    const seedDemoEnv = process.env.SEED_DEMO_DATA;
+    const seedDemo = seedDemoEnv != null
+      ? ['1', 'true', 'yes', 'on'].includes(String(seedDemoEnv).toLowerCase())
+      : process.env.NODE_ENV !== 'production';
+
+    if (seedDemo) {
+      await ensureDemoPortalData(strapi, candidateRole);
+      await ensureSubventionDemo(strapi);
+      strapi.log.info('[seed] Donnees de demo provisionnees (SEED_DEMO_DATA / non-production).');
+    } else {
+      strapi.log.info('[seed] Donnees de demo ignorees (production).');
+    }
 
     const notificationService = strapi.service('api::notification-ami.notification-ami');
 
