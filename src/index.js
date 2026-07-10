@@ -6,7 +6,7 @@ const {
   ensureReferentials,
 } = require('./utils/portal-seed');
 const { ensureRevalidateWebhook } = require('./utils/portal-webhook');
-const { ensureSubventionDemo } = require('./utils/portal-seed-subvention');
+const { ensureReferentielsDecaissement, ensureSubventionDemo } = require('./utils/portal-seed-subvention');
 
 module.exports = {
   /**
@@ -28,6 +28,7 @@ module.exports = {
     // Roles, referentiels (editables au CMS) et webhook : toujours provisionnes.
     const { candidateRole } = await ensurePortalRolesAndSettings(strapi);
     await ensureReferentials(strapi);
+    await ensureReferentielsDecaissement(strapi);
     await ensureRevalidateWebhook(strapi);
 
     // Donnees de DEMO (comptes/candidatures/subventions fictifs) : JAMAIS en production
