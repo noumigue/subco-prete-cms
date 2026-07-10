@@ -309,11 +309,11 @@ async function ensureSubventionB(strapi, userB) {
   }
 }
 
+// Donnees de DEMO uniquement (les referentiels sont provisionnes separement, toujours).
 async function ensureSubventionDemo(strapi) {
-  await ensureReferentielsDecaissement(strapi);
   const userB = await ensureUserB(strapi);
   await ensureSubventionA(strapi);
   await ensureSubventionB(strapi, userB);
 }
 
-module.exports = { ensureSubventionDemo, DEMO_B_EMAIL };
+module.exports = { ensureReferentielsDecaissement, ensureSubventionDemo, DEMO_B_EMAIL };
