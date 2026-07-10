@@ -23,6 +23,10 @@
     "piecesRequises": {
       "type": "json"
     },
+    "piecesJustification": {
+      "type": "json",
+      "description": "Pieces attendues pour justifier une avance (11.3.2) — utilise sur la modalite `avance`."
+    },
     "ordre": {
       "type": "integer",
       "default": 0

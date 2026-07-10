@@ -1493,6 +1493,7 @@ export interface ApiModaliteDecaissementModaliteDecaissement
     > &
       Schema.Attribute.Private;
     ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    piecesJustification: Schema.Attribute.JSON;
     piecesRequises: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
