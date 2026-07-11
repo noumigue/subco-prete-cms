@@ -2,6 +2,7 @@
 
 const {
   ensureDemoPortalData,
+  ensureGestionDemoData,
   ensurePortalRolesAndSettings,
   ensureReferentials,
 } = require('./utils/portal-seed');
@@ -41,6 +42,8 @@ module.exports = {
     if (seedDemo) {
       await ensureDemoPortalData(strapi, candidateRole);
       await ensureSubventionDemo(strapi);
+      // Socle back-office M5 : comptes internes + file de dossiers de demo.
+      await ensureGestionDemoData(strapi);
       strapi.log.info('[seed] Donnees de demo provisionnees (SEED_DEMO_DATA / non-production).');
     } else {
       strapi.log.info('[seed] Donnees de demo ignorees (production).');

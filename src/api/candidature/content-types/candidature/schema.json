@@ -24,6 +24,11 @@
       "relation": "manyToOne",
       "target": "api::organisation.organisation"
     },
+    "prisEnChargePar": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
     "titreProjet": { "type": "string", "required": true },
     "statut": {
       "type": "relation",

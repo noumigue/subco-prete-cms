@@ -1,0 +1,27 @@
+{
+  "kind": "collectionType",
+  "collectionName": "instructions_eligibilite",
+  "info": {
+    "singularName": "instruction-eligibilite",
+    "pluralName": "instructions-eligibilite",
+    "displayName": "Instruction eligibilite"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::candidature.candidature"
+    },
+    "verdictsCriteres": { "type": "json" },
+    "verdictGlobal": { "type": "enumeration", "enum": ["eligible", "rejet"] },
+    "motifRejet": { "type": "text" },
+    "workflow": { "type": "enumeration", "enum": ["en_cours", "propose", "valide", "renvoye"], "default": "en_cours" },
+    "proposePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "proposeLe": { "type": "datetime" },
+    "validePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "valideLe": { "type": "datetime" },
+    "commentaireRenvoi": { "type": "text" }
+  }
+}

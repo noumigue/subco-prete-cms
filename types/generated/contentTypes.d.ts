@@ -465,6 +465,45 @@ export interface ApiAboutPageAboutPage extends Struct.SingleTypeSchema {
   };
 }
 
+export interface ApiActeDossierActeDossier extends Struct.CollectionTypeSchema {
+  collectionName: 'actes_dossier';
+  info: {
+    displayName: 'Acte dossier';
+    pluralName: 'actes-dossier';
+    singularName: 'acte-dossier';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    auteur: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    auteurLibelle: Schema.Attribute.String;
+    candidature: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::candidature.candidature'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    date: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::acte-dossier.acte-dossier'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    texte: Schema.Attribute.Text;
+    type: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiAppelAppel extends Struct.CollectionTypeSchema {
   collectionName: 'appels';
   info: {
@@ -701,6 +740,10 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
       'plugin::users-permissions.user'
     >;
     pdfPermanent: Schema.Attribute.Media<'files'>;
+    prisEnChargePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     publishedAt: Schema.Attribute.DateTime;
     statut: Schema.Attribute.Relation<
       'manyToOne',
@@ -916,6 +959,38 @@ export interface ApiContenuAideContenuAide extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     titre: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiCritereEligibiliteCritereEligibilite
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'criteres_eligibilite';
+  info: {
+    displayName: 'Critere eligibilite';
+    pluralName: 'criteres-eligibilite';
+    singularName: 'critere-eligibilite';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    code: Schema.Attribute.UID<'libelle'> & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::critere-eligibilite.critere-eligibilite'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    refManuel: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1480,6 +1555,109 @@ export interface ApiInfrastructureTypeInfrastructureType
   };
 }
 
+export interface ApiInstructionCompletudeInstructionCompletude
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'instructions_completude';
+  info: {
+    displayName: 'Instruction completude';
+    pluralName: 'instructions-completude';
+    singularName: 'instruction-completude';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    candidature: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::candidature.candidature'
+    >;
+    commentaireRenvoi: Schema.Attribute.Text;
+    complementsProposes: Schema.Attribute.JSON;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::instruction-completude.instruction-completude'
+    > &
+      Schema.Attribute.Private;
+    motifRejet: Schema.Attribute.Text;
+    proposeLe: Schema.Attribute.DateTime;
+    proposePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    valideLe: Schema.Attribute.DateTime;
+    validePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    verdictGlobal: Schema.Attribute.Enumeration<
+      ['complet', 'complements', 'rejet']
+    >;
+    verdictsPieces: Schema.Attribute.JSON;
+    workflow: Schema.Attribute.Enumeration<
+      ['en_cours', 'propose', 'valide', 'renvoye']
+    > &
+      Schema.Attribute.DefaultTo<'en_cours'>;
+  };
+}
+
+export interface ApiInstructionEligibiliteInstructionEligibilite
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'instructions_eligibilite';
+  info: {
+    displayName: 'Instruction eligibilite';
+    pluralName: 'instructions-eligibilite';
+    singularName: 'instruction-eligibilite';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    candidature: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::candidature.candidature'
+    >;
+    commentaireRenvoi: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::instruction-eligibilite.instruction-eligibilite'
+    > &
+      Schema.Attribute.Private;
+    motifRejet: Schema.Attribute.Text;
+    proposeLe: Schema.Attribute.DateTime;
+    proposePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    valideLe: Schema.Attribute.DateTime;
+    validePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    verdictGlobal: Schema.Attribute.Enumeration<['eligible', 'rejet']>;
+    verdictsCriteres: Schema.Attribute.JSON;
+    workflow: Schema.Attribute.Enumeration<
+      ['en_cours', 'propose', 'valide', 'renvoye']
+    > &
+      Schema.Attribute.DefaultTo<'en_cours'>;
+  };
+}
+
 export interface ApiJalonProjetJalonProjet extends Struct.CollectionTypeSchema {
   collectionName: 'jalons_projet';
   info: {
@@ -1786,6 +1964,36 @@ export interface ApiOrganisationOrganisation
       'api::statut-juridique.statut-juridique'
     >;
     telephone: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiParametresInstructionParametresInstruction
+  extends Struct.SingleTypeSchema {
+  collectionName: 'parametres_instruction';
+  info: {
+    displayName: 'Parametres instruction';
+    pluralName: 'parametres-instructions';
+    singularName: 'parametres-instruction';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    delaiComplementsJours: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<10>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::parametres-instruction.parametres-instruction'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2895,6 +3103,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
       'api::about-page.about-page': ApiAboutPageAboutPage;
+      'api::acte-dossier.acte-dossier': ApiActeDossierActeDossier;
       'api::appel.appel': ApiAppelAppel;
       'api::application.application': ApiApplicationApplication;
       'api::call-for-proposal.call-for-proposal': ApiCallForProposalCallForProposal;
@@ -2906,6 +3115,7 @@ declare module '@strapi/strapi' {
       'api::complement.complement': ApiComplementComplement;
       'api::condition-prealable.condition-prealable': ApiConditionPrealableConditionPrealable;
       'api::contenu-aide.contenu-aide': ApiContenuAideContenuAide;
+      'api::critere-eligibilite.critere-eligibilite': ApiCritereEligibiliteCritereEligibilite;
       'api::demande-assistance.demande-assistance': ApiDemandeAssistanceDemandeAssistance;
       'api::demande-decaissement.demande-decaissement': ApiDemandeDecaissementDemandeDecaissement;
       'api::document-contractuel.document-contractuel': ApiDocumentContractuelDocumentContractuel;
@@ -2921,6 +3131,8 @@ declare module '@strapi/strapi' {
       'api::homepage.homepage': ApiHomepageHomepage;
       'api::infrastructure-band.infrastructure-band': ApiInfrastructureBandInfrastructureBand;
       'api::infrastructure-type.infrastructure-type': ApiInfrastructureTypeInfrastructureType;
+      'api::instruction-completude.instruction-completude': ApiInstructionCompletudeInstructionCompletude;
+      'api::instruction-eligibilite.instruction-eligibilite': ApiInstructionEligibiliteInstructionEligibilite;
       'api::jalon-projet.jalon-projet': ApiJalonProjetJalonProjet;
       'api::message-assistance.message-assistance': ApiMessageAssistanceMessageAssistance;
       'api::mesure-corrective.mesure-corrective': ApiMesureCorrectiveMesureCorrective;
@@ -2929,6 +3141,7 @@ declare module '@strapi/strapi' {
       'api::notification-ami.notification-ami': ApiNotificationAmiNotificationAmi;
       'api::notification.notification': ApiNotificationNotification;
       'api::organisation.organisation': ApiOrganisationOrganisation;
+      'api::parametres-instruction.parametres-instruction': ApiParametresInstructionParametresInstruction;
       'api::partner.partner': ApiPartnerPartner;
       'api::province.province': ApiProvinceProvince;
       'api::rapport-requis.rapport-requis': ApiRapportRequisRapportRequis;

@@ -1,0 +1,17 @@
+{
+  "kind": "collectionType",
+  "collectionName": "criteres_eligibilite",
+  "info": {
+    "singularName": "critere-eligibilite",
+    "pluralName": "criteres-eligibilite",
+    "displayName": "Critere eligibilite"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "code": { "type": "uid", "targetField": "libelle", "required": true },
+    "libelle": { "type": "string", "required": true },
+    "refManuel": { "type": "string" },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}

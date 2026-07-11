@@ -1,0 +1,14 @@
+{
+  "kind": "singleType",
+  "collectionName": "parametres_instruction",
+  "info": {
+    "singularName": "parametres-instruction",
+    "pluralName": "parametres-instructions",
+    "displayName": "Parametres instruction"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "delaiComplementsJours": { "type": "integer", "default": 10 }
+  }
+}
