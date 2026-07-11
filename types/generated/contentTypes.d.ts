@@ -617,6 +617,50 @@ export interface ApiApplicationApplication extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiAssignationEvaluationAssignationEvaluation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'assignations_evaluation';
+  info: {
+    displayName: 'Assignation evaluation';
+    pluralName: 'assignations-evaluation';
+    singularName: 'assignation-evaluation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    assigneLe: Schema.Attribute.DateTime;
+    assignePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    candidature: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::candidature.candidature'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    evaluateur: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::assignation-evaluation.assignation-evaluation'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    rang: Schema.Attribute.Integer & Schema.Attribute.Required;
+    statut: Schema.Attribute.Enumeration<['assignee', 'recusee']> &
+      Schema.Attribute.DefaultTo<'assignee'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiCallForProposalCallForProposal
   extends Struct.CollectionTypeSchema {
   collectionName: 'call_for_proposals';
@@ -935,6 +979,53 @@ export interface ApiConditionPrealableConditionPrealable
   };
 }
 
+export interface ApiConsolidationConsolidation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'consolidations_evaluation';
+  info: {
+    displayName: 'Consolidation';
+    pluralName: 'consolidations';
+    singularName: 'consolidation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    bande: Schema.Attribute.String;
+    bonus: Schema.Attribute.Decimal;
+    candidature: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::candidature.candidature'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    ecarts: Schema.Attribute.JSON;
+    figeeLe: Schema.Attribute.DateTime;
+    figeePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::consolidation.consolidation'
+    > &
+      Schema.Attribute.Private;
+    notesRetenues: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Enumeration<['en_cours', 'figee']> &
+      Schema.Attribute.DefaultTo<'en_cours'>;
+    totalA: Schema.Attribute.Decimal;
+    totalB: Schema.Attribute.Decimal;
+    totalFinal: Schema.Attribute.Decimal;
+    totalHorsBonus: Schema.Attribute.Decimal;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiContenuAideContenuAide extends Struct.CollectionTypeSchema {
   collectionName: 'contenus_aide';
   info: {
@@ -991,6 +1082,43 @@ export interface ApiCritereEligibiliteCritereEligibilite
     ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
     refManuel: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiCritereEvaluationCritereEvaluation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'criteres_evaluation';
+  info: {
+    displayName: 'Critere evaluation';
+    pluralName: 'criteres-evaluation';
+    singularName: 'critere-evaluation';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    bloc: Schema.Attribute.Enumeration<['A', 'B', 'bonus']> &
+      Schema.Attribute.Required;
+    code: Schema.Attribute.UID & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::critere-evaluation.critere-evaluation'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    points: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    type: Schema.Attribute.Enumeration<['note', 'eliminatoire']> &
+      Schema.Attribute.DefaultTo<'note'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1369,6 +1497,54 @@ export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     question: Schema.Attribute.String & Schema.Attribute.Required;
     sortOrder: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiFicheScoringFicheScoring
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'fiches_scoring';
+  info: {
+    displayName: 'Fiche scoring';
+    pluralName: 'fiches-scoring';
+    singularName: 'fiche-scoring';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    bonus: Schema.Attribute.JSON;
+    candidature: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::candidature.candidature'
+    >;
+    coiDeclare: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    esConforme: Schema.Attribute.Boolean;
+    evaluateur: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::fiche-scoring.fiche-scoring'
+    > &
+      Schema.Attribute.Private;
+    notes: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    rang: Schema.Attribute.Integer;
+    signeLe: Schema.Attribute.DateTime;
+    signePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    statut: Schema.Attribute.Enumeration<['brouillon', 'soumise']> &
+      Schema.Attribute.DefaultTo<'brouillon'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1964,6 +2140,37 @@ export interface ApiOrganisationOrganisation
       'api::statut-juridique.statut-juridique'
     >;
     telephone: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiParametresEvaluationParametresEvaluation
+  extends Struct.SingleTypeSchema {
+  collectionName: 'parametres_evaluation';
+  info: {
+    displayName: 'Parametres evaluation';
+    pluralName: 'parametres-evaluations';
+    singularName: 'parametres-evaluation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    bandes: Schema.Attribute.JSON;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    ecartPct: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0.2>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::parametres-evaluation.parametres-evaluation'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    seuilBase: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<60>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -3106,6 +3313,7 @@ declare module '@strapi/strapi' {
       'api::acte-dossier.acte-dossier': ApiActeDossierActeDossier;
       'api::appel.appel': ApiAppelAppel;
       'api::application.application': ApiApplicationApplication;
+      'api::assignation-evaluation.assignation-evaluation': ApiAssignationEvaluationAssignationEvaluation;
       'api::call-for-proposal.call-for-proposal': ApiCallForProposalCallForProposal;
       'api::candidature-guide.candidature-guide': ApiCandidatureGuideCandidatureGuide;
       'api::candidature.candidature': ApiCandidatureCandidature;
@@ -3114,8 +3322,10 @@ declare module '@strapi/strapi' {
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
       'api::complement.complement': ApiComplementComplement;
       'api::condition-prealable.condition-prealable': ApiConditionPrealableConditionPrealable;
+      'api::consolidation.consolidation': ApiConsolidationConsolidation;
       'api::contenu-aide.contenu-aide': ApiContenuAideContenuAide;
       'api::critere-eligibilite.critere-eligibilite': ApiCritereEligibiliteCritereEligibilite;
+      'api::critere-evaluation.critere-evaluation': ApiCritereEvaluationCritereEvaluation;
       'api::demande-assistance.demande-assistance': ApiDemandeAssistanceDemandeAssistance;
       'api::demande-decaissement.demande-decaissement': ApiDemandeDecaissementDemandeDecaissement;
       'api::document-contractuel.document-contractuel': ApiDocumentContractuelDocumentContractuel;
@@ -3126,6 +3336,7 @@ declare module '@strapi/strapi' {
       'api::faq-entree.faq-entree': ApiFaqEntreeFaqEntree;
       'api::faq-item.faq-item': ApiFaqItemFaqItem;
       'api::faq.faq': ApiFaqFaq;
+      'api::fiche-scoring.fiche-scoring': ApiFicheScoringFicheScoring;
       'api::filiere.filiere': ApiFiliereFiliere;
       'api::footer-link.footer-link': ApiFooterLinkFooterLink;
       'api::homepage.homepage': ApiHomepageHomepage;
@@ -3141,6 +3352,7 @@ declare module '@strapi/strapi' {
       'api::notification-ami.notification-ami': ApiNotificationAmiNotificationAmi;
       'api::notification.notification': ApiNotificationNotification;
       'api::organisation.organisation': ApiOrganisationOrganisation;
+      'api::parametres-evaluation.parametres-evaluation': ApiParametresEvaluationParametresEvaluation;
       'api::parametres-instruction.parametres-instruction': ApiParametresInstructionParametresInstruction;
       'api::partner.partner': ApiPartnerPartner;
       'api::province.province': ApiProvinceProvince;

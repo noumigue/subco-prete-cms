@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType",
+  "collectionName": "assignations_evaluation",
+  "info": {
+    "singularName": "assignation-evaluation",
+    "pluralName": "assignations-evaluation",
+    "displayName": "Assignation evaluation"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": { "type": "relation", "relation": "manyToOne", "target": "api::candidature.candidature" },
+    "evaluateur": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "rang": { "type": "integer", "required": true },
+    "assignePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "assigneLe": { "type": "datetime" },
+    "statut": { "type": "enumeration", "enum": ["assignee", "recusee"], "default": "assignee" }
+  }
+}
