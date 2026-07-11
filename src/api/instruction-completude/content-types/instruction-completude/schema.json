@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "instructions_completude",
+  "info": {
+    "singularName": "instruction-completude",
+    "pluralName": "instructions-completude",
+    "displayName": "Instruction completude"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::candidature.candidature"
+    },
+    "verdictsPieces": { "type": "json" },
+    "verdictGlobal": { "type": "enumeration", "enum": ["complet", "complements", "rejet"] },
+    "complementsProposes": { "type": "json" },
+    "motifRejet": { "type": "text" },
+    "workflow": { "type": "enumeration", "enum": ["en_cours", "propose", "valide", "renvoye"], "default": "en_cours" },
+    "proposePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "proposeLe": { "type": "datetime" },
+    "validePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "valideLe": { "type": "datetime" },
+    "commentaireRenvoi": { "type": "text" }
+  }
+}

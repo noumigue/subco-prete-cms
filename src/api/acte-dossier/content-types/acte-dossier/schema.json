@@ -1,0 +1,23 @@
+{
+  "kind": "collectionType",
+  "collectionName": "actes_dossier",
+  "info": {
+    "singularName": "acte-dossier",
+    "pluralName": "actes-dossier",
+    "displayName": "Acte dossier"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::candidature.candidature"
+    },
+    "date": { "type": "datetime" },
+    "auteur": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "auteurLibelle": { "type": "string" },
+    "type": { "type": "string" },
+    "texte": { "type": "text" }
+  }
+}

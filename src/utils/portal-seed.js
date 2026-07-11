@@ -143,8 +143,8 @@ async function ensurePortalRolesAndSettings(strapi) {
   const authenticatedRole = await ensureRole(strapi, 'authenticated', 'Authenticated');
   const candidateRole = await ensureRole(strapi, 'candidat', 'Candidat');
   const beneficiaireRole = await ensureRole(strapi, 'beneficiaire', 'Beneficiaire');
-  await ensureRole(strapi, 'instructeur', 'Instructeur');
-  await ensureRole(strapi, 'ugp', 'UGP');
+  const instructeurRole = await ensureRole(strapi, 'instructeur', 'Instructeur');
+  const ugpRole = await ensureRole(strapi, 'ugp', 'UGP');
   await ensureRole(strapi, 'comite', 'Comite');
   await ensureRole(strapi, 'banque', 'Banque');
 
@@ -297,8 +297,46 @@ async function ensurePortalRolesAndSettings(strapi) {
     await setPermission(strapi, authenticatedRole.id, action, false);
   }
 
+  // ——— Socle back-office M5 (B1/§4.2) — donner corps aux roles internes ———
+  // Aucun endpoint de gestion n'est owner-scope : la garde est le ROLE. La separation
+  // des fonctions (8.1.1) est materialisee par les permissions (l'instructeur PROPOSE,
+  // seul l'ugp VALIDE / reassigne / pilote les appels). `comite` et `banque` restent
+  // sans permissions (phases 2 et 5).
+  const gestionBaseActions = [
+    'api::gestion.gestion.dossiers',
+    'api::gestion.gestion.dossier',
+    'api::gestion.gestion.appels',
+    'api::portal-compte.portal-compte.moi',
+  ];
+  const instructeurActions = [
+    ...gestionBaseActions,
+    'api::gestion.gestion.priseEnCharge',
+    'api::gestion.gestion.proposerCompletude',
+    'api::gestion.gestion.proposerEligibilite',
+  ];
+  const ugpActions = [
+    ...instructeurActions,
+    'api::gestion.gestion.reassigner',
+    'api::gestion.gestion.validerCompletude',
+    'api::gestion.gestion.renvoyerCompletude',
+    'api::gestion.gestion.validerEligibilite',
+    'api::gestion.gestion.renvoyerEligibilite',
+    'api::gestion.gestion.ouvrirAppel',
+    'api::gestion.gestion.cloreAppel',
+    // Upload de la notification de decision signee (rejet) — cote ugp uniquement.
+    'plugin::upload.content-api.upload',
+  ];
+  for (const action of instructeurActions) {
+    await setPermission(strapi, instructeurRole.id, action, true);
+  }
+  for (const action of ugpActions) {
+    await setPermission(strapi, ugpRole.id, action, true);
+  }
+
   return {
     candidateRole,
+    instructeurRole,
+    ugpRole,
   };
 }
 
@@ -507,6 +545,34 @@ async function ensureReferentials(strapi) {
     { code: 'autre', libelle: 'Autre', ordre: 40 },
   ]) {
     await upsertDocument(strapi, 'api::categorie-assistance.categorie-assistance', { code: row.code }, row);
+  }
+
+  // ——— Referentiels du socle back-office M5 ———
+  // Criteres d'eligibilite (grille Annexe 5 / §5) : libelles = PLACEHOLDERS, definitifs = contenu CMS.
+  const criteres = [
+    { code: 'statut-juridique', libelle: 'Statut juridique eligible (MPME, cooperative, association, ONG)', refManuel: '§5.1', ordre: 10 },
+    { code: 'existence-legale', libelle: 'Existence legale et documents juridiques valides', refManuel: '§5.2', ordre: 20 },
+    { code: 'contrepartie-20', libelle: 'Contrepartie >= 20 % confirmee et sourcee', refManuel: '§5.4', ordre: 30 },
+    { code: 'chaine-valeur', libelle: 'Chaine de valeur prioritaire ou projet transversal', refManuel: '§2.3', ordre: 40 },
+    { code: 'infrastructure', libelle: 'Infrastructure productive eligible', refManuel: '§2.5', ordre: 50 },
+    { code: 'site-implantation', libelle: "Site d'implantation conforme", refManuel: '§5.6', ordre: 60 },
+    { code: 'conflit-interet', libelle: "Absence de conflit d'interets", refManuel: '§5.8.1', ordre: 70 },
+    { code: 'conformite-es', libelle: 'Conformite environnementale et sociale prealable', refManuel: '§5.7', ordre: 80 },
+    { code: 'depenses-eligibles', libelle: 'Depenses prevues eligibles', refManuel: '§2.6 / §5.4', ordre: 90 },
+  ];
+  for (const row of criteres) {
+    await upsertDocument(strapi, 'api::critere-eligibilite.critere-eligibilite', { code: row.code }, row);
+  }
+
+  // Parametre d'instruction (single type) : delai par defaut des complements (Annexe 11 —
+  // valeur PLACEHOLDER a confirmer UGP ; c'est la FORME qui est provisionnee, pas la valeur).
+  const paramExisting = await strapi.documents('api::parametres-instruction.parametres-instruction').findFirst({});
+  if (paramExisting?.documentId) {
+    if (paramExisting.delaiComplementsJours == null) {
+      await strapi.documents('api::parametres-instruction.parametres-instruction').update({ documentId: paramExisting.documentId, data: { delaiComplementsJours: 10 } });
+    }
+  } else {
+    await strapi.documents('api::parametres-instruction.parametres-instruction').create({ data: { delaiComplementsJours: 10 } });
   }
 
   return { cohort };
@@ -738,10 +804,162 @@ async function ensureDemoAssistance(strapi, user, candidatureLiee) {
   }
 }
 
+// ============================================================================
+// Donnees de DEMO du socle back-office M5 : 2 comptes internes (instructeur + ugp)
+// et une file de dossiers couvrant les etats (recu / completude pris & non pris /
+// eligibilite / clos rejete). Idempotent. Portefeuille detenu par un operateur
+// « vitrine » distinct du compte de demo operateur (pour ne pas polluer son espace).
+// ============================================================================
+
+const GESTION_PASSWORD = DEMO_PASSWORD;
+const INSTRUCTEUR_EMAIL = 'demo-instructeur@subco-prete.bi';
+const UGP_EMAIL = 'demo-ugp@subco-prete.bi';
+const PORTEFEUILLE_EMAIL = 'demo-portefeuille@subco-prete.bi';
+
+async function ensureInternalUser(strapi, { email, orgName, roleType }) {
+  const service = strapi.plugin('users-permissions').service('user');
+  const role = await strapi.db.query('plugin::users-permissions.role').findOne({ where: { type: roleType } });
+  let user = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email }, populate: ['role'] });
+  if (!user) {
+    user = await service.add({
+      username: email, email, password: GESTION_PASSWORD, confirmed: true, blocked: false, provider: 'local',
+      role: role.id, orgName,
+    });
+  } else if (user.role?.type !== roleType || user.orgName !== orgName || !user.confirmed) {
+    user = await strapi.db.query('plugin::users-permissions.user').update({
+      where: { id: user.id }, data: { role: role.id, orgName, confirmed: true, blocked: false }, populate: ['role'],
+    });
+  }
+  return user;
+}
+
+async function ensureActeJournal(strapi, candidatureDoc, rows) {
+  // N'ecrit le journal qu'une seule fois par dossier (append-only ; pas de doublon a la re-seed).
+  const already = await strapi.documents('api::acte-dossier.acte-dossier').findMany({
+    filters: { candidature: { documentId: candidatureDoc.documentId } }, limit: 1,
+  });
+  if (already.length) return;
+  for (const r of rows) {
+    await strapi.documents('api::acte-dossier.acte-dossier').create({
+      data: { candidature: connectRelation(candidatureDoc), date: r.date, auteurLibelle: r.auteur, type: r.type || 'acte', texte: r.texte },
+    });
+  }
+}
+
+async function ensureGestionDemoData(strapi) {
+  const instructeur = await ensureInternalUser(strapi, { email: INSTRUCTEUR_EMAIL, orgName: 'A. Ndayizeye', roleType: 'instructeur' });
+  const ugp = await ensureInternalUser(strapi, { email: UGP_EMAIL, orgName: 'C. Iradukunda', roleType: 'ugp' });
+  const holder = await ensureInternalUser(strapi, { email: PORTEFEUILLE_EMAIL, orgName: 'Portefeuille de demonstration', roleType: 'candidat' });
+
+  const [appel, sSoumis, sCompletude, sEligibilite, sNonRetenu, coop] = await Promise.all([
+    findOneBy(strapi, 'api::appel.appel', { codeCohorte: 'C1' }),
+    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'soumis' }),
+    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'completude' }),
+    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'eligibilite' }),
+    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'non_retenu' }),
+    findOneBy(strapi, 'api::statut-juridique.statut-juridique', { libelle: 'Cooperative' }),
+  ]);
+
+  const filiereBySlug = {};
+  for (const slug of ['fruits-tropicaux', 'volaille', 'lait', 'pisciculture']) {
+    filiereBySlug[slug] = await findOneBy(strapi, 'api::filiere.filiere', { slug });
+  }
+
+  const pieces = await strapi.documents('api::type-piece.type-piece').findMany({ sort: ['ordre:asc'], limit: 100 });
+  const pieceByLibelle = Object.fromEntries(pieces.map((p) => [p.libelle, p]));
+
+  async function ensureOrg(nom, filiereSlug) {
+    return upsertDocument(strapi, 'api::organisation.organisation', { nom }, {
+      owner: holder.id, nom,
+      statutJuridique: connectRelation(coop),
+      filierePrincipale: connectRelation(filiereBySlug[filiereSlug]),
+    });
+  }
+  async function ensureDossier(titre, org, statut, numero, dateDepot, prisEnCharge) {
+    return upsertDocument(strapi, 'api::candidature.candidature', { titreProjet: titre }, {
+      owner: holder.id, appel: connectRelation(appel), organisation: connectRelation(org),
+      titreProjet: titre, statut: connectRelation(statut), numeroDossier: numero, dateDepot,
+      // null (et non {disconnect:[]}, qui est un no-op) pour restaurer l'etat canonique « non pris ».
+      prisEnChargePar: prisEnCharge ? { connect: [prisEnCharge.id] } : null,
+      donneesProjet: DEMO_DONNEES,
+    });
+  }
+
+  // 1) Recu, non pris — Coop. Tuyage (Lait).
+  const orgTuyage = await ensureOrg('Coop. Tuyage', 'lait');
+  const dTuyage = await ensureDossier('Mini-laiterie de collecte (Tuyage)', orgTuyage, sSoumis, 'PRETE-AP-C1-2026-00044', '2026-07-15T09:05:00.000Z', null);
+  await ensureActeJournal(strapi, dTuyage, [{ date: '2026-07-15T09:05:00.000Z', auteur: 'Systeme', type: 'depot', texte: 'Dossier soumis — accuse e-mail + SMS envoye' }]);
+
+  // 2) Completude, pris en charge, verdicts de pieces pre-saisis (1 absente + 1 non conforme).
+  const orgGirumwete = await ensureOrg('Cooperative Girumwete (demo gestion)', 'fruits-tropicaux');
+  const dGirumwete = await ensureDossier('Sechage solaire de mangues (Girumwete)', orgGirumwete, sCompletude, 'PRETE-AP-C1-2026-00072', '2026-07-12T14:02:00.000Z', instructeur);
+  if (!(await findOneBy(strapi, 'api::instruction-completude.instruction-completude', { candidature: { documentId: dGirumwete.documentId } }))) {
+    const pAbsente = pieceByLibelle['Attestation de non-redevance fiscale'];
+    const pNonConf = pieceByLibelle['Justificatif de mobilisation de la contrepartie'];
+    const verdictsPieces = {};
+    for (const p of pieces) verdictsPieces[p.documentId] = { etat: 'presente' };
+    if (pAbsente) verdictsPieces[pAbsente.documentId] = { etat: 'absente', note: 'Piece non fournie au depot' };
+    if (pNonConf) verdictsPieces[pNonConf.documentId] = { etat: 'non_conforme', note: 'Document illisible (scan tronque)' };
+    await strapi.documents('api::instruction-completude.instruction-completude').create({
+      data: { candidature: connectRelation(dGirumwete), verdictsPieces, workflow: 'en_cours' },
+    });
+  }
+  await ensureActeJournal(strapi, dGirumwete, [
+    { date: '2026-07-12T14:02:00.000Z', auteur: 'Systeme', type: 'depot', texte: 'Dossier soumis — accuse e-mail + SMS envoye' },
+    { date: '2026-07-13T09:15:00.000Z', auteur: 'A. Ndayizeye (Cabinet)', type: 'prise_en_charge', texte: 'Prise en charge du dossier (completude)' },
+  ]);
+
+  // 3) Completude, non pris — MPME Akeza (Volaille).
+  const orgAkeza = await ensureOrg('MPME Akeza', 'volaille');
+  const dAkeza = await ensureDossier('Poulailler modernise (Akeza)', orgAkeza, sCompletude, 'PRETE-AP-C1-2026-00043', '2026-07-13T17:40:00.000Z', null);
+  await ensureActeJournal(strapi, dAkeza, [{ date: '2026-07-13T17:40:00.000Z', auteur: 'Systeme', type: 'depot', texte: 'Dossier soumis — accuse envoye' }]);
+
+  // 4) Eligibilite, pris — Association Dukore (Pisciculture) : completude deja validee (journal coherent).
+  const orgDukore = await ensureOrg('Association Dukore', 'pisciculture');
+  const dDukore = await ensureDossier('Etangs piscicoles communautaires (Dukore)', orgDukore, sEligibilite, 'PRETE-AP-C1-2026-00046', '2026-07-10T10:00:00.000Z', instructeur);
+  if (!(await findOneBy(strapi, 'api::instruction-completude.instruction-completude', { candidature: { documentId: dDukore.documentId } }))) {
+    const verdictsPieces = {};
+    for (const p of pieces) verdictsPieces[p.documentId] = { etat: 'presente' };
+    await strapi.documents('api::instruction-completude.instruction-completude').create({
+      data: { candidature: connectRelation(dDukore), verdictsPieces, verdictGlobal: 'complet', workflow: 'valide', proposePar: { connect: [instructeur.id] }, proposeLe: '2026-07-16T09:00:00.000Z', validePar: { connect: [ugp.id] }, valideLe: '2026-07-16T15:20:00.000Z' },
+    });
+  }
+  if (!(await findOneBy(strapi, 'api::instruction-eligibilite.instruction-eligibilite', { candidature: { documentId: dDukore.documentId } }))) {
+    await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').create({ data: { candidature: connectRelation(dDukore), workflow: 'en_cours' } });
+  }
+  await ensureActeJournal(strapi, dDukore, [
+    { date: '2026-07-10T10:00:00.000Z', auteur: 'Systeme', type: 'depot', texte: 'Dossier soumis' },
+    { date: '2026-07-16T09:00:00.000Z', auteur: 'A. Ndayizeye (Cabinet)', type: 'proposition_completude', texte: 'Completude proposee : complet' },
+    { date: '2026-07-16T15:20:00.000Z', auteur: 'C. Iradukunda (UGP)', type: 'validation_completude', texte: 'Completude validee — passage a l’eligibilite (notification envoyee)' },
+  ]);
+
+  // 5) Clos, rejete a la completude — Ferme avicole de Gihanga (Volaille) + notification signee.
+  const orgGihanga = await ensureOrg('Ferme avicole de Gihanga', 'volaille');
+  const dGihanga = await ensureDossier('Extension avicole (Gihanga)', orgGihanga, sNonRetenu, 'PRETE-AP-C1-2026-00047', '2026-07-02T09:00:00.000Z', instructeur);
+  const gihangaCurrent = await strapi.documents('api::candidature.candidature').findOne({ documentId: dGihanga.documentId, populate: ['notificationDecision'] });
+  if (!gihangaCurrent?.notificationDecision) {
+    const signedId = await uploadDemoPieceImage(strapi, 'Notification de decision (signee)');
+    await strapi.documents('api::candidature.candidature').update({
+      documentId: dGihanga.documentId,
+      data: { motifDecisionCourt: 'Dossier incomplet : pieces obligatoires manquantes non regularisees.', notificationDecision: signedId || null },
+    });
+  }
+  if (!(await findOneBy(strapi, 'api::instruction-completude.instruction-completude', { candidature: { documentId: dGihanga.documentId } }))) {
+    await strapi.documents('api::instruction-completude.instruction-completude').create({
+      data: { candidature: connectRelation(dGihanga), verdictGlobal: 'rejet', motifRejet: 'Dossier incomplet : pieces obligatoires manquantes non regularisees.', workflow: 'valide', proposePar: { connect: [instructeur.id] }, proposeLe: '2026-07-08T10:00:00.000Z', validePar: { connect: [ugp.id] }, valideLe: '2026-07-09T11:00:00.000Z' },
+    });
+  }
+  await ensureActeJournal(strapi, dGihanga, [
+    { date: '2026-07-02T09:00:00.000Z', auteur: 'Systeme', type: 'depot', texte: 'Dossier soumis' },
+    { date: '2026-07-09T11:00:00.000Z', auteur: 'C. Iradukunda (UGP)', type: 'validation_completude', texte: 'Rejet valide — notification signee jointe' },
+  ]);
+}
+
 module.exports = {
   DEMO_EMAIL,
   DEMO_PASSWORD,
   ensureDemoPortalData,
+  ensureGestionDemoData,
   ensurePortalRolesAndSettings,
   ensureReferentials,
   setPermission,
