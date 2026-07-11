@@ -3,6 +3,7 @@
 const {
   ensureDemoPortalData,
   ensureGestionDemoData,
+  ensureEvaluationDemoData,
   ensurePortalRolesAndSettings,
   ensureReferentials,
 } = require('./utils/portal-seed');
@@ -44,6 +45,8 @@ module.exports = {
       await ensureSubventionDemo(strapi);
       // Socle back-office M5 : comptes internes + file de dossiers de demo.
       await ensureGestionDemoData(strapi);
+      // Phase 2 : evaluateurs + dossiers d'evaluation (fiches soumises + parcours a remplir).
+      await ensureEvaluationDemoData(strapi);
       strapi.log.info('[seed] Donnees de demo provisionnees (SEED_DEMO_DATA / non-production).');
     } else {
       strapi.log.info('[seed] Donnees de demo ignorees (production).');

@@ -1,0 +1,16 @@
+{
+  "kind": "singleType",
+  "collectionName": "parametres_evaluation",
+  "info": {
+    "singularName": "parametres-evaluation",
+    "pluralName": "parametres-evaluations",
+    "displayName": "Parametres evaluation"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "seuilBase": { "type": "integer", "default": 60 },
+    "ecartPct": { "type": "decimal", "default": 0.2 },
+    "bandes": { "type": "json" }
+  }
+}

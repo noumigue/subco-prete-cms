@@ -308,11 +308,30 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion.appels',
     'api::portal-compte.portal-compte.moi',
   ];
+  // Phase 2 — évaluation : l'instructeur (évaluateur Cabinet) remplit/soumet SES fiches ;
+  // l'ugp assigne, consolide, fige. E3 (indépendance) garantie côté serveur (pas de perm croisée).
+  const evaluationInstructeurActions = [
+    'api::gestion.gestion-evaluation.mesEvaluations',
+    'api::gestion.gestion-evaluation.fiche',
+    'api::gestion.gestion-evaluation.declarerCoi',
+    'api::gestion.gestion-evaluation.recuser',
+    'api::gestion.gestion-evaluation.enregistrerFiche',
+    'api::gestion.gestion-evaluation.soumettreFiche',
+  ];
+  const evaluationUgpActions = [
+    'api::gestion.gestion-evaluation.evaluationAssign',
+    'api::gestion.gestion-evaluation.assigner',
+    'api::gestion.gestion-evaluation.consolidationDetail',
+    'api::gestion.gestion-evaluation.harmoniser',
+    'api::gestion.gestion-evaluation.troisiemeEvaluateur',
+    'api::gestion.gestion-evaluation.figer',
+  ];
   const instructeurActions = [
     ...gestionBaseActions,
     'api::gestion.gestion.priseEnCharge',
     'api::gestion.gestion.proposerCompletude',
     'api::gestion.gestion.proposerEligibilite',
+    ...evaluationInstructeurActions,
   ];
   const ugpActions = [
     ...instructeurActions,
@@ -323,6 +342,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion.renvoyerEligibilite',
     'api::gestion.gestion.ouvrirAppel',
     'api::gestion.gestion.cloreAppel',
+    ...evaluationUgpActions,
     // Upload de la notification de decision signee (rejet) — cote ugp uniquement.
     'plugin::upload.content-api.upload',
   ];
@@ -573,6 +593,41 @@ async function ensureReferentials(strapi) {
     }
   } else {
     await strapi.documents('api::parametres-instruction.parametres-instruction').create({ data: { delaiComplementsJours: 10 } });
+  }
+
+  // ——— Phase 2 : barème d'évaluation (grille §6, éditable — E1 : rien en dur) ———
+  // E1 arbitré : A6 (E&S) = porte ELIMINATOIRE non notée ; A5 Impact socio-éco = 15.
+  const criteresEval = [
+    { code: 'A1', bloc: 'A', libelle: 'Pertinence stratégique', description: 'Alignement PRETE, PAD, priorités nationales, emplois, inclusion', points: 15, type: 'note', ordre: 10 },
+    { code: 'A2', bloc: 'A', libelle: 'Cohérence technique', description: 'Intégration production–transformation–logistique–commercialisation', points: 10, type: 'note', ordre: 20 },
+    { code: 'A3', bloc: 'A', libelle: 'Faisabilité technique', description: 'Maturité, site, technologie, calendrier, conformité réglementaire', points: 10, type: 'note', ordre: 30 },
+    { code: 'A4', bloc: 'A', libelle: 'Viabilité économique', description: "Rentabilité, débouchés, solidité du plan d'affaires", points: 10, type: 'note', ordre: 40 },
+    { code: 'A5', bloc: 'A', libelle: 'Impact socio-économique', description: "Emplois, inclusion, effets d'entraînement local", points: 15, type: 'note', ordre: 50 },
+    { code: 'A6', bloc: 'A', libelle: 'Conformité environnementale et sociale', description: 'Porte préalable éliminatoire (§6.2.1) — non notée', points: 0, type: 'eliminatoire', ordre: 60 },
+    { code: 'B1', bloc: 'B', libelle: 'Conformité juridique et réglementaire', description: 'Statut légal, conformité fiscale et sociale, absence de contentieux', points: 5, type: 'note', ordre: 70 },
+    { code: 'B2', bloc: 'B', libelle: 'Capacité financière', description: 'Solidité, accès aux ressources, mobilisation de la contrepartie', points: 10, type: 'note', ordre: 80 },
+    { code: 'B3', bloc: 'B', libelle: 'Capacité technique et managériale', description: 'Expérience, organisation, ressources humaines clés', points: 10, type: 'note', ordre: 90 },
+    { code: 'B4', bloc: 'B', libelle: "Capacité d'exploitation et maintenance (O&M)", description: "Plan d'exploitation, maintenance, modèle opérationnel", points: 10, type: 'note', ordre: 100 },
+    { code: 'B5', bloc: 'B', libelle: 'Gouvernance et transparence', description: 'Organisation, procédures internes, gestion des risques', points: 5, type: 'note', ordre: 110 },
+    { code: 'G', bloc: 'bonus', libelle: 'Genre', description: '≥ 50 % de bénéficiaires femmes ou women-led', points: 5, type: 'note', ordre: 120 },
+    { code: 'J', bloc: 'bonus', libelle: 'Jeunes / réfugiés', description: 'Intégration substantielle de jeunes ou réfugiés', points: 3, type: 'note', ordre: 130 },
+    { code: 'L', bloc: 'bonus', libelle: 'Local / rural', description: 'Impact significatif en zones rurales / fragiles', points: 2, type: 'note', ordre: 140 },
+  ];
+  for (const row of criteresEval) {
+    await upsertDocument(strapi, 'api::critere-evaluation.critere-evaluation', { code: row.code }, row);
+  }
+
+  const bandes = [
+    { min: 80, label: 'Recommandé pour financement' },
+    { min: 70, label: 'Recommandé sous conditions' },
+    { min: 60, label: "Liste d'attente / révision" },
+    { min: 0, label: 'Non retenu (< 60)' },
+  ];
+  const paramEval = await strapi.documents('api::parametres-evaluation.parametres-evaluation').findFirst({});
+  if (paramEval?.documentId) {
+    await strapi.documents('api::parametres-evaluation.parametres-evaluation').update({ documentId: paramEval.documentId, data: { seuilBase: paramEval.seuilBase ?? 60, ecartPct: paramEval.ecartPct ?? 0.2, bandes: Array.isArray(paramEval.bandes) && paramEval.bandes.length ? paramEval.bandes : bandes } });
+  } else {
+    await strapi.documents('api::parametres-evaluation.parametres-evaluation').create({ data: { seuilBase: 60, ecartPct: 0.2, bandes } });
   }
 
   return { cohort };
@@ -955,11 +1010,119 @@ async function ensureGestionDemoData(strapi) {
   ]);
 }
 
+// ============================================================================
+// Donnees de DEMO de la phase 2 (evaluation & consolidation) : 2 evaluateurs
+// (instructeur) + 1 dossier avec 2 fiches soumises presentant 2 ecarts >= 20 %
+// (A3, A5) -> consolidation en_cours (test harmonisation / 3e eval / figeage) +
+// 1 dossier assigne SANS fiche (parcours evaluateur complet : COI, E&S, notation).
+// ============================================================================
+
+// Notes de demo (issues de la maquette) : E1 et E2 divergent sur A3 et A5 (ecarts >= 20 %).
+// E1/E2 calibrees pour presenter EXACTEMENT 2 ecarts >= 20 % (A3, A5) — cf. maquette.
+const EVAL_E1 = { A1: 13, A2: 8, A3: 9, A4: 8, A5: 12, B1: 4, B2: 8, B3: 8, B4: 7, B5: 4 };
+const EVAL_E2 = { A1: 12, A2: 7, A3: 6, A4: 8, A5: 9, B1: 4, B2: 7, B3: 8, B4: 7, B5: 4 };
+const EVAL_BONUS = { G: 5, J: 3, L: 2 };
+
+function notesFrom(map, evalNum) {
+  const notes = {};
+  for (const [code, note] of Object.entries(map)) {
+    notes[code] = { note, commentaire: `Appreciation evaluateur ${evalNum} sur ${code} (demo).` };
+  }
+  return notes;
+}
+
+async function ensureEvaluationDemoData(strapi) {
+  const eval1 = await ensureInternalUser(strapi, { email: 'demo-eval1@subco-prete.bi', orgName: 'D. Habonimana', roleType: 'instructeur' });
+  const eval2 = await ensureInternalUser(strapi, { email: 'demo-eval2@subco-prete.bi', orgName: 'E. Nizigiyimana', roleType: 'instructeur' });
+  const ugp = await ensureInternalUser(strapi, { email: UGP_EMAIL, orgName: 'C. Iradukunda', roleType: 'ugp' });
+  const holder = await ensureInternalUser(strapi, { email: PORTEFEUILLE_EMAIL, orgName: 'Portefeuille de demonstration', roleType: 'candidat' });
+
+  const [appel, sEvaluation, coop, filPisci, filVolaille] = await Promise.all([
+    findOneBy(strapi, 'api::appel.appel', { codeCohorte: 'C1' }),
+    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'evaluation' }),
+    findOneBy(strapi, 'api::statut-juridique.statut-juridique', { libelle: 'Cooperative' }),
+    findOneBy(strapi, 'api::filiere.filiere', { slug: 'pisciculture' }),
+    findOneBy(strapi, 'api::filiere.filiere', { slug: 'volaille' }),
+  ]);
+
+  async function ensureOrg(nom, filiere) {
+    return upsertDocument(strapi, 'api::organisation.organisation', { nom }, {
+      owner: holder.id, nom, statutJuridique: connectRelation(coop), filierePrincipale: connectRelation(filiere),
+    });
+  }
+  async function ensureDossier(titre, org, numero, dateDepot) {
+    return upsertDocument(strapi, 'api::candidature.candidature', { titreProjet: titre }, {
+      owner: holder.id, appel: connectRelation(appel), organisation: connectRelation(org),
+      titreProjet: titre, statut: connectRelation(sEvaluation), numeroDossier: numero, dateDepot, donneesProjet: DEMO_DONNEES,
+    });
+  }
+  async function ensureAssignation(candidature, evaluateur, rang) {
+    const items = await strapi.documents('api::assignation-evaluation.assignation-evaluation').findMany({
+      filters: { candidature: { documentId: candidature.documentId }, rang }, limit: 1,
+    });
+    if (items[0]) return items[0];
+    return strapi.documents('api::assignation-evaluation.assignation-evaluation').create({
+      data: { candidature: connectRelation(candidature), evaluateur: { connect: [evaluateur.id] }, rang, assignePar: { connect: [ugp.id] }, assigneLe: '2026-07-17T09:00:00.000Z', statut: 'assignee' },
+    });
+  }
+  async function ensureFiche(candidature, evaluateur, rang, notes) {
+    const data = { rang, coiDeclare: true, esConforme: true, notes, bonus: EVAL_BONUS, statut: 'soumise', signeLe: '2026-07-18T10:00:00.000Z', signePar: { connect: [evaluateur.id] } };
+    const items = await strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
+      filters: { candidature: { documentId: candidature.documentId }, evaluateur: { id: evaluateur.id } }, limit: 1,
+    });
+    // Fiche de demo autoritative : on remet les notes canoniques a chaque seed (idempotent).
+    if (items[0]) return strapi.documents('api::fiche-scoring.fiche-scoring').update({ documentId: items[0].documentId, data });
+    return strapi.documents('api::fiche-scoring.fiche-scoring').create({
+      data: { candidature: connectRelation(candidature), evaluateur: { connect: [evaluateur.id] }, ...data },
+    });
+  }
+
+  // 1) Dossier avec 2 fiches soumises + ecarts A3/A5 -> consolidation en_cours.
+  const orgRugombo = await ensureOrg('Coop. Rugombo', filPisci);
+  const dRugombo = await ensureDossier('Etangs piscicoles integres (Rugombo)', orgRugombo, 'PRETE-AP-C1-2026-00081', '2026-07-06T09:00:00.000Z');
+  await ensureAssignation(dRugombo, eval1, 1);
+  await ensureAssignation(dRugombo, eval2, 2);
+  await ensureFiche(dRugombo, eval1, 1, notesFrom(EVAL_E1, 1));
+  await ensureFiche(dRugombo, eval2, 2, notesFrom(EVAL_E2, 2));
+  // Consolidation de demo autoritative : remise a en_cours vierge a chaque seed
+  // (les ecarts A3/A5 restent a traiter — etat de depart canonique de la demo).
+  const consExisting = await findOneBy(strapi, 'api::consolidation.consolidation', { candidature: { documentId: dRugombo.documentId } });
+  const consData = { notesRetenues: {}, ecarts: [], statut: 'en_cours', totalA: null, totalB: null, bonus: null, totalHorsBonus: null, totalFinal: null, bande: null, figeeLe: null };
+  if (consExisting?.documentId) {
+    await strapi.documents('api::consolidation.consolidation').update({ documentId: consExisting.documentId, data: consData });
+  } else {
+    await strapi.documents('api::consolidation.consolidation').create({ data: { candidature: connectRelation(dRugombo), ...consData } });
+  }
+  await ensureActeJournal(strapi, dRugombo, [
+    { date: '2026-07-06T09:00:00.000Z', auteur: 'Systeme', type: 'depot', texte: 'Dossier soumis' },
+    { date: '2026-07-17T09:00:00.000Z', auteur: 'C. Iradukunda (UGP)', type: 'assignation', texte: 'Assignation evaluateurs 1 (D. Habonimana) et 2 (E. Nizigiyimana) (E2)' },
+    { date: '2026-07-18T10:00:00.000Z', auteur: 'D. Habonimana (Cabinet)', type: 'fiche_soumise', texte: 'Fiche de scoring soumise & signee (evaluateur 1)' },
+    { date: '2026-07-18T14:00:00.000Z', auteur: 'E. Nizigiyimana (Cabinet)', type: 'fiche_soumise', texte: 'Fiche de scoring soumise & signee (evaluateur 2)' },
+    { date: '2026-07-18T14:00:00.000Z', auteur: 'Systeme', type: 'consolidation_ouverte', texte: 'Les deux fiches sont soumises — consolidation ouverte (E3 levee)' },
+  ]);
+
+  // 2) Dossier assigne SANS fiche (parcours evaluateur complet a tester).
+  const orgKarera = await ensureOrg('MPME Karera', filVolaille);
+  const dKarera = await ensureDossier('Couvoir avicole modernise (Karera)', orgKarera, 'PRETE-AP-C1-2026-00082', '2026-07-08T09:00:00.000Z');
+  await ensureAssignation(dKarera, eval1, 1);
+  await ensureAssignation(dKarera, eval2, 2);
+  // Etat de depart canonique : AUCUNE fiche (parcours evaluateur complet a tester).
+  for (const uid of ['api::fiche-scoring.fiche-scoring', 'api::consolidation.consolidation']) {
+    const stale = await strapi.documents(uid).findMany({ filters: { candidature: { documentId: dKarera.documentId } }, limit: 10 });
+    for (const s of stale) await strapi.documents(uid).delete({ documentId: s.documentId });
+  }
+  await ensureActeJournal(strapi, dKarera, [
+    { date: '2026-07-08T09:00:00.000Z', auteur: 'Systeme', type: 'depot', texte: 'Dossier soumis' },
+    { date: '2026-07-17T09:30:00.000Z', auteur: 'C. Iradukunda (UGP)', type: 'assignation', texte: 'Assignation evaluateurs 1 et 2 (E2)' },
+  ]);
+}
+
 module.exports = {
   DEMO_EMAIL,
   DEMO_PASSWORD,
   ensureDemoPortalData,
   ensureGestionDemoData,
+  ensureEvaluationDemoData,
   ensurePortalRolesAndSettings,
   ensureReferentials,
   setPermission,

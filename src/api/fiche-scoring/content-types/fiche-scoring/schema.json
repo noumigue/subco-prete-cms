@@ -1,0 +1,23 @@
+{
+  "kind": "collectionType",
+  "collectionName": "fiches_scoring",
+  "info": {
+    "singularName": "fiche-scoring",
+    "pluralName": "fiches-scoring",
+    "displayName": "Fiche scoring"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": { "type": "relation", "relation": "manyToOne", "target": "api::candidature.candidature" },
+    "evaluateur": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "rang": { "type": "integer" },
+    "coiDeclare": { "type": "boolean", "default": false },
+    "esConforme": { "type": "boolean" },
+    "notes": { "type": "json" },
+    "bonus": { "type": "json" },
+    "statut": { "type": "enumeration", "enum": ["brouillon", "soumise"], "default": "brouillon" },
+    "signeLe": { "type": "datetime" },
+    "signePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "kind": "collectionType",
+  "collectionName": "criteres_evaluation",
+  "info": {
+    "singularName": "critere-evaluation",
+    "pluralName": "criteres-evaluation",
+    "displayName": "Critere evaluation"
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "code": { "type": "uid", "required": true },
+    "bloc": { "type": "enumeration", "enum": ["A", "B", "bonus"], "required": true },
+    "libelle": { "type": "string", "required": true },
+    "description": { "type": "text" },
+    "points": { "type": "integer", "default": 0 },
+    "type": { "type": "enumeration", "enum": ["note", "eliminatoire"], "default": "note" },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}

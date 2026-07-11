@@ -1,0 +1,25 @@
+{
+  "kind": "collectionType",
+  "collectionName": "consolidations_evaluation",
+  "info": {
+    "singularName": "consolidation",
+    "pluralName": "consolidations",
+    "displayName": "Consolidation"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": { "type": "relation", "relation": "oneToOne", "target": "api::candidature.candidature" },
+    "notesRetenues": { "type": "json" },
+    "ecarts": { "type": "json" },
+    "totalA": { "type": "decimal" },
+    "totalB": { "type": "decimal" },
+    "bonus": { "type": "decimal" },
+    "totalHorsBonus": { "type": "decimal" },
+    "totalFinal": { "type": "decimal" },
+    "bande": { "type": "string" },
+    "statut": { "type": "enumeration", "enum": ["en_cours", "figee"], "default": "en_cours" },
+    "figeePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "figeeLe": { "type": "datetime" }
+  }
+}
