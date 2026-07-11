@@ -27,3 +27,6 @@ exports/
 
 # OS junk
 .DS_Store
+
+# Comptes internes de provisionnement (données sensibles, hors VCS)
+scripts/internal-users.json
