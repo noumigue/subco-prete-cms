@@ -1379,6 +1379,50 @@ export interface ApiEtapeProgrammeEtapeProgramme
   };
 }
 
+export interface ApiEvaluationDossierEvaluationDossier
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'evaluations_dossier';
+  info: {
+    displayName: 'Evaluation dossier';
+    pluralName: 'evaluations-dossier';
+    singularName: 'evaluation-dossier';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    candidature: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::candidature.candidature'
+    >;
+    conditions: Schema.Attribute.JSON;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    decisionComite: Schema.Attribute.Enumeration<
+      ['retenu', 'conditions', 'rejete', 'attente']
+    >;
+    faiblesses: Schema.Attribute.JSON;
+    forces: Schema.Attribute.JSON;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::evaluation-dossier.evaluation-dossier'
+    > &
+      Schema.Attribute.Private;
+    motifAjustement: Schema.Attribute.Text;
+    motifReco: Schema.Attribute.Text;
+    publishedAt: Schema.Attribute.DateTime;
+    rang: Schema.Attribute.Integer;
+    reco: Schema.Attribute.Enumeration<
+      ['selection', 'conditionnelle', 'attente', 'rejet']
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiEventEvent extends Struct.CollectionTypeSchema {
   collectionName: 'events';
   info: {
@@ -2016,6 +2060,43 @@ export interface ApiNewsNews extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiNonObjectionNonObjection
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'non_objections';
+  info: {
+    displayName: 'Non objection';
+    pluralName: 'non-objections';
+    singularName: 'non-objection';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appel: Schema.Attribute.Relation<'oneToOne', 'api::appel.appel'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dateAccord: Schema.Attribute.Date;
+    dateTransmission: Schema.Attribute.Date;
+    document: Schema.Attribute.Media<'files' | 'images'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::non-objection.non-objection'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    requise: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    statut: Schema.Attribute.Enumeration<
+      ['a_demander', 'transmise', 'accordee']
+    > &
+      Schema.Attribute.DefaultTo<'a_demander'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiNotificationAmiNotificationAmi
   extends Struct.CollectionTypeSchema {
   collectionName: 'notification_amis';
@@ -2140,6 +2221,36 @@ export interface ApiOrganisationOrganisation
       'api::statut-juridique.statut-juridique'
     >;
     telephone: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiParametresComiteParametresComite
+  extends Struct.SingleTypeSchema {
+  collectionName: 'parametres_comite';
+  info: {
+    displayName: 'Parametres comite';
+    pluralName: 'parametres-comites';
+    singularName: 'parametres-comite';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::parametres-comite.parametres-comite'
+    > &
+      Schema.Attribute.Private;
+    nbMembres: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<7>;
+    publishedAt: Schema.Attribute.DateTime;
+    quorumSeuil: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<5>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2272,6 +2383,83 @@ export interface ApiProvinceProvince extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiPublicationDecisionsPublicationDecisions
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'publications_decisions';
+  info: {
+    displayName: 'Publication decisions';
+    pluralName: 'publications-decisions';
+    singularName: 'publication-decisions';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appel: Schema.Attribute.Relation<'oneToOne', 'api::appel.appel'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::publication-decisions.publication-decisions'
+    > &
+      Schema.Attribute.Private;
+    publieeLe: Schema.Attribute.DateTime;
+    publieePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiRapportEvaluationRapportEvaluation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'rapports_evaluation';
+  info: {
+    displayName: 'Rapport evaluation';
+    pluralName: 'rapports-evaluation';
+    singularName: 'rapport-evaluation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appel: Schema.Attribute.Relation<'oneToOne', 'api::appel.appel'>;
+    commentaireRenvoi: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::rapport-evaluation.rapport-evaluation'
+    > &
+      Schema.Attribute.Private;
+    pdf: Schema.Attribute.Media<'files'>;
+    publishedAt: Schema.Attribute.DateTime;
+    soumisLe: Schema.Attribute.DateTime;
+    soumisPar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    statut: Schema.Attribute.Enumeration<['brouillon', 'soumis', 'valide']> &
+      Schema.Attribute.DefaultTo<'brouillon'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    valideLe: Schema.Attribute.DateTime;
+    validePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
 export interface ApiRapportRequisRapportRequis
   extends Struct.CollectionTypeSchema {
   collectionName: 'rapports_requis';
@@ -2355,6 +2543,46 @@ export interface ApiResourceDocumentResourceDocument
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSeanceComiteSeanceComite
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'seances_comite';
+  info: {
+    displayName: 'Seance comite';
+    pluralName: 'seances-comite';
+    singularName: 'seance-comite';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appel: Schema.Attribute.Relation<'oneToOne', 'api::appel.appel'>;
+    closeLe: Schema.Attribute.DateTime;
+    closePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::seance-comite.seance-comite'
+    > &
+      Schema.Attribute.Private;
+    presents: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    pvGenere: Schema.Attribute.Media<'files'>;
+    pvSigne: Schema.Attribute.Media<'files' | 'images'>;
+    reserves: Schema.Attribute.Text;
+    statut: Schema.Attribute.Enumeration<['ouverte', 'close']> &
+      Schema.Attribute.DefaultTo<'ouverte'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -3332,6 +3560,7 @@ declare module '@strapi/strapi' {
       'api::document-telechargeable.document-telechargeable': ApiDocumentTelechargeableDocumentTelechargeable;
       'api::etape-contractuelle.etape-contractuelle': ApiEtapeContractuelleEtapeContractuelle;
       'api::etape-programme.etape-programme': ApiEtapeProgrammeEtapeProgramme;
+      'api::evaluation-dossier.evaluation-dossier': ApiEvaluationDossierEvaluationDossier;
       'api::event.event': ApiEventEvent;
       'api::faq-entree.faq-entree': ApiFaqEntreeFaqEntree;
       'api::faq-item.faq-item': ApiFaqItemFaqItem;
@@ -3349,15 +3578,20 @@ declare module '@strapi/strapi' {
       'api::mesure-corrective.mesure-corrective': ApiMesureCorrectiveMesureCorrective;
       'api::modalite-decaissement.modalite-decaissement': ApiModaliteDecaissementModaliteDecaissement;
       'api::news.news': ApiNewsNews;
+      'api::non-objection.non-objection': ApiNonObjectionNonObjection;
       'api::notification-ami.notification-ami': ApiNotificationAmiNotificationAmi;
       'api::notification.notification': ApiNotificationNotification;
       'api::organisation.organisation': ApiOrganisationOrganisation;
+      'api::parametres-comite.parametres-comite': ApiParametresComiteParametresComite;
       'api::parametres-evaluation.parametres-evaluation': ApiParametresEvaluationParametresEvaluation;
       'api::parametres-instruction.parametres-instruction': ApiParametresInstructionParametresInstruction;
       'api::partner.partner': ApiPartnerPartner;
       'api::province.province': ApiProvinceProvince;
+      'api::publication-decisions.publication-decisions': ApiPublicationDecisionsPublicationDecisions;
+      'api::rapport-evaluation.rapport-evaluation': ApiRapportEvaluationRapportEvaluation;
       'api::rapport-requis.rapport-requis': ApiRapportRequisRapportRequis;
       'api::resource-document.resource-document': ApiResourceDocumentResourceDocument;
+      'api::seance-comite.seance-comite': ApiSeanceComiteSeanceComite;
       'api::site-navigation.site-navigation': ApiSiteNavigationSiteNavigation;
       'api::statut-candidature.statut-candidature': ApiStatutCandidatureStatutCandidature;
       'api::statut-demande.statut-demande': ApiStatutDemandeStatutDemande;

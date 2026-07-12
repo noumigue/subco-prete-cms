@@ -1,0 +1,22 @@
+{
+  "kind": "collectionType",
+  "collectionName": "evaluations_dossier",
+  "info": {
+    "singularName": "evaluation-dossier",
+    "pluralName": "evaluations-dossier",
+    "displayName": "Evaluation dossier"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": { "type": "relation", "relation": "oneToOne", "target": "api::candidature.candidature" },
+    "rang": { "type": "integer" },
+    "reco": { "type": "enumeration", "enum": ["selection", "conditionnelle", "attente", "rejet"] },
+    "motifReco": { "type": "text" },
+    "conditions": { "type": "json" },
+    "forces": { "type": "json" },
+    "faiblesses": { "type": "json" },
+    "decisionComite": { "type": "enumeration", "enum": ["retenu", "conditions", "rejete", "attente"] },
+    "motifAjustement": { "type": "text" }
+  }
+}
