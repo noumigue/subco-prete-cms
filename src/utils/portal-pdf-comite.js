@@ -24,27 +24,42 @@ function render(build) {
   });
 }
 
+// Bord droit du contenu (marge droite reelle, jamais code en dur).
+function right(doc) {
+  return doc.page.width - doc.page.margins.right;
+}
+
 function header(doc, title, sub) {
-  doc.font('Helvetica-Bold').fontSize(15).fillColor(PINE).text(title);
-  doc.font('Helvetica').fontSize(9.5).fillColor(MUTED).text(sub || '');
+  const left = doc.page.margins.left;
+  doc.x = left;
+  doc.font('Helvetica-Bold').fontSize(15).fillColor(PINE).text(title, left, doc.y, { width: right(doc) - left });
+  doc.font('Helvetica').fontSize(9.5).fillColor(MUTED).text(sub || '', left, doc.y, { width: right(doc) - left });
   doc.moveDown(0.6);
-  doc.strokeColor(LINE).lineWidth(1).moveTo(doc.x, doc.y).lineTo(545, doc.y).stroke();
+  doc.strokeColor(LINE).lineWidth(1).moveTo(left, doc.y).lineTo(right(doc), doc.y).stroke();
+  doc.x = left;
   doc.moveDown(0.6);
 }
 
 // Ligne de tableau simple (colonnes { text, width, align }).
+// IMPORTANT : chaque ligne est ancree a la marge gauche et le curseur x est REMIS a gauche
+// en fin de ligne — sinon pdfkit laisse doc.x dans la derniere colonne et tout le contenu
+// suivant (lignes + paragraphes) se decale progressivement vers la droite.
 function row(doc, cols, opts = {}) {
-  const y = doc.y;
-  let x = doc.x;
+  const left = doc.page.margins.left;
   doc.font(opts.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(opts.size || 9).fillColor(opts.color || INK);
   const heights = cols.map((c) => doc.heightOfString(String(c.text ?? ''), { width: c.width - 6, align: c.align || 'left' }));
   const h = Math.max(...heights, 12);
+  // Saut de page si la ligne deborde du bas (evite l'ecrasement / le hors-page).
+  if (doc.y + h + 5 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+  const y = doc.y;
+  let x = left;
   cols.forEach((c) => {
     doc.text(String(c.text ?? ''), x + 3, y + 2, { width: c.width - 6, align: c.align || 'left' });
     x += c.width;
   });
+  doc.x = left;
   doc.y = y + h + 5;
-  doc.strokeColor(LINE).lineWidth(0.5).moveTo(doc.x, doc.y - 2).lineTo(545, doc.y - 2).stroke();
+  doc.strokeColor(LINE).lineWidth(0.5).moveTo(left, doc.y - 2).lineTo(right(doc), doc.y - 2).stroke();
 }
 
 function buildRapportPdf({ appel, dossiers }) {
