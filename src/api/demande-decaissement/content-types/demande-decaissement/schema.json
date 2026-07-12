@@ -44,6 +44,12 @@
       "type": "enumeration",
       "enum": ["non_requise", "attendue", "soumise", "validee"],
       "default": "non_requise"
-    }
+    },
+    "avisTechniqueCommentaire": { "type": "text" },
+    "avisTechniquePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "avisFiduciaireCommentaire": { "type": "text" },
+    "avisFiduciairePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "acd": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "decisionLe": { "type": "datetime" }
   }
 }

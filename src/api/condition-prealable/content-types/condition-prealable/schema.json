@@ -24,6 +24,12 @@
     "echeance": { "type": "date" },
     "fichierDepose": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
     "dateValidation": { "type": "date" },
-    "ordre": { "type": "integer", "default": 0 }
+    "ordre": { "type": "integer", "default": 0 },
+    "technique": { "type": "boolean", "default": false },
+    "avisTechnique": { "type": "enumeration", "enum": ["favorable", "reserve", "defavorable"] },
+    "avisTechniqueCommentaire": { "type": "text" },
+    "avisTechniquePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "valideePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "valideeLe": { "type": "datetime" }
   }
 }

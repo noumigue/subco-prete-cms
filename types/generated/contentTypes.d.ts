@@ -950,6 +950,14 @@ export interface ApiConditionPrealableConditionPrealable
     draftAndPublish: false;
   };
   attributes: {
+    avisTechnique: Schema.Attribute.Enumeration<
+      ['favorable', 'reserve', 'defavorable']
+    >;
+    avisTechniqueCommentaire: Schema.Attribute.Text;
+    avisTechniquePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -973,9 +981,15 @@ export interface ApiConditionPrealableConditionPrealable
       'manyToOne',
       'api::subvention.subvention'
     >;
+    technique: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    valideeLe: Schema.Attribute.DateTime;
+    valideePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
   };
 }
 
@@ -1192,16 +1206,28 @@ export interface ApiDemandeDecaissementDemandeDecaissement
     draftAndPublish: false;
   };
   attributes: {
+    acd: Schema.Attribute.Media<'files' | 'images'>;
     aJustifier: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     avisFiduciaire: Schema.Attribute.Enumeration<
       ['approuve', 'rejete', 'complements']
     >;
+    avisFiduciaireCommentaire: Schema.Attribute.Text;
+    avisFiduciairePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     avisTechnique: Schema.Attribute.Enumeration<
       ['favorable', 'defavorable', 'favorable_reserve']
+    >;
+    avisTechniqueCommentaire: Schema.Attribute.Text;
+    avisTechniquePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
     >;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    decisionLe: Schema.Attribute.DateTime;
     justificationPieces: Schema.Attribute.Media<'files' | 'images', true>;
     justificationStatut: Schema.Attribute.Enumeration<
       ['non_requise', 'attendue', 'soumise', 'validee']
@@ -1906,6 +1932,10 @@ export interface ApiJalonProjetJalonProjet extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     publishedAt: Schema.Attribute.DateTime;
+    saisiPar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     subvention: Schema.Attribute.Relation<
       'manyToOne',
       'api::subvention.subvention'
@@ -1970,6 +2000,10 @@ export interface ApiMesureCorrectiveMesureCorrective
       Schema.Attribute.Private;
     description: Schema.Attribute.Text;
     echeance: Schema.Attribute.Date;
+    emisePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     fichierRegularisation: Schema.Attribute.Media<'files' | 'images'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -1987,6 +2021,11 @@ export interface ApiMesureCorrectiveMesureCorrective
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    valideeLe: Schema.Attribute.DateTime;
+    valideePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
   };
 }
 
@@ -2251,6 +2290,36 @@ export interface ApiParametresComiteParametresComite
     nbMembres: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<7>;
     publishedAt: Schema.Attribute.DateTime;
     quorumSeuil: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<5>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiParametresDecaissementParametresDecaissement
+  extends Struct.SingleTypeSchema {
+  collectionName: 'parametres_decaissement';
+  info: {
+    displayName: 'Parametres decaissement';
+    pluralName: 'parametres-decaissements';
+    singularName: 'parametres-decaissement';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    delaiTraitementJours: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<10>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::parametres-decaissement.parametres-decaissement'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2789,6 +2858,7 @@ export interface ApiSubventionSubvention extends Struct.CollectionTypeSchema {
       Schema.Attribute.DefaultTo<'0'>;
     montantSubvention: Schema.Attribute.BigInteger;
     montantTotal: Schema.Attribute.BigInteger;
+    motifSuspension: Schema.Attribute.Text;
     numeroConvention: Schema.Attribute.String;
     owner: Schema.Attribute.Relation<
       'manyToOne',
@@ -2799,6 +2869,10 @@ export interface ApiSubventionSubvention extends Struct.CollectionTypeSchema {
     rapports: Schema.Attribute.Relation<
       'oneToMany',
       'api::rapport-requis.rapport-requis'
+    >;
+    signeePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
     >;
     statut: Schema.Attribute.Enumeration<
       ['preparation', 'active', 'suspendue', 'cloturee']
@@ -3583,6 +3657,7 @@ declare module '@strapi/strapi' {
       'api::notification.notification': ApiNotificationNotification;
       'api::organisation.organisation': ApiOrganisationOrganisation;
       'api::parametres-comite.parametres-comite': ApiParametresComiteParametresComite;
+      'api::parametres-decaissement.parametres-decaissement': ApiParametresDecaissementParametresDecaissement;
       'api::parametres-evaluation.parametres-evaluation': ApiParametresEvaluationParametresEvaluation;
       'api::parametres-instruction.parametres-instruction': ApiParametresInstructionParametresInstruction;
       'api::partner.partner': ApiPartnerPartner;

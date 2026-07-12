@@ -326,6 +326,19 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-evaluation.troisiemeEvaluateur',
     'api::gestion.gestion-evaluation.figer',
   ];
+  // Phase 3 (actes de subvention) — Cabinet dépose les avis techniques ; l'UGP valide/décide/signe.
+  const subventionInstructeurActions = [
+    'api::gestion.gestion-subventions.subventions', 'api::gestion.gestion-subventions.subvention',
+    'api::gestion.gestion-subventions.conditionAvisTechnique', 'api::gestion.gestion-subventions.decaissementAvisTechnique',
+  ];
+  const subventionUgpActions = [
+    'api::gestion.gestion-subventions.conditionValider', 'api::gestion.gestion-subventions.conditionActionRequise',
+    'api::gestion.gestion-subventions.signer',
+    'api::gestion.gestion-subventions.decaissementAvisFiduciaire', 'api::gestion.gestion-subventions.justificationValider', 'api::gestion.gestion-subventions.justificationComplement',
+    'api::gestion.gestion-subventions.jalonDateReelle',
+    'api::gestion.gestion-subventions.mesureEmettre', 'api::gestion.gestion-subventions.mesureValider',
+    'api::gestion.gestion-subventions.suspendre', 'api::gestion.gestion-subventions.lever',
+  ];
   // Phase 2 temps 2 — rapport/Comité/décisions/publication.
   // Cabinet (instructeur) rédige le rapport ; ugp valide/décide/publie ; comite lit la séance.
   const comiteInstructeurActions = [
@@ -356,6 +369,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion.proposerEligibilite',
     ...evaluationInstructeurActions,
     ...comiteInstructeurActions,
+    ...subventionInstructeurActions,
   ];
   const ugpActions = [
     ...instructeurActions,
@@ -368,7 +382,8 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion.cloreAppel',
     ...evaluationUgpActions,
     ...comiteUgpActions,
-    // Upload de la notification de decision signee (rejet) + PV signé + document de non-objection.
+    ...subventionUgpActions,
+    // Upload : notification signée (rejet) + PV signé + document non-objection + convention/ACD (phase 3).
     'plugin::upload.content-api.upload',
   ];
   // Comité (F2 — lecture cloisonnée) : uniquement le dossier de séance + son identité.

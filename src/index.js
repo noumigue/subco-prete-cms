@@ -9,7 +9,7 @@ const {
   ensureReferentials,
 } = require('./utils/portal-seed');
 const { ensureRevalidateWebhook } = require('./utils/portal-webhook');
-const { ensureReferentielsDecaissement, ensureSubventionDemo } = require('./utils/portal-seed-subvention');
+const { ensureReferentielsDecaissement, ensureSubventionDemo, ensureSubventionUgpDemo } = require('./utils/portal-seed-subvention');
 
 module.exports = {
   /**
@@ -50,6 +50,8 @@ module.exports = {
       await ensureEvaluationDemoData(strapi);
       // Phase 2 temps 2 : comite + dossiers a consolidation figee (rapport/decisions/publication).
       await ensureComiteDemoData(strapi);
+      // Phase 3 : top-up des subventions de demo (conditions techniques + circuit decaissement).
+      await ensureSubventionUgpDemo(strapi);
       strapi.log.info('[seed] Donnees de demo provisionnees (SEED_DEMO_DATA / non-production).');
     } else {
       strapi.log.info('[seed] Donnees de demo ignorees (production).');

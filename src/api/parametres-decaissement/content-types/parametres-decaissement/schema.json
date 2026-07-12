@@ -1,0 +1,8 @@
+{
+  "kind": "singleType",
+  "collectionName": "parametres_decaissement",
+  "info": { "singularName": "parametres-decaissement", "pluralName": "parametres-decaissements", "displayName": "Parametres decaissement" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": { "delaiTraitementJours": { "type": "integer", "default": 10 } }
+}
