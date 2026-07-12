@@ -30,6 +30,8 @@
     "montantSubvention": { "type": "biginteger" },
     "montantContrepartie": { "type": "biginteger" },
     "montantDecaisse": { "type": "biginteger", "default": "0" },
+    "signeePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "motifSuspension": { "type": "text" },
     "pdfConvention": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
     "avenants": { "type": "media", "multiple": true, "allowedTypes": ["files"] },
     "documentsContractuels": {

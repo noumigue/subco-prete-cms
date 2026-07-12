@@ -439,4 +439,66 @@ async function ensureSubventionDemo(strapi) {
   await ensureSubventionBContent(strapi);
 }
 
-module.exports = { ensureReferentielsDecaissement, ensureSubventionDemo, DEMO_B_EMAIL };
+// ============================================================================
+// Phase 3 (actes de subvention côté UGP) — top-up idempotent des subventions de démo
+// du Lot 2 pour rendre chaque acte UGP/Cabinet testable :
+//  - préparation (demo-candidat) : marque des conditions « techniques » + un avis Cabinet ;
+//  - active (demo-bénéficiaire) : 1 demande au stade avis technique (circuit) + 1 avance
+//    dont la justification est déposée (à valider par l'UGP, règle 11.4).
+// Réutilise les subventions existantes (ne recrée rien).
+// ============================================================================
+async function makePieceId(strapi, title, lines, filename) {
+  const buffer = await simplePdf(title, lines);
+  const uploaded = await uploadPdfBuffer(strapi, buffer, filename);
+  return uploaded?.id || null;
+}
+
+async function ensureSubventionUgpDemo(strapi) {
+  // Paramètre référentiel §11.5 (placeholder, aucun blocage codé dessus).
+  const pd = await strapi.documents('api::parametres-decaissement.parametres-decaissement').findFirst({});
+  if (pd?.documentId) {
+    if (pd.delaiTraitementJours == null) await strapi.documents('api::parametres-decaissement.parametres-decaissement').update({ documentId: pd.documentId, data: { delaiTraitementJours: 10 } });
+  } else {
+    await strapi.documents('api::parametres-decaissement.parametres-decaissement').create({ data: { delaiTraitementJours: 10 } });
+  }
+
+  // 1) Préparation (demo-candidat) : 2 conditions techniques, dont une avec avis Cabinet déjà déposé.
+  const userA = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email: DEMO_EMAIL } });
+  if (userA) {
+    const subA = await strapi.documents('api::subvention.subvention').findFirst({ filters: { owner: { id: userA.id }, statut: 'preparation' }, populate: ['conditionsPrealables'] });
+    for (const c of subA?.conditionsPrealables || []) {
+      const lib = c.libelle || '';
+      if (/environnemental|plan de mise|autorisations/i.test(lib)) {
+        const data = { technique: true };
+        if (/autorisations/i.test(lib) && !c.avisTechnique) data.avisTechnique = 'favorable';
+        await strapi.documents('api::condition-prealable.condition-prealable').update({ documentId: c.documentId, data });
+      }
+    }
+  }
+
+  // 2) Active (demo-bénéficiaire) : circuit décaissement + justification à valider.
+  const userB = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email: DEMO_B_EMAIL } });
+  if (userB) {
+    const subB = await strapi.documents('api::subvention.subvention').findFirst({ filters: { owner: { id: userB.id }, statut: 'active' }, populate: { demandes: { populate: ['statut'] } } });
+    if (subB) {
+      const [statutAvisTech, modalitePaiement] = await Promise.all([
+        findOneBy(strapi, 'api::statut-demande.statut-demande', { code: 'avis_technique' }),
+        findOneBy(strapi, 'api::modalite-decaissement.modalite-decaissement', { code: 'paiement_direct' }),
+      ]);
+      const demandes = subB.demandes || [];
+      if (!demandes.some((d) => d.numero === 4)) {
+        const pieceId = await makePieceId(strapi, 'Demande de paiement direct N°04', ['Contrat fournisseur', 'Facture originale', 'PV de reception'], 'demande-04.pdf');
+        await strapi.documents('api::demande-decaissement.demande-decaissement').create({
+          data: { subvention: connect(subB.documentId), numero: 4, modalite: connect(modalitePaiement?.documentId), montant: 22000000, objet: 'Paiement direct — equipement de froid.', statut: connect(statutAvisTech?.documentId), aJustifier: false, justificationStatut: 'non_requise', pieces: pieceId ? [pieceId] : undefined },
+        });
+      }
+      const d3 = demandes.find((d) => d.numero === 3);
+      if (d3 && d3.justificationStatut === 'attendue') {
+        const jpId = await makePieceId(strapi, 'Justification avance N°03', ["Rapport d'avancement", 'Etat des depenses', 'Preuves de paiement', 'PV de reception'], 'justif-03.pdf');
+        await strapi.documents('api::demande-decaissement.demande-decaissement').update({ documentId: d3.documentId, data: { justificationStatut: 'soumise', justificationPieces: jpId ? [jpId] : undefined } });
+      }
+    }
+  }
+}
+
+module.exports = { ensureReferentielsDecaissement, ensureSubventionDemo, ensureSubventionUgpDemo, DEMO_B_EMAIL };

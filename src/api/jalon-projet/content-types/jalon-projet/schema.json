@@ -22,6 +22,7 @@
     },
     "datePrevue": { "type": "date" },
     "dateReelle": { "type": "date" },
-    "ordre": { "type": "integer", "default": 0 }
+    "ordre": { "type": "integer", "default": 0 },
+    "saisiPar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" }
   }
 }

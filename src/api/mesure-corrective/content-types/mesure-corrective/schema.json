@@ -22,6 +22,9 @@
       "enum": ["en_cours", "regularisee"],
       "default": "en_cours"
     },
-    "fichierRegularisation": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] }
+    "fichierRegularisation": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "emisePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "valideePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "valideeLe": { "type": "datetime" }
   }
 }
