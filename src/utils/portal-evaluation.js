@@ -91,6 +91,16 @@ function detectEcarts(bareme, params, fiches) {
   return ecarts;
 }
 
+// Recommandation pré-remplie depuis la bande (6.4 — sur le total HORS bonus).
+// >=80 sélection · 70-79 conditionnelle · 60-69 liste d'attente · <60 rejet.
+function recoFromScore(totalHorsBonus, params) {
+  const seuil = params?.seuilBase ?? 60;
+  if (totalHorsBonus >= 80) return 'selection';
+  if (totalHorsBonus >= 70) return 'conditionnelle';
+  if (totalHorsBonus >= seuil) return 'attente';
+  return 'rejet';
+}
+
 module.exports = {
   DEFAULT_BANDES,
   getBareme,
@@ -100,4 +110,5 @@ module.exports = {
   noteOf,
   bonusOf,
   detectEcarts,
+  recoFromScore,
 };

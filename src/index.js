@@ -4,6 +4,7 @@ const {
   ensureDemoPortalData,
   ensureGestionDemoData,
   ensureEvaluationDemoData,
+  ensureComiteDemoData,
   ensurePortalRolesAndSettings,
   ensureReferentials,
 } = require('./utils/portal-seed');
@@ -47,6 +48,8 @@ module.exports = {
       await ensureGestionDemoData(strapi);
       // Phase 2 : evaluateurs + dossiers d'evaluation (fiches soumises + parcours a remplir).
       await ensureEvaluationDemoData(strapi);
+      // Phase 2 temps 2 : comite + dossiers a consolidation figee (rapport/decisions/publication).
+      await ensureComiteDemoData(strapi);
       strapi.log.info('[seed] Donnees de demo provisionnees (SEED_DEMO_DATA / non-production).');
     } else {
       strapi.log.info('[seed] Donnees de demo ignorees (production).');

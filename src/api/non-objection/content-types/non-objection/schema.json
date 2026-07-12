@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType",
+  "collectionName": "non_objections",
+  "info": {
+    "singularName": "non-objection",
+    "pluralName": "non-objections",
+    "displayName": "Non objection"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "appel": { "type": "relation", "relation": "oneToOne", "target": "api::appel.appel" },
+    "requise": { "type": "boolean", "default": false },
+    "statut": { "type": "enumeration", "enum": ["a_demander", "transmise", "accordee"], "default": "a_demander" },
+    "dateTransmission": { "type": "date" },
+    "dateAccord": { "type": "date" },
+    "document": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] }
+  }
+}

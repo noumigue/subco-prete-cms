@@ -145,7 +145,7 @@ async function ensurePortalRolesAndSettings(strapi) {
   const beneficiaireRole = await ensureRole(strapi, 'beneficiaire', 'Beneficiaire');
   const instructeurRole = await ensureRole(strapi, 'instructeur', 'Instructeur');
   const ugpRole = await ensureRole(strapi, 'ugp', 'UGP');
-  await ensureRole(strapi, 'comite', 'Comite');
+  const comiteRole = await ensureRole(strapi, 'comite', 'Comite');
   await ensureRole(strapi, 'banque', 'Banque');
 
   const pluginStore = strapi.store({
@@ -326,12 +326,36 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-evaluation.troisiemeEvaluateur',
     'api::gestion.gestion-evaluation.figer',
   ];
+  // Phase 2 temps 2 — rapport/Comité/décisions/publication.
+  // Cabinet (instructeur) rédige le rapport ; ugp valide/décide/publie ; comite lit la séance.
+  const comiteInstructeurActions = [
+    'api::gestion.gestion-comite.rapport',
+    'api::gestion.gestion-comite.rapportDossier',
+    'api::gestion.gestion-comite.rapportSoumettre',
+  ];
+  const comiteUgpActions = [
+    'api::gestion.gestion-comite.seanceCourante',
+    'api::gestion.gestion-comite.rapportValider',
+    'api::gestion.gestion-comite.rapportRenvoyer',
+    'api::gestion.gestion-comite.seance',
+    'api::gestion.gestion-comite.decisions',
+    'api::gestion.gestion-comite.decisionDossier',
+    'api::gestion.gestion-comite.decisionPresents',
+    'api::gestion.gestion-comite.genererPv',
+    'api::gestion.gestion-comite.joindrePvSigne',
+    'api::gestion.gestion-comite.cloreSeance',
+    'api::gestion.gestion-comite.publication',
+    'api::gestion.gestion-comite.nonObjection',
+    'api::gestion.gestion-comite.publier',
+  ];
+
   const instructeurActions = [
     ...gestionBaseActions,
     'api::gestion.gestion.priseEnCharge',
     'api::gestion.gestion.proposerCompletude',
     'api::gestion.gestion.proposerEligibilite',
     ...evaluationInstructeurActions,
+    ...comiteInstructeurActions,
   ];
   const ugpActions = [
     ...instructeurActions,
@@ -343,9 +367,15 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion.ouvrirAppel',
     'api::gestion.gestion.cloreAppel',
     ...evaluationUgpActions,
-    // Upload de la notification de decision signee (rejet) — cote ugp uniquement.
+    ...comiteUgpActions,
+    // Upload de la notification de decision signee (rejet) + PV signé + document de non-objection.
     'plugin::upload.content-api.upload',
   ];
+  // Comité (F2 — lecture cloisonnée) : uniquement le dossier de séance + son identité.
+  const comiteActions = ['api::gestion.gestion-comite.seance', 'api::gestion.gestion-comite.seanceCourante', 'api::portal-compte.portal-compte.moi'];
+  for (const action of comiteActions) {
+    await setPermission(strapi, comiteRole.id, action, true);
+  }
   for (const action of instructeurActions) {
     await setPermission(strapi, instructeurRole.id, action, true);
   }
@@ -628,6 +658,12 @@ async function ensureReferentials(strapi) {
     await strapi.documents('api::parametres-evaluation.parametres-evaluation').update({ documentId: paramEval.documentId, data: { seuilBase: paramEval.seuilBase ?? 60, ecartPct: paramEval.ecartPct ?? 0.2, bandes: Array.isArray(paramEval.bandes) && paramEval.bandes.length ? paramEval.bandes : bandes } });
   } else {
     await strapi.documents('api::parametres-evaluation.parametres-evaluation').create({ data: { seuilBase: 60, ecartPct: 0.2, bandes } });
+  }
+
+  // Paramètres du Comité (temps 2 — F3 : quorum éditable, placeholder 5 à confirmer UGP §8.10).
+  const paramComite = await strapi.documents('api::parametres-comite.parametres-comite').findFirst({});
+  if (!paramComite?.documentId) {
+    await strapi.documents('api::parametres-comite.parametres-comite').create({ data: { nbMembres: 7, quorumSeuil: 5 } });
   }
 
   return { cohort };
@@ -1117,12 +1153,93 @@ async function ensureEvaluationDemoData(strapi) {
   ]);
 }
 
+// ============================================================================
+// Donnees de DEMO du temps 2 (rapport, Comite, decisions, publication) :
+// 1 compte `comite` + 4 dossiers en phase `evaluation` avec consolidations FIGEES
+// (bases 88 / 79 / 66 / 58 -> recos selection / conditionnelle / attente / rejet),
+// rapport en brouillon, seance ouverte, non-objection requise (cohorte pilote).
+// Autoritatif : remet l'etat de depart a chaque seed (re-demoable apres publication).
+// ============================================================================
+
+const COMITE_DOSSIERS = [
+  { org: 'Cooperative Vunga', num: 'PRETE-AP-C1-2026-00051', titre: 'Chambre froide — Rumonge', fil: 'fruits-tropicaux', a: 54, b: 34, bonus: 8, a5: 14, harmon: false,
+    forces: ['Pertinence strategique forte', "Plan d'affaires solide"], faiblesses: ['Maintenance a preciser'], conditions: [] },
+  { org: 'Cooperative Nyaruguru', num: 'PRETE-AP-C1-2026-00052', titre: 'Etang piscicole — Nyanza-Lac', fil: 'pisciculture', a: 48, b: 31, bonus: 9, a5: 12, harmon: true,
+    forces: ['Impact inclusion eleve (women-led)'], faiblesses: ["Site d'implantation a securiser", 'Capacite O&M limitee'],
+    conditions: [{ texte: "Securiser le titre d'occupation du site", type: 'site' }, { texte: 'Renforcer le plan de maintenance avant signature', type: 'plan_affaires' }] },
+  { org: 'MPME Bwiza', num: 'PRETE-AP-C1-2026-00053', titre: 'Poulailler moderne — Gihanga', fil: 'volaille', a: 40, b: 26, bonus: 6, a5: 9, harmon: false,
+    forces: ['Debouches confirmes'], faiblesses: ['Coherence technique moyenne', 'Gouvernance a structurer'], conditions: [] },
+  { org: 'Cooperative Rima', num: 'PRETE-AP-C1-2026-00054', titre: 'Unite laitiere — Gitega', fil: 'lait', a: 38, b: 20, bonus: 4, a5: 7, harmon: false,
+    forces: [], faiblesses: ['Faisabilite insuffisante', 'Viabilite economique fragile'], conditions: [] },
+];
+
+function recoDemo(base) { return base >= 80 ? 'selection' : base >= 70 ? 'conditionnelle' : base >= 60 ? 'attente' : 'rejet'; }
+function bandeDemo(base) { return base >= 80 ? 'Recommandé pour financement' : base >= 70 ? 'Recommandé sous conditions' : base >= 60 ? "Liste d'attente / révision" : 'Non retenu (< 60)'; }
+
+async function ensureComiteDemoData(strapi) {
+  await ensureInternalUser(strapi, { email: 'demo-comite@subco-prete.bi', orgName: 'Comite de selection', roleType: 'comite' });
+  const holder = await ensureInternalUser(strapi, { email: PORTEFEUILLE_EMAIL, orgName: 'Portefeuille de demonstration', roleType: 'candidat' });
+
+  const [appel, sEvaluation, coop] = await Promise.all([
+    findOneBy(strapi, 'api::appel.appel', { codeCohorte: 'C1' }),
+    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'evaluation' }),
+    findOneBy(strapi, 'api::statut-juridique.statut-juridique', { libelle: 'Cooperative' }),
+  ]);
+
+  for (const row of COMITE_DOSSIERS) {
+    const filiere = await findOneBy(strapi, 'api::filiere.filiere', { slug: row.fil });
+    const org = await upsertDocument(strapi, 'api::organisation.organisation', { nom: row.org }, {
+      owner: holder.id, nom: row.org, statutJuridique: connectRelation(coop), filierePrincipale: connectRelation(filiere),
+    });
+    const cand = await upsertDocument(strapi, 'api::candidature.candidature', { titreProjet: row.titre }, {
+      owner: holder.id, appel: connectRelation(appel), organisation: connectRelation(org), titreProjet: row.titre,
+      statut: connectRelation(sEvaluation), numeroDossier: row.num, dateDepot: '2026-07-05T09:00:00.000Z',
+      donneesProjet: { ...DEMO_DONNEES, financement: { budgetTotal: 120000000, contrepartie: 24000000, typeContrepartie: 'Numeraire' } },
+      motifDecisionCourt: null,
+    });
+
+    const base = row.a + row.b;
+    const notesRetenues = { A5: { retenue: row.a5 }, ...(row.harmon ? { A3: { retenue: 8, harmonisee: true } } : {}) };
+    const consData = { notesRetenues, ecarts: [], statut: 'figee', totalA: row.a, totalB: row.b, bonus: row.bonus, totalHorsBonus: base, totalFinal: Math.min(100, base) + row.bonus, bande: bandeDemo(base), figeeLe: '2026-07-20T10:00:00.000Z' };
+    const consExisting = await findOneBy(strapi, 'api::consolidation.consolidation', { candidature: { documentId: cand.documentId } });
+    if (consExisting?.documentId) await strapi.documents('api::consolidation.consolidation').update({ documentId: consExisting.documentId, data: consData });
+    else await strapi.documents('api::consolidation.consolidation').create({ data: { candidature: connectRelation(cand), ...consData } });
+
+    // evaluation-dossier autoritatif (reco depuis la bande, decisions remises a null).
+    const edData = { rang: null, reco: recoDemo(base), forces: row.forces, faiblesses: row.faiblesses, conditions: row.conditions, decisionComite: null, motifAjustement: null, motifReco: null };
+    const edExisting = await findOneBy(strapi, 'api::evaluation-dossier.evaluation-dossier', { candidature: { documentId: cand.documentId } });
+    if (edExisting?.documentId) await strapi.documents('api::evaluation-dossier.evaluation-dossier').update({ documentId: edExisting.documentId, data: edData });
+    else await strapi.documents('api::evaluation-dossier.evaluation-dossier').create({ data: { candidature: connectRelation(cand), ...edData } });
+
+    // Nettoyage des effets d'une publication anterieure (subvention + conditions) -> re-demoable.
+    const subs = await strapi.documents('api::subvention.subvention').findMany({ filters: { candidature: { documentId: cand.documentId } }, populate: ['conditionsPrealables'], limit: 5 });
+    for (const s of subs) {
+      for (const c of s.conditionsPrealables || []) await strapi.documents('api::condition-prealable.condition-prealable').delete({ documentId: c.documentId });
+      await strapi.documents('api::subvention.subvention').delete({ documentId: s.documentId });
+    }
+  }
+
+  // Rapport brouillon (reset), seance ouverte (reset), non-objection requise, publication effacee.
+  await resetSingletonByAppel(strapi, 'api::rapport-evaluation.rapport-evaluation', appel, { statut: 'brouillon', pdf: null, soumisLe: null, valideLe: null, commentaireRenvoi: null });
+  await resetSingletonByAppel(strapi, 'api::seance-comite.seance-comite', appel, { presents: 0, statut: 'ouverte', pvGenere: null, pvSigne: null, reserves: null, closeLe: null });
+  await resetSingletonByAppel(strapi, 'api::non-objection.non-objection', appel, { requise: true, statut: 'a_demander', dateTransmission: null, dateAccord: null, document: null });
+  const pubs = await strapi.documents('api::publication-decisions.publication-decisions').findMany({ filters: { appel: { documentId: appel.documentId } }, limit: 5 });
+  for (const p of pubs) await strapi.documents('api::publication-decisions.publication-decisions').delete({ documentId: p.documentId });
+}
+
+async function resetSingletonByAppel(strapi, uid, appel, data) {
+  const existing = await findOneBy(strapi, uid, { appel: { documentId: appel.documentId } });
+  if (existing?.documentId) await strapi.documents(uid).update({ documentId: existing.documentId, data });
+  else await strapi.documents(uid).create({ data: { appel: connectRelation(appel), ...data } });
+}
+
 module.exports = {
   DEMO_EMAIL,
   DEMO_PASSWORD,
   ensureDemoPortalData,
   ensureGestionDemoData,
   ensureEvaluationDemoData,
+  ensureComiteDemoData,
   ensurePortalRolesAndSettings,
   ensureReferentials,
   setPermission,

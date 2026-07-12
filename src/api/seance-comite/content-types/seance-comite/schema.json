@@ -1,0 +1,21 @@
+{
+  "kind": "collectionType",
+  "collectionName": "seances_comite",
+  "info": {
+    "singularName": "seance-comite",
+    "pluralName": "seances-comite",
+    "displayName": "Seance comite"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "appel": { "type": "relation", "relation": "oneToOne", "target": "api::appel.appel" },
+    "presents": { "type": "integer", "default": 0 },
+    "pvGenere": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "pvSigne": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "reserves": { "type": "text" },
+    "statut": { "type": "enumeration", "enum": ["ouverte", "close"], "default": "ouverte" },
+    "closePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "closeLe": { "type": "datetime" }
+  }
+}

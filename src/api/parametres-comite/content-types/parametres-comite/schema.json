@@ -1,0 +1,15 @@
+{
+  "kind": "singleType",
+  "collectionName": "parametres_comite",
+  "info": {
+    "singularName": "parametres-comite",
+    "pluralName": "parametres-comites",
+    "displayName": "Parametres comite"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "nbMembres": { "type": "integer", "default": 7 },
+    "quorumSeuil": { "type": "integer", "default": 5 }
+  }
+}

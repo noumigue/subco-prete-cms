@@ -1,0 +1,21 @@
+{
+  "kind": "collectionType",
+  "collectionName": "rapports_evaluation",
+  "info": {
+    "singularName": "rapport-evaluation",
+    "pluralName": "rapports-evaluation",
+    "displayName": "Rapport evaluation"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "appel": { "type": "relation", "relation": "oneToOne", "target": "api::appel.appel" },
+    "statut": { "type": "enumeration", "enum": ["brouillon", "soumis", "valide"], "default": "brouillon" },
+    "pdf": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "soumisPar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "soumisLe": { "type": "datetime" },
+    "validePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "valideLe": { "type": "datetime" },
+    "commentaireRenvoi": { "type": "text" }
+  }
+}
