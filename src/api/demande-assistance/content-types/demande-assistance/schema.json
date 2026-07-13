@@ -45,6 +45,11 @@
       "type": "enumeration",
       "enum": ["operateur", "equipe"]
     },
+    "priseEnChargePar": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
     "messages": {
       "type": "relation",
       "relation": "oneToMany",
