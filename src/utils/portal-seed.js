@@ -339,6 +339,20 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-subventions.mesureEmettre', 'api::gestion.gestion-subventions.mesureValider',
     'api::gestion.gestion-subventions.suspendre', 'api::gestion.gestion-subventions.lever',
   ];
+  // M6 (suivi-evaluation, §14 K1-K5) — instructeur LIT + saisit/propose le depouillement ;
+  // UGP valide le depouillement, saisit les valeurs externes, genere les syntheses.
+  const seInstructeurActions = [
+    'api::gestion.gestion-se.tableauDeBord',
+    'api::gestion.gestion-se.indicateurs',
+    'api::gestion.gestion-se.depouillements',
+    'api::gestion.gestion-se.rapports',
+    'api::gestion.gestion-se.depouillementProposer',
+  ];
+  const seUgpActions = [
+    'api::gestion.gestion-se.depouillementValider',
+    'api::gestion.gestion-se.depouillementRenvoyer',
+    'api::gestion.gestion-se.genererRapport',
+  ];
   // Phase 5 (non-objection outillée, §6.7 I1-I4) — instructeur LIT (appui Cabinet), UGP ÉCRIT.
   const nonObjectionInstructeurActions = [
     'api::gestion.gestion-nonobjection.demandes',
@@ -404,6 +418,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...subventionInstructeurActions,
     ...assistanceEquipeActions,
     ...nonObjectionInstructeurActions,
+    ...seInstructeurActions,
   ];
   const ugpActions = [
     ...instructeurActions,
@@ -418,6 +433,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...comiteUgpActions,
     ...subventionUgpActions,
     ...nonObjectionUgpActions,
+    ...seUgpActions,
     // Upload : notification signée (rejet) + PV signé + document non-objection + convention/ACD (phase 3).
     'plugin::upload.content-api.upload',
   ];
@@ -661,6 +677,37 @@ async function ensureReferentials(strapi) {
   ]) {
     await upsertDocument(strapi, 'api::cas-non-objection.cas-non-objection', { code: row.code }, row);
   }
+
+  // Indicateurs de suivi-evaluation (M6, referentiel §14.3 — cibles = placeholders « a confirmer »).
+  for (const row of [
+    { code: 'res_infra_financees', famille: 'resultats', libelle: 'Infrastructures productives financees', mode: 'calcule', unite: '', cible: '25', ordre: 10 },
+    { code: 'res_projets_acheves', famille: 'resultats', libelle: 'Projets acheves', mode: 'calcule', unite: '', cible: '20', ordre: 20 },
+    { code: 'res_taux_execution', famille: 'resultats', libelle: "Taux d'execution financiere", mode: 'calcule', unite: '%', cible: '>= 80 %', ordre: 30 },
+    { code: 'res_invest_mobilises', famille: 'resultats', libelle: 'Investissements prives mobilises (contreparties)', mode: 'calcule', unite: '$', cible: 'a confirmer', ordre: 40 },
+    { code: 'imp_emplois_crees', famille: 'impact', libelle: 'Emplois crees', mode: 'saisi', unite: '', cible: '400', ordre: 50 },
+    { code: 'imp_operateurs_benef', famille: 'impact', libelle: 'Operateurs (MPME/coop.) beneficiaires', mode: 'calcule', unite: '', cible: '25', ordre: 60 },
+    { code: 'imp_beneficiaires', famille: 'impact', libelle: 'Beneficiaires touches', mode: 'saisi', unite: '', cible: 'a confirmer', ordre: 70 },
+    { code: 'inc_part_femmes', famille: 'inclusion', libelle: 'Part de femmes beneficiaires', mode: 'calcule', unite: '%', cible: '>= 50 %', ordre: 80 },
+    { code: 'inc_projets_femmes', famille: 'inclusion', libelle: 'Projets portes par des femmes', mode: 'calcule', unite: '%', cible: 'a confirmer', ordre: 90 },
+    { code: 'inc_part_jeunes', famille: 'inclusion', libelle: 'Part de jeunes', mode: 'calcule', unite: '%', cible: 'a confirmer', ordre: 100 },
+    { code: 'inc_part_refugies', famille: 'inclusion', libelle: 'Part de refugies', mode: 'calcule', unite: '%', cible: 'a confirmer', ordre: 110 },
+    { code: 'fid_delai_paiement', famille: 'fiduciaires', libelle: 'Delai moyen de traitement des paiements', mode: 'calcule', unite: 'j', cible: '5-10 j', ordre: 120 },
+    { code: 'fid_taux_rejet', famille: 'fiduciaires', libelle: 'Taux de rejet des depenses', mode: 'calcule', unite: '%', cible: 'a confirmer', ordre: 130 },
+    { code: 'fid_irregularites', famille: 'fiduciaires', libelle: 'Irregularites constatees', mode: 'saisi', unite: '', cible: '0', ordre: 140 },
+    { code: 'es_conformite', famille: 'es', libelle: 'Projets conformes aux exigences E&S', mode: 'calcule', unite: '%', cible: '100 %', ordre: 150 },
+    { code: 'es_plaintes', famille: 'es', libelle: 'Plaintes enregistrees (source MGP externe)', mode: 'saisi', unite: '', cible: '-', ordre: 160 },
+    { code: 'es_incidents', famille: 'es', libelle: 'Incidents E&S signales', mode: 'saisi', unite: '', cible: '0', ordre: 170 },
+  ]) {
+    await upsertDocument(strapi, 'api::indicateur.indicateur', { code: row.code }, row);
+  }
+
+  // K5 — canaux du Mecanisme de Gestion des Plaintes (MGP §13), affiches cote operateur
+  // via la FAQ (contenu CMS, zero code operateur). Placeholder a confirmer UGP.
+  await upsertDocument(strapi, 'api::faq-entree.faq-entree', { question: 'Comment deposer une plainte (mecanisme de gestion des plaintes) ?' }, {
+    question: 'Comment deposer une plainte (mecanisme de gestion des plaintes) ?',
+    ordre: 200,
+    reponse: [{ type: 'paragraph', children: [{ type: 'text', text: "Le Projet PRETE dispose d'un mecanisme de gestion des plaintes (MGP) distinct de l'assistance. Vous pouvez deposer une plainte, y compris de maniere confidentielle, via les canaux officiels du projet (a confirmer UGP : ligne telephonique dediee, adresse e-mail, points focaux). Les plaintes sensibles (EAS/HS) sont traitees de facon confidentielle par un dispositif specialise." }] }],
+  });
 
   // Migration phase 5 : l'ancien statut `a_demander` (2b) devient `en_preparation`.
   const legacyNobj = await strapi.documents('api::non-objection.non-objection').findMany({ filters: { statut: 'a_demander' }, limit: 100 });
@@ -1322,6 +1369,39 @@ async function computeSyntheseSeed(strapi, appelDocumentId) {
 }
 
 // M5 phase 5 — 1 demande « autre cas » (derogation e) transmise, demande redigee jointe.
+// M6 — Suivi-evaluation (K1/K5) : depouillements de demo + 1 valeur saisie externe (plaintes).
+async function ensureSeDemo(strapi) {
+  // Backfill : chaque rapport `transmis` sans depouillement en recoit un (a_depouiller).
+  const transmis = await strapi.documents('api::rapport-requis.rapport-requis').findMany({ filters: { statut: 'transmis' }, fields: ['documentId', 'periodeLibelle'], populate: { type: { fields: ['code'] } }, sort: 'ordre:asc', limit: 100 });
+  for (const r of transmis) {
+    const existing = await findOneBy(strapi, 'api::depouillement-rapport.depouillement-rapport', { rapportRequis: { documentId: r.documentId } });
+    if (!existing) {
+      await strapi.documents('api::depouillement-rapport.depouillement-rapport').create({
+        data: { rapportRequis: { connect: [r.documentId] }, statut: 'a_depouiller', valeurs: { empT: '', empF: '', empJ: '', empR: '', benef: '', inv: '', incidents: 0, note: '' } },
+      });
+    }
+  }
+  // Le rapport technique T1 (transmis) : depouillement PROPOSE avec valeurs de demo (a valider par l'UGP).
+  const rapTech = transmis.find((r) => r.type?.code === 'technique') || transmis[0];
+  if (rapTech) {
+    const dep = await findOneBy(strapi, 'api::depouillement-rapport.depouillement-rapport', { rapportRequis: { documentId: rapTech.documentId } });
+    const cabinet = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email: 'demo-instructeur@subco-prete.bi' } });
+    if (dep && dep.statut === 'a_depouiller') {
+      await strapi.documents('api::depouillement-rapport.depouillement-rapport').update({
+        documentId: dep.documentId,
+        data: { statut: 'propose', saisiPar: cabinet ? { connect: [cabinet.id] } : null, proposeLe: '2027-02-11T09:00:00.000Z', valeurs: { empT: 18, empF: 10, empJ: 6, empR: 1, benef: 210, inv: 21000, incidents: 1, note: 'Deversement mineur maitrise — signale, mesures prises.' } },
+      });
+    }
+  }
+  // Valeur saisie externe : plaintes = 1 (source MGP projet, K5).
+  const indPlaintes = await findOneBy(strapi, 'api::indicateur.indicateur', { code: 'es_plaintes' });
+  if (indPlaintes && !(await findOneBy(strapi, 'api::valeur-indicateur-saisie.valeur-indicateur-saisie', { indicateur: { documentId: indPlaintes.documentId } }))) {
+    await strapi.documents('api::valeur-indicateur-saisie.valeur-indicateur-saisie').create({
+      data: { indicateur: { connect: [indPlaintes.documentId] }, periode: '2026', valeur: 1, source: 'MGP projet', saisiLe: '2026-07-10T09:00:00.000Z' },
+    });
+  }
+}
+
 async function ensureNonObjectionDemo(strapi) {
   const OBJ = 'Derogation — extension du delai de completude C1';
   if (await findOneBy(strapi, 'api::non-objection.non-objection', { objet: OBJ })) return;
@@ -1435,6 +1515,7 @@ module.exports = {
   ensureComiteDemoData,
   ensureAssistanceEquipeDemo,
   ensureNonObjectionDemo,
+  ensureSeDemo,
   ensurePortalRolesAndSettings,
   ensureReferentials,
   setPermission,

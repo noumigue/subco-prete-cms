@@ -1,0 +1,17 @@
+{
+  "kind": "collectionType",
+  "collectionName": "indicateurs",
+  "info": { "singularName": "indicateur", "pluralName": "indicateurs", "displayName": "Indicateur" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "code": { "type": "string", "required": true, "unique": true },
+    "famille": { "type": "enumeration", "enum": ["resultats", "impact", "inclusion", "fiduciaires", "es"], "required": true },
+    "libelle": { "type": "string", "required": true },
+    "description": { "type": "text" },
+    "mode": { "type": "enumeration", "enum": ["calcule", "saisi"], "default": "calcule" },
+    "unite": { "type": "string" },
+    "cible": { "type": "string" },
+    "ordre": { "type": "integer", "default": 0 }
+  }
+}
