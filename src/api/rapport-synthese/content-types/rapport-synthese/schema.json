@@ -1,0 +1,14 @@
+{
+  "kind": "collectionType",
+  "collectionName": "rapport_syntheses",
+  "info": { "singularName": "rapport-synthese", "pluralName": "rapport-syntheses", "displayName": "Rapport synthese" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "periode": { "type": "string" },
+    "appel": { "type": "relation", "relation": "manyToOne", "target": "api::appel.appel" },
+    "pdf": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "generePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "genereLe": { "type": "datetime" }
+  }
+}

@@ -183,4 +183,51 @@ function buildNonObjectionPdf({ objet, reference, casLibelle, version, synthese,
   });
 }
 
-module.exports = { buildRapportPdf, buildPvPdf, buildNonObjectionPdf, RECO_LBL, DEC_LBL };
+// M6 (K4) — rapport de synthese Suivi-evaluation (§14.7) : entonnoir, execution,
+// delais, alertes, tableau des indicateurs avec ecarts, en-tete periode/cohorte.
+function buildSyntheseSePdf({ periode, cohorte, entonnoir, execution, delais, alertes, indicateurs }) {
+  return render((doc) => {
+    header(doc, 'Rapport de synthese — Suivi-evaluation', `${periode} · ${cohorte} · Projet PRETE Nyunganira (P177688)`);
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE).text("Entonnoir de l'appel a propositions");
+    doc.moveDown(0.2);
+    row(doc, [{ text: 'Etape', width: 260 }, { text: 'Nombre', width: 100, align: 'right' }, { text: '%', width: 96, align: 'right' }], { bold: true, size: 8.5, color: MUTED });
+    const maxF = (entonnoir[0]?.v) || 1;
+    (entonnoir || []).forEach((e) => row(doc, [{ text: e.label, width: 260 }, { text: String(e.v), width: 100, align: 'right' }, { text: `${Math.round((e.v / maxF) * 100)} %`, width: 96, align: 'right' }]));
+    doc.moveDown(0.6);
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE).text('Execution financiere');
+    doc.moveDown(0.2);
+    const money = (n) => `${(n || 0).toLocaleString('fr-FR')} $`;
+    row(doc, [{ text: 'Engage (conventions signees)', width: 300 }, { text: money(execution.engage), width: 156, align: 'right' }]);
+    row(doc, [{ text: 'Decaisse', width: 300 }, { text: money(execution.decaisse), width: 156, align: 'right' }]);
+    row(doc, [{ text: 'Justifie (avances validees, 11.4)', width: 300 }, { text: money(execution.justifie), width: 156, align: 'right' }]);
+    doc.moveDown(0.6);
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE).text('Delais moyens par etape (journal des actes)');
+    doc.moveDown(0.2);
+    const dv = (x) => (x != null ? `${String(x).replace('.', ',')} j` : 'n/d');
+    row(doc, [{ text: 'Completude', width: 114, align: 'center' }, { text: 'Eligibilite', width: 114, align: 'center' }, { text: 'Evaluation', width: 114, align: 'center' }, { text: 'Paiement', width: 114, align: 'center' }], { bold: true, size: 8.5, color: MUTED });
+    row(doc, [{ text: dv(delais.completude), width: 114, align: 'center' }, { text: dv(delais.eligibilite), width: 114, align: 'center' }, { text: dv(delais.evaluation), width: 114, align: 'center' }, { text: dv(delais.paiement), width: 114, align: 'center' }]);
+    doc.moveDown(0.6);
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE).text(`Alertes operationnelles (${(alertes || []).length})`);
+    doc.font('Helvetica').fontSize(9).fillColor(INK);
+    if (!(alertes || []).length) doc.fillColor(MUTED).text('(aucune)');
+    (alertes || []).forEach((a) => doc.fillColor(INK).text(`- ${a.titre} : ${a.detail}`));
+    doc.moveDown(0.6);
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE).text('Indicateurs (14.3)');
+    doc.moveDown(0.2);
+    row(doc, [{ text: 'Indicateur', width: 300 }, { text: 'Valeur', width: 78, align: 'right' }, { text: 'Cible', width: 78, align: 'right' }], { bold: true, size: 8.5, color: MUTED });
+    let fam = '';
+    (indicateurs || []).forEach((i) => {
+      if (i.famille !== fam) { fam = i.famille; row(doc, [{ text: fam, width: 456 }], { bold: true, size: 9, color: PINE }); }
+      row(doc, [{ text: i.libelle, width: 300 }, { text: String(i.valeur), width: 78, align: 'right' }, { text: String(i.cible), width: 78, align: 'right' }]);
+    });
+    doc.moveDown(0.8);
+    doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(MUTED).text('Transmission a la Banque mondiale hors plateforme (canaux officiels). Genere par la plateforme SUBCO-PRETE — source unique des donnees (§14.4).');
+  });
+}
+
+module.exports = { buildRapportPdf, buildPvPdf, buildNonObjectionPdf, buildSyntheseSePdf, RECO_LBL, DEC_LBL };

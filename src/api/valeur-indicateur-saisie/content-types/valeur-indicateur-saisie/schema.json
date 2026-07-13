@@ -1,0 +1,15 @@
+{
+  "kind": "collectionType",
+  "collectionName": "valeur_indicateur_saisies",
+  "info": { "singularName": "valeur-indicateur-saisie", "pluralName": "valeur-indicateur-saisies", "displayName": "Valeur indicateur saisie" },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "indicateur": { "type": "relation", "relation": "manyToOne", "target": "api::indicateur.indicateur" },
+    "periode": { "type": "string" },
+    "valeur": { "type": "decimal" },
+    "source": { "type": "string" },
+    "saisiPar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "saisiLe": { "type": "datetime" }
+  }
+}

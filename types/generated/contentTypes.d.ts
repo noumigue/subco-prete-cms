@@ -1300,6 +1300,53 @@ export interface ApiDemandeDecaissementDemandeDecaissement
   };
 }
 
+export interface ApiDepouillementRapportDepouillementRapport
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'depouillement_rapports';
+  info: {
+    displayName: 'Depouillement rapport';
+    pluralName: 'depouillement-rapports';
+    singularName: 'depouillement-rapport';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::depouillement-rapport.depouillement-rapport'
+    > &
+      Schema.Attribute.Private;
+    proposeLe: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    rapportRequis: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::rapport-requis.rapport-requis'
+    >;
+    saisiPar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    statut: Schema.Attribute.Enumeration<
+      ['a_depouiller', 'propose', 'valide']
+    > &
+      Schema.Attribute.DefaultTo<'a_depouiller'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    valeurs: Schema.Attribute.JSON;
+    valideLe: Schema.Attribute.DateTime;
+    validePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
 export interface ApiDocumentContractuelDocumentContractuel
   extends Struct.CollectionTypeSchema {
   collectionName: 'documents_contractuels';
@@ -1757,6 +1804,47 @@ export interface ApiHomepageHomepage extends Struct.SingleTypeSchema {
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiIndicateurIndicateur extends Struct.CollectionTypeSchema {
+  collectionName: 'indicateurs';
+  info: {
+    displayName: 'Indicateur';
+    pluralName: 'indicateurs';
+    singularName: 'indicateur';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cible: Schema.Attribute.String;
+    code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text;
+    famille: Schema.Attribute.Enumeration<
+      ['resultats', 'impact', 'inclusion', 'fiduciaires', 'es']
+    > &
+      Schema.Attribute.Required;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::indicateur.indicateur'
+    > &
+      Schema.Attribute.Private;
+    mode: Schema.Attribute.Enumeration<['calcule', 'saisi']> &
+      Schema.Attribute.DefaultTo<'calcule'>;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    unite: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2624,6 +2712,42 @@ export interface ApiRapportRequisRapportRequis
   };
 }
 
+export interface ApiRapportSyntheseRapportSynthese
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'rapport_syntheses';
+  info: {
+    displayName: 'Rapport synthese';
+    pluralName: 'rapport-syntheses';
+    singularName: 'rapport-synthese';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appel: Schema.Attribute.Relation<'manyToOne', 'api::appel.appel'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    genereLe: Schema.Attribute.DateTime;
+    generePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::rapport-synthese.rapport-synthese'
+    > &
+      Schema.Attribute.Private;
+    pdf: Schema.Attribute.Media<'files'>;
+    periode: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiResourceDocumentResourceDocument
   extends Struct.CollectionTypeSchema {
   collectionName: 'resource_documents';
@@ -3108,6 +3232,46 @@ export interface ApiTypeRapportTypeRapport extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiValeurIndicateurSaisieValeurIndicateurSaisie
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'valeur_indicateur_saisies';
+  info: {
+    displayName: 'Valeur indicateur saisie';
+    pluralName: 'valeur-indicateur-saisies';
+    singularName: 'valeur-indicateur-saisie';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    indicateur: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::indicateur.indicateur'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::valeur-indicateur-saisie.valeur-indicateur-saisie'
+    > &
+      Schema.Attribute.Private;
+    periode: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    saisiLe: Schema.Attribute.DateTime;
+    saisiPar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    source: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    valeur: Schema.Attribute.Decimal;
   };
 }
 
@@ -3720,6 +3884,7 @@ declare module '@strapi/strapi' {
       'api::critere-evaluation.critere-evaluation': ApiCritereEvaluationCritereEvaluation;
       'api::demande-assistance.demande-assistance': ApiDemandeAssistanceDemandeAssistance;
       'api::demande-decaissement.demande-decaissement': ApiDemandeDecaissementDemandeDecaissement;
+      'api::depouillement-rapport.depouillement-rapport': ApiDepouillementRapportDepouillementRapport;
       'api::document-contractuel.document-contractuel': ApiDocumentContractuelDocumentContractuel;
       'api::document-telechargeable.document-telechargeable': ApiDocumentTelechargeableDocumentTelechargeable;
       'api::etape-contractuelle.etape-contractuelle': ApiEtapeContractuelleEtapeContractuelle;
@@ -3733,6 +3898,7 @@ declare module '@strapi/strapi' {
       'api::filiere.filiere': ApiFiliereFiliere;
       'api::footer-link.footer-link': ApiFooterLinkFooterLink;
       'api::homepage.homepage': ApiHomepageHomepage;
+      'api::indicateur.indicateur': ApiIndicateurIndicateur;
       'api::infrastructure-band.infrastructure-band': ApiInfrastructureBandInfrastructureBand;
       'api::infrastructure-type.infrastructure-type': ApiInfrastructureTypeInfrastructureType;
       'api::instruction-completude.instruction-completude': ApiInstructionCompletudeInstructionCompletude;
@@ -3755,6 +3921,7 @@ declare module '@strapi/strapi' {
       'api::publication-decisions.publication-decisions': ApiPublicationDecisionsPublicationDecisions;
       'api::rapport-evaluation.rapport-evaluation': ApiRapportEvaluationRapportEvaluation;
       'api::rapport-requis.rapport-requis': ApiRapportRequisRapportRequis;
+      'api::rapport-synthese.rapport-synthese': ApiRapportSyntheseRapportSynthese;
       'api::resource-document.resource-document': ApiResourceDocumentResourceDocument;
       'api::seance-comite.seance-comite': ApiSeanceComiteSeanceComite;
       'api::site-navigation.site-navigation': ApiSiteNavigationSiteNavigation;
@@ -3767,6 +3934,7 @@ declare module '@strapi/strapi' {
       'api::type-contrepartie.type-contrepartie': ApiTypeContrepartieTypeContrepartie;
       'api::type-piece.type-piece': ApiTypePieceTypePiece;
       'api::type-rapport.type-rapport': ApiTypeRapportTypeRapport;
+      'api::valeur-indicateur-saisie.valeur-indicateur-saisie': ApiValeurIndicateurSaisieValeurIndicateurSaisie;
       'api::value-chain.value-chain': ApiValueChainValueChain;
       'api::version-non-objection.version-non-objection': ApiVersionNonObjectionVersionNonObjection;
       'plugin::content-releases.release': PluginContentReleasesRelease;
