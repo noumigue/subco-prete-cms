@@ -800,6 +800,39 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCasNonObjectionCasNonObjection
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'cas_non_objection';
+  info: {
+    displayName: 'Cas de non-objection';
+    pluralName: 'cas-non-objections';
+    singularName: 'cas-non-objection';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::cas-non-objection.cas-non-objection'
+    > &
+      Schema.Attribute.Private;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiCategorieAssistanceCategorieAssistance
   extends Struct.CollectionTypeSchema {
   collectionName: 'categories_assistance';
@@ -2115,12 +2148,16 @@ export interface ApiNonObjectionNonObjection
     draftAndPublish: false;
   };
   attributes: {
+    ajustements: Schema.Attribute.Text;
     appel: Schema.Attribute.Relation<'oneToOne', 'api::appel.appel'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     dateAccord: Schema.Attribute.Date;
+    dateObservations: Schema.Attribute.Date;
     dateTransmission: Schema.Attribute.Date;
+    demandePdf: Schema.Attribute.Media<'files'>;
+    demandeRedigee: Schema.Attribute.Media<'files'>;
     document: Schema.Attribute.Media<'files' | 'images'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -2128,15 +2165,26 @@ export interface ApiNonObjectionNonObjection
       'api::non-objection.non-objection'
     > &
       Schema.Attribute.Private;
+    objet: Schema.Attribute.String;
+    observations: Schema.Attribute.Text;
+    pieceEs: Schema.Attribute.Media<'files' | 'images'>;
+    pieceFiduciaire: Schema.Attribute.Media<'files' | 'images'>;
     publishedAt: Schema.Attribute.DateTime;
+    reference: Schema.Attribute.String;
     requise: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     statut: Schema.Attribute.Enumeration<
-      ['a_demander', 'transmise', 'accordee']
+      ['en_preparation', 'transmise', 'accordee', 'observations']
     > &
-      Schema.Attribute.DefaultTo<'a_demander'>;
+      Schema.Attribute.DefaultTo<'en_preparation'>;
+    syntheseChiffree: Schema.Attribute.JSON;
+    type: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::cas-non-objection.cas-non-objection'
+    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    version: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<1>;
   };
 }
 
@@ -3100,6 +3148,43 @@ export interface ApiValueChainValueChain extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiVersionNonObjectionVersionNonObjection
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'versions_non_objection';
+  info: {
+    displayName: 'Version non-objection';
+    pluralName: 'version-non-objections';
+    singularName: 'version-non-objection';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    ajustements: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dateTransmission: Schema.Attribute.Date;
+    demandePdf: Schema.Attribute.Media<'files'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::version-non-objection.version-non-objection'
+    > &
+      Schema.Attribute.Private;
+    nonObjection: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::non-objection.non-objection'
+    >;
+    observations: Schema.Attribute.Text;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    version: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<1>;
+  };
+}
+
 export interface PluginContentReleasesRelease
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_releases';
@@ -3623,6 +3708,7 @@ declare module '@strapi/strapi' {
       'api::call-for-proposal.call-for-proposal': ApiCallForProposalCallForProposal;
       'api::candidature-guide.candidature-guide': ApiCandidatureGuideCandidatureGuide;
       'api::candidature.candidature': ApiCandidatureCandidature;
+      'api::cas-non-objection.cas-non-objection': ApiCasNonObjectionCasNonObjection;
       'api::categorie-assistance.categorie-assistance': ApiCategorieAssistanceCategorieAssistance;
       'api::commune.commune': ApiCommuneCommune;
       'api::complaint-recourse.complaint-recourse': ApiComplaintRecourseComplaintRecourse;
@@ -3682,6 +3768,7 @@ declare module '@strapi/strapi' {
       'api::type-piece.type-piece': ApiTypePieceTypePiece;
       'api::type-rapport.type-rapport': ApiTypeRapportTypeRapport;
       'api::value-chain.value-chain': ApiValueChainValueChain;
+      'api::version-non-objection.version-non-objection': ApiVersionNonObjectionVersionNonObjection;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
