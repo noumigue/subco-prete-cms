@@ -10,13 +10,18 @@ async function onEquipeMessage(event) {
 
   const message = await strapi.db.query('api::message-assistance.message-assistance').findOne({
     where: { id },
-    populate: { demande: { populate: { owner: true } } },
+    populate: { demande: { populate: { owner: true, messages: true } } },
   });
   if (!message || message.auteur !== 'equipe' || !message.demande) return;
 
   const demande = message.demande;
   const ownerId = demande.owner?.id;
   if (!ownerId) return;
+
+  // H4 (phase 4) : le message INITIAL d'une demande ouverte par l'equipe (origine: ugp)
+  // n'est pas une « reponse » — le controleur gestion-assistance envoie sa propre
+  // notification (« Une demande d'assistance a ete ouverte pour vous... »). Pas de doublon.
+  if (demande.origine === 'ugp' && (demande.messages || []).length <= 1) return;
 
   // ouverte -> en_cours (premiere reponse de l'equipe).
   if (demande.statut === 'ouverte') {

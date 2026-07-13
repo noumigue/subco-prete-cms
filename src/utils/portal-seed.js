@@ -339,6 +339,21 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-subventions.mesureEmettre', 'api::gestion.gestion-subventions.mesureValider',
     'api::gestion.gestion-subventions.suspendre', 'api::gestion.gestion-subventions.lever',
   ];
+  // Phase 4 (assistance côté équipe, §19 H1-H4) — même jeu pour Cabinet et UGP
+  // (H2 : les deux rôles traitent les demandes ; comite exclu). L'UGP hérite via spread.
+  const assistanceEquipeActions = [
+    'api::gestion.gestion-assistance.demandes',
+    'api::gestion.gestion-assistance.demande',
+    'api::gestion.gestion-assistance.prendre',
+    'api::gestion.gestion-assistance.liberer',
+    'api::gestion.gestion-assistance.repondre',
+    'api::gestion.gestion-assistance.resoudre',
+    'api::gestion.gestion-assistance.operateurs',
+    'api::gestion.gestion-assistance.rattachements',
+    'api::gestion.gestion-assistance.creerPourOperateur',
+    // Pièces jointes des deux côtés du fil (A4) — le Cabinet doit pouvoir téléverser.
+    'plugin::upload.content-api.upload',
+  ];
   // Phase 2 temps 2 — rapport/Comité/décisions/publication.
   // Cabinet (instructeur) rédige le rapport ; ugp valide/décide/publie ; comite lit la séance.
   const comiteInstructeurActions = [
@@ -370,6 +385,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...evaluationInstructeurActions,
     ...comiteInstructeurActions,
     ...subventionInstructeurActions,
+    ...assistanceEquipeActions,
   ];
   const ugpActions = [
     ...instructeurActions,
@@ -1248,6 +1264,89 @@ async function resetSingletonByAppel(strapi, uid, appel, data) {
   else await strapi.documents(uid).create({ data: { appel: connectRelation(appel), ...data } });
 }
 
+// M5 phase 4 — Assistance cote equipe (§19, A.4) : complete la demo operateur pour
+// couvrir la file interne : 1 en_cours PRISE EN CHARGE (top-up de la demande existante),
+// 1 ouverte NON PRISE liee a une candidature, 1 ouverte liee a une subvention,
+// 1 resolue (existante). Idempotent (guards par objet / champ vide).
+async function ensureAssistanceEquipeDemo(strapi) {
+  const UID_DEM = 'api::demande-assistance.demande-assistance';
+  const UID_MSG = 'api::message-assistance.message-assistance';
+
+  const ugpUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email: 'demo-ugp@subco-prete.bi' } });
+
+  // 1. Top-up : la demande en cours de la demo operateur devient « prise en charge » (H1).
+  const enCours = await findOneBy(strapi, UID_DEM, { objet: "Je n'arrive pas a joindre mon etat financier" });
+  if (enCours && ugpUser) {
+    const populated = await strapi.documents(UID_DEM).findOne({ documentId: enCours.documentId, populate: { priseEnChargePar: true } });
+    if (!populated?.priseEnChargePar) {
+      await strapi.documents(UID_DEM).update({ documentId: enCours.documentId, data: { priseEnChargePar: { connect: [ugpUser.id] } } });
+    }
+  }
+
+  const [catCandidature, catSubvention] = await Promise.all([
+    findOneBy(strapi, 'api::categorie-assistance.categorie-assistance', { code: 'ma_candidature' }),
+    findOneBy(strapi, 'api::categorie-assistance.categorie-assistance', { code: 'ma_subvention' }),
+  ]);
+
+  // 2. Ouverte NON PRISE, liee a une candidature (demo-candidat).
+  const OBJ_CONTREPARTIE = 'Comment corriger le montant de ma contrepartie ?';
+  if (!(await findOneBy(strapi, UID_DEM, { objet: OBJ_CONTREPARTIE }))) {
+    const userA = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email: DEMO_EMAIL } });
+    const candidature = userA
+      ? await strapi.documents('api::candidature.candidature').findFirst({ filters: { owner: { id: userA.id }, titreProjet: 'Unite de sechage de mangues' } })
+      : null;
+    if (userA) {
+      const demande = await strapi.documents(UID_DEM).create({
+        data: {
+          owner: userA.id,
+          objet: OBJ_CONTREPARTIE,
+          categorie: connectRelation(catCandidature),
+          concerneCandidature: connectRelation(candidature),
+          statut: 'ouverte',
+          origine: 'operateur',
+        },
+      });
+      await strapi.documents(UID_MSG).create({
+        data: {
+          demande: connectRelation(demande),
+          auteur: 'operateur',
+          corps: "J'ai saisi 15 % au lieu de 20 % a l'etape financement. Comment corriger avant la soumission ?",
+          envoyeLe: '2026-07-12T09:20:00.000Z',
+        },
+      });
+    }
+  }
+
+  // 3. Ouverte, liee a la subvention active (demo-beneficiaire).
+  const OBJ_DECAISSEMENT = 'Quand vais-je recevoir le prochain decaissement ?';
+  if (!(await findOneBy(strapi, UID_DEM, { objet: OBJ_DECAISSEMENT }))) {
+    const userB = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email: 'demo-beneficiaire@subco-prete.bi' } });
+    const subvention = userB
+      ? await strapi.documents('api::subvention.subvention').findFirst({ filters: { owner: { id: userB.id }, statut: 'active' } })
+      : null;
+    if (userB) {
+      const demande = await strapi.documents(UID_DEM).create({
+        data: {
+          owner: userB.id,
+          objet: OBJ_DECAISSEMENT,
+          categorie: connectRelation(catSubvention),
+          concerneSubvention: connectRelation(subvention),
+          statut: 'ouverte',
+          origine: 'operateur',
+        },
+      });
+      await strapi.documents(UID_MSG).create({
+        data: {
+          demande: connectRelation(demande),
+          auteur: 'operateur',
+          corps: "Ma demande N\u00b004 a ete approuvee — sous quel delai le paiement au fournisseur intervient-il ?",
+          envoyeLe: '2026-07-12T16:10:00.000Z',
+        },
+      });
+    }
+  }
+}
+
 module.exports = {
   DEMO_EMAIL,
   DEMO_PASSWORD,
@@ -1255,6 +1354,7 @@ module.exports = {
   ensureGestionDemoData,
   ensureEvaluationDemoData,
   ensureComiteDemoData,
+  ensureAssistanceEquipeDemo,
   ensurePortalRolesAndSettings,
   ensureReferentials,
   setPermission,

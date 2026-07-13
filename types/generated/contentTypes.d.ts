@@ -1183,6 +1183,10 @@ export interface ApiDemandeAssistanceDemandeAssistance
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    priseEnChargePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     publishedAt: Schema.Attribute.DateTime;
     resolueLe: Schema.Attribute.DateTime;
     resoluePar: Schema.Attribute.Enumeration<['operateur', 'equipe']>;
