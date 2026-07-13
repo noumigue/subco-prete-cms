@@ -343,7 +343,7 @@ module.exports = {
       data: {
         seanceClose: seance.statut === 'close',
         publiee: !!pub[0],
-        nonObjection: nobj ? { requise: !!nobj.requise, statut: nobj.statut, dateAccord: nobj.dateAccord || null } : { requise: false, statut: 'a_demander', dateAccord: null },
+        nonObjection: nobj ? { requise: !!nobj.requise, statut: nobj.statut, dateAccord: nobj.dateAccord || null } : { requise: false, statut: 'en_preparation', dateAccord: null },
         pvSigne: !!seance.pvSigne,
         appel: { documentId: appel.documentId, nom: appel.nom, codeCohorte: appel.codeCohorte },
         dossiers: dossiers.map((d) => ({ op: d.op, decisionComite: d.decisionComite })),
@@ -358,7 +358,7 @@ module.exports = {
     if (!appel?.documentId) return ctx.notFound('Appel introuvable.');
     const payload = ctx.request.body?.data || {};
     let nobj = await findNonObjection(strapi, appel.documentId);
-    if (!nobj) nobj = await strapi.documents('api::non-objection.non-objection').create({ data: { appel: connectRelation(appel), requise: false, statut: 'a_demander' } });
+    if (!nobj) nobj = await strapi.documents('api::non-objection.non-objection').create({ data: { appel: connectRelation(appel), requise: false, statut: 'en_preparation' } });
     const data = {};
     if (payload.requise !== undefined) data.requise = !!payload.requise;
     if (payload.action === 'transmise') { data.statut = 'transmise'; data.dateTransmission = new Date().toISOString().slice(0, 10); }

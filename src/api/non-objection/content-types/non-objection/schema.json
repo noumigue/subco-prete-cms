@@ -11,9 +11,25 @@
   "attributes": {
     "appel": { "type": "relation", "relation": "oneToOne", "target": "api::appel.appel" },
     "requise": { "type": "boolean", "default": false },
-    "statut": { "type": "enumeration", "enum": ["a_demander", "transmise", "accordee"], "default": "a_demander" },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["en_preparation", "transmise", "accordee", "observations"],
+      "default": "en_preparation"
+    },
     "dateTransmission": { "type": "date" },
     "dateAccord": { "type": "date" },
-    "document": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] }
+    "document": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "type": { "type": "relation", "relation": "manyToOne", "target": "api::cas-non-objection.cas-non-objection" },
+    "objet": { "type": "string" },
+    "reference": { "type": "string" },
+    "version": { "type": "integer", "default": 1 },
+    "syntheseChiffree": { "type": "json" },
+    "pieceEs": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "pieceFiduciaire": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
+    "demandePdf": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "demandeRedigee": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "observations": { "type": "text" },
+    "ajustements": { "type": "text" },
+    "dateObservations": { "type": "date" }
   }
 }

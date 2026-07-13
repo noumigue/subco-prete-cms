@@ -1,0 +1,19 @@
+{
+  "kind": "collectionType",
+  "collectionName": "versions_non_objection",
+  "info": {
+    "singularName": "version-non-objection",
+    "pluralName": "version-non-objections",
+    "displayName": "Version non-objection"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "nonObjection": { "type": "relation", "relation": "manyToOne", "target": "api::non-objection.non-objection" },
+    "version": { "type": "integer", "default": 1 },
+    "dateTransmission": { "type": "date" },
+    "observations": { "type": "text" },
+    "ajustements": { "type": "text" },
+    "demandePdf": { "type": "media", "multiple": false, "allowedTypes": ["files"] }
+  }
+}

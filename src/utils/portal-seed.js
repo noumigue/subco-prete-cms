@@ -339,6 +339,23 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-subventions.mesureEmettre', 'api::gestion.gestion-subventions.mesureValider',
     'api::gestion.gestion-subventions.suspendre', 'api::gestion.gestion-subventions.lever',
   ];
+  // Phase 5 (non-objection outillée, §6.7 I1-I4) — instructeur LIT (appui Cabinet), UGP ÉCRIT.
+  const nonObjectionInstructeurActions = [
+    'api::gestion.gestion-nonobjection.demandes',
+    'api::gestion.gestion-nonobjection.demande',
+    'api::gestion.gestion-nonobjection.cas',
+    'api::gestion.gestion-nonobjection.paquet',
+  ];
+  const nonObjectionUgpActions = [
+    'api::gestion.gestion-nonobjection.creer',
+    'api::gestion.gestion-nonobjection.synthese',
+    'api::gestion.gestion-nonobjection.piece',
+    'api::gestion.gestion-nonobjection.generer',
+    'api::gestion.gestion-nonobjection.transmettre',
+    'api::gestion.gestion-nonobjection.accord',
+    'api::gestion.gestion-nonobjection.observations',
+    'api::gestion.gestion-nonobjection.reversion',
+  ];
   // Phase 4 (assistance côté équipe, §19 H1-H4) — même jeu pour Cabinet et UGP
   // (H2 : les deux rôles traitent les demandes ; comite exclu). L'UGP hérite via spread.
   const assistanceEquipeActions = [
@@ -386,6 +403,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...comiteInstructeurActions,
     ...subventionInstructeurActions,
     ...assistanceEquipeActions,
+    ...nonObjectionInstructeurActions,
   ];
   const ugpActions = [
     ...instructeurActions,
@@ -399,6 +417,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...evaluationUgpActions,
     ...comiteUgpActions,
     ...subventionUgpActions,
+    ...nonObjectionUgpActions,
     // Upload : notification signée (rejet) + PV signé + document non-objection + convention/ACD (phase 3).
     'plugin::upload.content-api.upload',
   ];
@@ -626,6 +645,27 @@ async function ensureReferentials(strapi) {
     { code: 'autre', libelle: 'Autre', ordre: 40 },
   ]) {
     await upsertDocument(strapi, 'api::categorie-assistance.categorie-assistance', { code: row.code }, row);
+  }
+
+  // Cas de non-objection (referentiel 6.7.1, phase 5) — liste "adaptable" (editable CMS).
+  for (const row of [
+    { code: 'a', libelle: 'Approbation de la phase pilote', ordre: 10 },
+    { code: 'b', libelle: 'Approbation des premiers projets (selection)', ordre: 20 },
+    { code: 'c', libelle: 'Modification substantielle du Manuel', ordre: 30 },
+    { code: 'd', libelle: "Modification des criteres d'eligibilite / selection", ordre: 40 },
+    { code: 'e', libelle: 'Derogation exceptionnelle', ordre: 50 },
+    { code: 'f', libelle: 'Convention / engagement soumis a revue prealable', ordre: 60 },
+    { code: 'g', libelle: 'Risque fiduciaire eleve', ordre: 70 },
+    { code: 'h', libelle: 'Risque environnemental ou social majeur', ordre: 80 },
+    { code: 'i', libelle: 'Autre cas demande par la Banque mondiale', ordre: 90 },
+  ]) {
+    await upsertDocument(strapi, 'api::cas-non-objection.cas-non-objection', { code: row.code }, row);
+  }
+
+  // Migration phase 5 : l'ancien statut `a_demander` (2b) devient `en_preparation`.
+  const legacyNobj = await strapi.documents('api::non-objection.non-objection').findMany({ filters: { statut: 'a_demander' }, limit: 100 });
+  for (const nobj of legacyNobj) {
+    await strapi.documents('api::non-objection.non-objection').update({ documentId: nobj.documentId, data: { statut: 'en_preparation' } });
   }
 
   // ——— Referentiels du socle back-office M5 ———
@@ -1253,9 +1293,48 @@ async function ensureComiteDemoData(strapi) {
   // Rapport brouillon (reset), seance ouverte (reset), non-objection requise, publication effacee.
   await resetSingletonByAppel(strapi, 'api::rapport-evaluation.rapport-evaluation', appel, { statut: 'brouillon', pdf: null, soumisLe: null, valideLe: null, commentaireRenvoi: null });
   await resetSingletonByAppel(strapi, 'api::seance-comite.seance-comite', appel, { presents: 0, statut: 'ouverte', pvGenere: null, pvSigne: null, reserves: null, closeLe: null });
-  await resetSingletonByAppel(strapi, 'api::non-objection.non-objection', appel, { requise: true, statut: 'a_demander', dateTransmission: null, dateAccord: null, document: null });
+
+  // Phase 5 : la non-objection de la C1 devient la « demande de selection » outillee
+  // (cas b), en preparation, synthese chiffree calculee depuis les donnees de demo.
+  const casB = await findOneBy(strapi, 'api::cas-non-objection.cas-non-objection', { code: 'b' });
+  const synthese = await computeSyntheseSeed(strapi, appel.documentId);
+  await resetSingletonByAppel(strapi, 'api::non-objection.non-objection', appel, {
+    requise: true, statut: 'en_preparation', dateTransmission: null, dateAccord: null, document: null,
+    type: casB ? connectRelation(casB) : null, objet: 'Selection des projets — Cohorte 1', reference: 'Cohorte 1',
+    version: 1, syntheseChiffree: synthese, observations: null, ajustements: null, dateObservations: null,
+    pieceEs: null, pieceFiduciaire: null, demandePdf: null,
+  });
   const pubs = await strapi.documents('api::publication-decisions.publication-decisions').findMany({ filters: { appel: { documentId: appel.documentId } }, limit: 5 });
   for (const p of pubs) await strapi.documents('api::publication-decisions.publication-decisions').delete({ documentId: p.documentId });
+}
+
+// Synthese chiffree (phase 5, I2) calculee depuis les donnees d'instruction/consolidation.
+async function computeSyntheseSeed(strapi, appelDocumentId) {
+  const candAppel = { candidature: { appel: { documentId: appelDocumentId } } };
+  const [recus, comps, elig, cons, evals] = await Promise.all([
+    strapi.documents('api::candidature.candidature').findMany({ filters: { appel: { documentId: appelDocumentId }, statut: { code: { $ne: 'brouillon' } }, numeroDossier: { $notNull: true } }, fields: ['documentId'], limit: 1000 }),
+    strapi.documents('api::instruction-completude.instruction-completude').findMany({ filters: { ...candAppel, verdictGlobal: 'complet', workflow: 'valide' }, fields: ['documentId'], limit: 1000 }),
+    strapi.documents('api::instruction-eligibilite.instruction-eligibilite').findMany({ filters: { ...candAppel, verdictGlobal: 'eligible', workflow: 'valide' }, fields: ['documentId'], limit: 1000 }),
+    strapi.documents('api::consolidation.consolidation').findMany({ filters: { ...candAppel, statut: 'figee' }, fields: ['documentId'], limit: 1000 }),
+    strapi.documents('api::evaluation-dossier.evaluation-dossier').findMany({ filters: { ...candAppel, reco: { $in: ['selection', 'conditionnelle'] } }, fields: ['documentId'], limit: 1000 }),
+  ]);
+  return { recus: recus.length, complets: comps.length, eligibles: elig.length, evalues: cons.length, recommandes: evals.length };
+}
+
+// M5 phase 5 — 1 demande « autre cas » (derogation e) transmise, demande redigee jointe.
+async function ensureNonObjectionDemo(strapi) {
+  const OBJ = 'Derogation — extension du delai de completude C1';
+  if (await findOneBy(strapi, 'api::non-objection.non-objection', { objet: OBJ })) return;
+  const casE = await findOneBy(strapi, 'api::cas-non-objection.cas-non-objection', { code: 'e' });
+  const pieceId = await uploadDemoPieceImage(strapi, 'Demande redigee (derogation)');
+  await strapi.documents('api::non-objection.non-objection').create({
+    data: {
+      type: casE ? connectRelation(casE) : null,
+      objet: OBJ, reference: '—', requise: false, version: 1,
+      statut: 'transmise', dateTransmission: '2026-07-02',
+      demandeRedigee: pieceId || null,
+    },
+  });
 }
 
 async function resetSingletonByAppel(strapi, uid, appel, data) {
@@ -1355,6 +1434,7 @@ module.exports = {
   ensureEvaluationDemoData,
   ensureComiteDemoData,
   ensureAssistanceEquipeDemo,
+  ensureNonObjectionDemo,
   ensurePortalRolesAndSettings,
   ensureReferentials,
   setPermission,

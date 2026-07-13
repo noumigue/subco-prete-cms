@@ -128,4 +128,59 @@ function buildPvPdf({ appel, dossiers, presents, nbMembres, president, lieu, dat
   });
 }
 
-module.exports = { buildRapportPdf, buildPvPdf, RECO_LBL, DEC_LBL };
+// M5 phase 5 — lettre de demande de non-objection (Annexe 14, §6.7/8.11).
+// Objet cohorte, destinataire BM (P177688), liste des documents transmis, tableau
+// de synthese chiffree, formule, lieu/date/signataire, emplacements signature + cachet.
+function buildNonObjectionPdf({ objet, reference, casLibelle, version, synthese, piecesTransmises, lieu, date, signataire }) {
+  return render((doc) => {
+    header(doc, 'Demande de non-objection', `Projet PRETE Nyunganira — Financement Banque mondiale (P177688)${version ? ` · version ${version}` : ''}`);
+
+    doc.font('Helvetica').fontSize(9.5).fillColor(INK);
+    doc.text('Destinataire : Banque mondiale — Equipe de projet P177688.');
+    doc.moveDown(0.4);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(PINE).text(`Objet : ${objet || '—'}`);
+    if (reference) doc.font('Helvetica').fontSize(9.5).fillColor(MUTED).text(`Reference : ${reference}`);
+    if (casLibelle) doc.font('Helvetica').fontSize(9.5).fillColor(MUTED).text(`Cas (§6.7.1) : ${casLibelle}`);
+    doc.moveDown(0.6);
+
+    doc.font('Helvetica').fontSize(9.5).fillColor(INK).text(
+      "Madame, Monsieur,\n\nDans le cadre du controle prealable prevu au paragraphe 6.7 du Manuel de gestion des subventions, l'Unite de Gestion du Projet (UGP) a l'honneur de solliciter la non-objection de la Banque mondiale sur l'objet vise ci-dessus. Aucune execution ne sera engagee avant reception de votre accord ecrit.",
+      { align: 'justify' },
+    );
+    doc.moveDown(0.6);
+
+    if (synthese) {
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE).text('Synthese chiffree du processus');
+      doc.moveDown(0.2);
+      const rows = [
+        ['Dossiers recus', synthese.recus],
+        ['Dossiers complets', synthese.complets],
+        ['Dossiers eligibles', synthese.eligibles],
+        ['Dossiers evalues', synthese.evalues],
+        ['Projets recommandes', synthese.recommandes],
+      ];
+      rows.forEach(([l, v]) => row(doc, [{ text: l, width: 360 }, { text: String(v ?? 0), width: 96, align: 'right' }]));
+      doc.moveDown(0.6);
+    }
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(PINE).text('Documents transmis');
+    doc.font('Helvetica').fontSize(9.5).fillColor(INK);
+    (piecesTransmises || []).forEach((p, i) => doc.text(`${i + 1}. ${p}`));
+    doc.moveDown(0.8);
+
+    doc.font('Helvetica').fontSize(9.5).fillColor(INK).text(
+      "Nous vous prions de bien vouloir nous faire part de votre non-objection et restons a votre disposition pour toute information complementaire.",
+      { align: 'justify' },
+    );
+    doc.moveDown(1);
+
+    doc.font('Helvetica').fontSize(9.5).fillColor(INK).text(`Fait a ${lieu || '.....................'}, le ${date || '.....................'}.`);
+    doc.moveDown(1.2);
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(INK).text(signataire || 'Le Coordonnateur / La Coordonnatrice du Projet');
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED).text('Signature et cachet :');
+    doc.moveDown(2.4);
+    doc.strokeColor(LINE).lineWidth(1).moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.margins.left + 220, doc.y).stroke();
+  });
+}
+
+module.exports = { buildRapportPdf, buildPvPdf, buildNonObjectionPdf, RECO_LBL, DEC_LBL };
