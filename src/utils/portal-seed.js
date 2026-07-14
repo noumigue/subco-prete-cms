@@ -703,9 +703,14 @@ async function ensureReferentials(strapi) {
 
   // K5 — canaux du Mecanisme de Gestion des Plaintes (MGP §13), affiches cote operateur
   // via la FAQ (contenu CMS, zero code operateur). Placeholder a confirmer UGP.
-  await upsertDocument(strapi, 'api::faq-entree.faq-entree', { question: 'Comment deposer une plainte (mecanisme de gestion des plaintes) ?' }, {
+  // NB : la page operateur « FAQ & documents » lit `faq-item` (getPortalFaqItems),
+  // PAS `faq-entree` (collection orpheline) — l'entree doit vivre dans faq-item.
+  // theme requis (enum eligibilite|dossier|financement|selection) : `dossier` = general.
+  await upsertDocument(strapi, 'api::faq-item.faq-item', { question: 'Comment deposer une plainte (mecanisme de gestion des plaintes) ?' }, {
     question: 'Comment deposer une plainte (mecanisme de gestion des plaintes) ?',
-    ordre: 200,
+    theme: 'dossier',
+    ordre: 4,
+    publie: true,
     reponse: [{ type: 'paragraph', children: [{ type: 'text', text: "Le Projet PRETE dispose d'un mecanisme de gestion des plaintes (MGP) distinct de l'assistance. Vous pouvez deposer une plainte, y compris de maniere confidentielle, via les canaux officiels du projet (a confirmer UGP : ligne telephonique dediee, adresse e-mail, points focaux). Les plaintes sensibles (EAS/HS) sont traitees de facon confidentielle par un dispositif specialise." }] }],
   });
 

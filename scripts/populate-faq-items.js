@@ -101,6 +101,24 @@ const faqItems = [
     ],
   },
   {
+    // K5 — Mecanisme de Gestion des Plaintes (MGP §13), distinct de l'assistance.
+    // Placeholder a confirmer UGP (canaux officiels). Affiche cote operateur via faq-item.
+    question: 'Comment déposer une plainte (mécanisme de gestion des plaintes) ?',
+    theme: 'dossier',
+    ordre: 4,
+    publie: true,
+    reponse: [
+      {
+        type: 'paragraph',
+        children: [
+          { text: "Le Projet PRETE dispose d'un mécanisme de gestion des plaintes (MGP), distinct de l'assistance. Vous pouvez déposer une plainte, y compris de manière confidentielle, via les canaux officiels du projet " },
+          { text: '(à confirmer par l’UGP : ligne téléphonique dédiée, adresse e-mail, points focaux)', bold: true },
+          { text: ". Les plaintes sensibles (EAS/HS) sont traitées de façon confidentielle par un dispositif spécialisé." },
+        ],
+      },
+    ],
+  },
+  {
     question: 'Quel est le montant maximum que je peux recevoir ?',
     theme: 'financement',
     ordre: 1,
