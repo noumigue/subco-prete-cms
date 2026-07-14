@@ -714,6 +714,15 @@ async function ensureReferentials(strapi) {
     reponse: [{ type: 'paragraph', children: [{ type: 'text', text: "Le Projet PRETE dispose d'un mecanisme de gestion des plaintes (MGP) distinct de l'assistance. Vous pouvez deposer une plainte, y compris de maniere confidentielle, via les canaux officiels du projet (a confirmer UGP : ligne telephonique dediee, adresse e-mail, points focaux). Les plaintes sensibles (EAS/HS) sont traitees de facon confidentielle par un dispositif specialise." }] }],
   });
 
+  // Purge de l'ancienne entree MGP mal placee dans `faq-entree` (orpheline, invisible)
+  // avant qu'elle ne vive dans faq-item ci-dessus. Idempotent : no-op si absente.
+  const orphanMgp = await strapi.documents('api::faq-entree.faq-entree').findMany({
+    filters: { question: { $containsi: 'plainte' } }, limit: 10,
+  });
+  for (const e of orphanMgp) {
+    await strapi.documents('api::faq-entree.faq-entree').delete({ documentId: e.documentId });
+  }
+
   // Migration phase 5 : l'ancien statut `a_demander` (2b) devient `en_preparation`.
   const legacyNobj = await strapi.documents('api::non-objection.non-objection').findMany({ filters: { statut: 'a_demander' }, limit: 100 });
   for (const nobj of legacyNobj) {
