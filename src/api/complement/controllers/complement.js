@@ -2,6 +2,7 @@
 
 const { createCoreController } = require('@strapi/strapi').factories;
 const { getUserId, fetchOwned } = require('../../../utils/portal-owner');
+const { journal } = require('../../../utils/portal-instruction');
 
 function connectRelation(document) {
   if (!document?.documentId) return null;
@@ -117,6 +118,16 @@ module.exports = createCoreController('api::complement.complement', ({ strapi })
         lu: false,
       },
     });
+
+    // Journal du dossier (versant equipe) : sans cet acte, l'instructeur/UGP n'a AUCUN signal
+    // que la piece a ete deposee. Apparait dans le journal du dossier + badge « complements recus ».
+    if (existing.candidature?.documentId) {
+      await journal(strapi, existing.candidature.documentId, {
+        auteurLibelle: 'Operateur',
+        type: 'complement_depose',
+        texte: `Piece complementaire deposee par l'operateur : « ${existing.pieceDemandee} »`,
+      });
+    }
 
     return this.transformResponse(updated);
   },

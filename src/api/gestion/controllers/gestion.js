@@ -63,15 +63,32 @@ async function getParametres(strapi) {
   return { delaiComplementsJours: single?.delaiComplementsJours ?? 10 };
 }
 
+// Resout l'organisation a AFFICHER : celle liee au dossier, sinon (dossiers crees avant
+// que le profil org existe — 1re candidature) celle de l'owner. Sans ce repli, le nom de
+// la cooperative n'apparait pas sous le numero de dossier.
+async function resolveOrgByOwner(strapi, ownerIds) {
+  const ids = [...new Set((ownerIds || []).filter(Boolean))];
+  if (!ids.length) return {};
+  const orgs = await strapi.documents('api::organisation.organisation').findMany({
+    filters: { owner: { id: { $in: ids } } },
+    populate: { owner: { fields: ['id'] }, filierePrincipale: { fields: ['nom'] } },
+    limit: 500,
+  });
+  const map = {};
+  for (const o of orgs) if (o.owner?.id) map[o.owner.id] = o;
+  return map;
+}
+
 // Serialisation legere d'une candidature pour la file / le detail.
-function serializeCandidature(c, extra = {}) {
+function serializeCandidature(c, extra = {}, orgFallback = null) {
+  const org = c.organisation || orgFallback;
   return {
     documentId: c.documentId,
     numeroDossier: c.numeroDossier || null,
     titreProjet: c.titreProjet || '',
     dateDepot: c.dateDepot || null,
-    organisation: c.organisation
-      ? { nom: c.organisation.nom || '', filiere: c.organisation.filierePrincipale?.nom || null }
+    organisation: org
+      ? { nom: org.nom || '', filiere: org.filierePrincipale?.nom || null }
       : null,
     statut: c.statut ? { code: c.statut.code, phase: c.statut.phase, groupe: c.statut.groupe, libelle: c.statut.libelleCandidat } : null,
     prisEnChargePar: c.prisEnChargePar ? { id: c.prisEnChargePar.id, nom: displayName(c.prisEnChargePar) } : null,
@@ -96,7 +113,7 @@ module.exports = {
 
     // Etat de validation : une candidature est « a valider » si son instruction (completude
     // OU eligibilite) est au workflow `propose`. On charge les propositions en cours en un lot.
-    const [propCompletude, propEligibilite, complementsDemandes] = await Promise.all([
+    const [propCompletude, propEligibilite, complementsDemandes, complementsFournis] = await Promise.all([
       strapi.documents('api::instruction-completude.instruction-completude').findMany({
         filters: { workflow: 'propose' }, populate: { candidature: { fields: ['documentId'] } }, limit: 500,
       }),
@@ -106,19 +123,27 @@ module.exports = {
       strapi.documents('api::complement.complement').findMany({
         filters: { statut: 'demande' }, populate: { candidature: { fields: ['documentId'] } }, limit: 500,
       }),
+      strapi.documents('api::complement.complement').findMany({
+        filters: { statut: 'fourni' }, populate: { candidature: { fields: ['documentId'] } }, limit: 500,
+      }),
     ]);
 
     const enValCompletude = new Set(propCompletude.map((i) => i.candidature?.documentId).filter(Boolean));
     const enValEligibilite = new Set(propEligibilite.map((i) => i.candidature?.documentId).filter(Boolean));
     const withComplement = new Set(complementsDemandes.map((i) => i.candidature?.documentId).filter(Boolean));
+    const withComplementRecu = new Set(complementsFournis.map((i) => i.candidature?.documentId).filter(Boolean));
+
+    // Repli d'organisation pour les dossiers sans org liee (1re candidature).
+    const orgByOwner = await resolveOrgByOwner(strapi, list.filter((c) => !c.organisation).map((c) => c.owner?.id));
 
     const items = list.map((c) =>
       serializeCandidature(c, {
         enValidation: enValCompletude.has(c.documentId) || enValEligibilite.has(c.documentId),
         enValidationPhase: enValEligibilite.has(c.documentId) ? 'eligibilite' : enValCompletude.has(c.documentId) ? 'completude' : null,
         complementEnCours: withComplement.has(c.documentId),
+        complementRecu: withComplementRecu.has(c.documentId),
         statutClos: c.statut?.groupe === 'non_retenu' ? (c.motifDecisionCourt ? 'Non retenu' : 'Non retenu') : null,
-      }),
+      }, orgByOwner[c.owner?.id]),
     );
 
     ctx.body = { data: items };
@@ -133,7 +158,7 @@ module.exports = {
     const candidature = await findCandidature(strapi, ctx.params.documentId);
     if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
 
-    const [instructionCompletude, instructionEligibilite, typePieces, criteres, parametres, actes] = await Promise.all([
+    const [instructionCompletude, instructionEligibilite, typePieces, criteres, parametres, actes, complements] = await Promise.all([
       findInstruction(strapi, 'api::instruction-completude.instruction-completude', candidature.documentId),
       findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId),
       strapi.documents('api::type-piece.type-piece').findMany({ sort: ['ordre:asc'], limit: 100 }),
@@ -142,11 +167,18 @@ module.exports = {
       strapi.documents('api::acte-dossier.acte-dossier').findMany({
         filters: { candidature: { documentId: candidature.documentId } }, sort: ['date:asc', 'createdAt:asc'], limit: 200,
       }),
+      // Compléments demandés + reçus (N2) : le versant equipe des pieces reclamees pendant la completude.
+      strapi.documents('api::complement.complement').findMany({
+        filters: { candidature: { documentId: candidature.documentId } }, populate: { fichier: true }, sort: ['createdAt:asc'], limit: 100,
+      }),
     ]);
+
+    // Repli d'organisation (dossier sans org liee — 1re candidature).
+    const orgFallback = candidature.organisation ? null : (await resolveOrgByOwner(strapi, [candidature.owner?.id]))[candidature.owner?.id] || null;
 
     ctx.body = {
       data: {
-        ...serializeCandidature(candidature),
+        ...serializeCandidature(candidature, {}, orgFallback),
         donneesProjet: candidature.donneesProjet || null,
         motifDecisionCourt: candidature.motifDecisionCourt || null,
         pdfPermanentUrl: candidature.pdfPermanent?.url || null,
@@ -180,6 +212,15 @@ module.exports = {
           delaiComplementsJours: parametres.delaiComplementsJours,
         },
         journal: actes.map((a) => ({ date: a.date, auteur: a.auteurLibelle || 'Systeme', texte: a.texte })),
+        // Compléments : ce que l'operateur a deposé en reponse a une demande de pieces (N2).
+        complements: complements.map((x) => ({
+          documentId: x.documentId,
+          pieceDemandee: x.pieceDemandee || '',
+          echeance: x.echeance || null,
+          statut: x.statut || 'demande',
+          fichierUrl: x.fichier?.url || null,
+          fourniLe: x.statut === 'fourni' ? x.updatedAt || null : null,
+        })),
       },
     };
   },

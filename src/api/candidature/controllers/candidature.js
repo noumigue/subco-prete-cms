@@ -273,10 +273,21 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     ]);
     const dateDepot = new Date().toISOString();
 
+    // Repli d'organisation : si le dossier n'a jamais ete lie au profil org (1re candidature —
+    // le brouillon est cree avant l'org), on rattache l'org de l'owner AVANT le snapshot, pour
+    // que le PDF permanent ET la file de gestion portent le nom de la cooperative.
+    let organisation = candidature.organisation;
+    if (!organisation?.documentId) {
+      organisation = await strapi.documents('api::organisation.organisation').findFirst({
+        filters: { owner: { id: userId } },
+        populate: ['statutJuridique', 'province', 'commune', 'filierePrincipale'],
+      });
+    }
+
     // PDF permanent = instantane fige du dossier, numero et date inclus.
     const pdfBuffer = await buildCandidaturePdf({
       candidature: { ...candidature, numeroDossier, dateDepot },
-      organisation: candidature.organisation,
+      organisation,
       appel: candidature.appel,
       mode: 'permanent',
     });
@@ -289,6 +300,8 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
         dateDepot,
         statut: connectRelation(statutSoumis),
         pdfPermanent: pdfFile?.id || null,
+        // Lie l'org au dossier si ce n'etait pas deja fait (affichage cote gestion, immutable ensuite).
+        ...(candidature.organisation?.documentId ? {} : (organisation?.documentId ? { organisation: connectRelation(organisation) } : {})),
       },
       populate: ['appel', 'organisation', 'statut', 'pdfPermanent'],
     });
