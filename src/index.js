@@ -8,6 +8,7 @@ const {
   ensureAssistanceEquipeDemo,
   ensureNonObjectionDemo,
   ensureSeDemo,
+  ensureAdminDemoData,
   ensurePortalRolesAndSettings,
   ensureReferentials,
 } = require('./utils/portal-seed');
@@ -61,6 +62,8 @@ module.exports = {
       await ensureNonObjectionDemo(strapi);
       // M6 : depouillements de demo (a_depouiller / propose) + valeur saisie plaintes.
       await ensureSeDemo(strapi);
+      // M7 : drapeau adminComptes + comptes de demo (desactive / invitation) + journal admin.
+      await ensureAdminDemoData(strapi);
       strapi.log.info('[seed] Donnees de demo provisionnees (SEED_DEMO_DATA / non-production).');
     } else {
       strapi.log.info('[seed] Donnees de demo ignorees (production).');

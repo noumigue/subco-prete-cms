@@ -81,6 +81,11 @@
       "type": "string",
       "private": true,
       "configurable": false
+    },
+    "adminComptes": {
+      "type": "boolean",
+      "default": false,
+      "configurable": false
     }
   }
 }

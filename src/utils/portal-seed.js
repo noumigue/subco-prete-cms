@@ -419,6 +419,20 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...nonObjectionInstructeurActions,
     ...seInstructeurActions,
   ];
+  // M7 (administration, §3.9/§9.5/§14.10 L1-L5) — l'UGP est gardienne des acces et des
+  // archives. Les endpoints « comptes » sont EN OUTRE gates par le drapeau `adminComptes`
+  // (controle serveur dans le controleur) ; l'instructeur n'a AUCUN de ces droits (il verra
+  // le message de verrouillage). Le journal transverse + export = tout `ugp` (L3).
+  const adminUgpActions = [
+    'api::gestion.gestion-admin.comptes',
+    'api::gestion.gestion-admin.inviter',
+    'api::gestion.gestion-admin.renvoyer',
+    'api::gestion.gestion-admin.desactiver',
+    'api::gestion.gestion-admin.reactiver',
+    'api::gestion.gestion-admin.changerRole',
+    'api::gestion.gestion-admin.journal',
+    'api::gestion.gestion-admin.journalExport',
+  ];
   const ugpActions = [
     ...instructeurActions,
     'api::gestion.gestion.reassigner',
@@ -433,6 +447,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...subventionUgpActions,
     ...nonObjectionUgpActions,
     ...seUgpActions,
+    ...adminUgpActions,
     // Upload : notification signée (rejet) + PV signé + document non-objection + convention/ACD (phase 3).
     'plugin::upload.content-api.upload',
   ];
@@ -1006,18 +1021,19 @@ const INSTRUCTEUR_EMAIL = 'demo-instructeur@subco-prete.bi';
 const UGP_EMAIL = 'demo-ugp@subco-prete.bi';
 const PORTEFEUILLE_EMAIL = 'demo-portefeuille@subco-prete.bi';
 
-async function ensureInternalUser(strapi, { email, orgName, roleType }) {
+async function ensureInternalUser(strapi, { email, orgName, roleType, adminComptes, confirmed = true, blocked = false }) {
   const service = strapi.plugin('users-permissions').service('user');
   const role = await strapi.db.query('plugin::users-permissions.role').findOne({ where: { type: roleType } });
   let user = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email }, populate: ['role'] });
+  const flags = adminComptes !== undefined ? { adminComptes: Boolean(adminComptes) } : {};
   if (!user) {
     user = await service.add({
-      username: email, email, password: GESTION_PASSWORD, confirmed: true, blocked: false, provider: 'local',
-      role: role.id, orgName,
+      username: email, email, password: GESTION_PASSWORD, confirmed, blocked, provider: 'local',
+      role: role.id, orgName, ...flags,
     });
-  } else if (user.role?.type !== roleType || user.orgName !== orgName || !user.confirmed) {
+  } else if (user.role?.type !== roleType || user.orgName !== orgName || user.confirmed !== confirmed || user.blocked !== blocked || (adminComptes !== undefined && user.adminComptes !== Boolean(adminComptes))) {
     user = await strapi.db.query('plugin::users-permissions.user').update({
-      where: { id: user.id }, data: { role: role.id, orgName, confirmed: true, blocked: false }, populate: ['role'],
+      where: { id: user.id }, data: { role: role.id, orgName, confirmed, blocked, ...flags }, populate: ['role'],
     });
   }
   return user;
@@ -1487,10 +1503,45 @@ async function ensureAssistanceEquipeDemo(strapi) {
   }
 }
 
+// ============================================================================
+// M7 — Administration : donnees de demo.
+//   - le drapeau `adminComptes` pose sur la coordination UGP (C. Iradukunda) ;
+//   - un compte instructeur DESACTIVE (ancien membre du Cabinet) ;
+//   - un compte ugp EN INVITATION (non confirme) — la « UGP standard » de la maquette ;
+//   - quelques actes de journal `administration` (append-only, sans candidature).
+// Idempotent.
+// ============================================================================
+const ADMIN_OFF_EMAIL = 'demo-admin-off@subco-prete.bi';
+const ADMIN_INVITE_EMAIL = 'demo-admin-invite@subco-prete.bi';
+
+async function ensureAdminDemoData(strapi) {
+  // C. Iradukunda (coordination UGP) porte le drapeau adminComptes.
+  const admin = await ensureInternalUser(strapi, { email: UGP_EMAIL, orgName: 'C. Iradukunda', roleType: 'ugp', adminComptes: true });
+  // Ancien membre Cabinet, desactive (jamais supprime — L2).
+  await ensureInternalUser(strapi, { email: ADMIN_OFF_EMAIL, orgName: 'J. Bizimana', roleType: 'instructeur', adminComptes: false, blocked: true });
+  // UGP « standard » (sans adminComptes) en cours d'invitation (non confirme).
+  await ensureInternalUser(strapi, { email: ADMIN_INVITE_EMAIL, orgName: 'F. Niyonkuru', roleType: 'ugp', adminComptes: false, confirmed: false });
+
+  // Actes de journal `administration` de demonstration (une seule fois).
+  const already = await strapi.documents('api::acte-dossier.acte-dossier').findMany({ filters: { type: 'administration' }, limit: 1 });
+  if (!already.length) {
+    const rows = [
+      { texte: 'Compte desactive : J. Bizimana (fin de mission Cabinet)' },
+      { texte: 'Invitation envoyee : F. Niyonkuru (ugp) — lien de definition du mot de passe' },
+    ];
+    for (const r of rows) {
+      await strapi.documents('api::acte-dossier.acte-dossier').create({
+        data: { candidature: null, date: new Date().toISOString(), auteur: { connect: [admin.id] }, auteurLibelle: 'C. Iradukunda (UGP)', type: 'administration', texte: r.texte },
+      });
+    }
+  }
+}
+
 module.exports = {
   DEMO_EMAIL,
   DEMO_PASSWORD,
   ensureDemoPortalData,
+  ensureAdminDemoData,
   ensureGestionDemoData,
   ensureEvaluationDemoData,
   ensureComiteDemoData,

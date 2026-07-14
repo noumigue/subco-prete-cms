@@ -26,6 +26,8 @@ module.exports = {
       orgName: user.orgName || null,
       phone: user.phone || null,
       confirmed: Boolean(user.confirmed),
+      // M7 L1 — drapeau de gouvernance des comptes internes (gating serveur ET UI).
+      adminComptes: Boolean(user.adminComptes),
       role: user.role ? { type: user.role.type, name: user.role.name } : null,
     };
   },
