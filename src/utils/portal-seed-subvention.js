@@ -432,9 +432,59 @@ async function ensureSubventionBContent(strapi) {
 }
 
 // Donnees de DEMO uniquement (les referentiels sont provisionnes separement, toujours).
+// Rattache la subvention A (demo-candidat / Girumwete) a une candidature de la
+// Cohorte 1. Sans ce lien, la subvention est comptee dans « Toutes les cohortes »
+// (indicateurs S&E) mais invisible en filtre cohorte -> « Toutes » != somme des
+// cohortes. Idempotent (guard sur candidature deja liee) : rattache aussi la
+// subvention deja seedee en prod au prochain deploiement.
+const DEMO_DONNEES_A = {
+  etape: 4,
+  operateur: { nif: '4001122334', rc: 'RC/BJM/2021/0311', email: DEMO_EMAIL, telephone: '+257 79 11 22 33' },
+  projet: {
+    filiere: 'Fruits tropicaux',
+    typeInfrastructure: 'Unite de conditionnement de fruits tropicaux',
+    siteProvince: 'Gitega', siteCommune: 'Gitega', memeSiege: true,
+    statutSite: 'Propriete', usageCollectif: 'Oui', mpmeDesservies: '90', maturite: 'Mature',
+    noteConceptuelle: "Unite de conditionnement et de stockage de fruits tropicaux au benefice de 90 MPME de la chaine de valeur.",
+  },
+  financement: { budgetTotal: 120000000, contrepartie: 24000000, typeContrepartie: 'Numeraire' },
+  impact: { mpme: '90', femmes: '48', jeunes: '25', refugies: '8', emplois: '15', porteParFemme: 'Non', zoneRurale: 'Oui' },
+};
+
+async function ensureSubventionAContent(strapi) {
+  const userA = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { email: DEMO_EMAIL } });
+  if (!userA) return;
+  const subvention = await strapi.documents('api::subvention.subvention').findFirst({
+    filters: { owner: { id: userA.id } },
+    populate: { candidature: true },
+  });
+  if (!subvention?.documentId || subvention.candidature) return;
+
+  const [appel, statutSel, organisation] = await Promise.all([
+    findOneBy(strapi, 'api::appel.appel', { codeCohorte: 'C1' }),
+    findOneBy(strapi, 'api::statut-candidature.statut-candidature', { code: 'selectionne' }),
+    findOneBy(strapi, 'api::organisation.organisation', { nom: 'Cooperative Girumwete' }),
+  ]);
+  const candidature = await upsert(strapi, 'api::candidature.candidature', { titreProjet: 'Unite de conditionnement de fruits tropicaux' }, {
+    owner: userA.id,
+    appel: connect(appel?.documentId),
+    organisation: connect(organisation?.documentId),
+    titreProjet: 'Unite de conditionnement de fruits tropicaux',
+    statut: connect(statutSel?.documentId),
+    numeroDossier: 'PRETE-AP-C1-2026-00090',
+    dateDepot: '2026-07-09T09:00:00.000Z',
+    donneesProjet: DEMO_DONNEES_A,
+  });
+  await strapi.documents('api::subvention.subvention').update({
+    documentId: subvention.documentId,
+    data: { candidature: connect(candidature.documentId) },
+  });
+}
+
 async function ensureSubventionDemo(strapi) {
   const userB = await ensureUserB(strapi);
   await ensureSubventionA(strapi);
+  await ensureSubventionAContent(strapi);
   await ensureSubventionB(strapi, userB);
   await ensureSubventionBContent(strapi);
 }
