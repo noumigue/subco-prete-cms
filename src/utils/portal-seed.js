@@ -193,7 +193,6 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::type-piece.type-piece',
     'api::statut-candidature.statut-candidature',
     'api::contenu-aide.contenu-aide',
-    'api::faq-entree.faq-entree',
     'api::document-telechargeable.document-telechargeable',
     'api::modalite-decaissement.modalite-decaissement',
     'api::type-rapport.type-rapport',
@@ -620,30 +619,8 @@ async function ensureReferentials(strapi) {
     ],
   });
 
-  // FAQ (Lot 1) — reference publique, editable au CMS.
-  for (const row of [
-    {
-      question: "Qu'est-ce que la contrepartie de 20 % ?",
-      ordre: 10,
-      reponse: 'Votre organisation doit financer au moins 20 % du budget de son projet ; la subvention couvre le reste, dans la limite du plafond de la cohorte.',
-    },
-    {
-      question: 'Quand mon numero de dossier est-il attribue ?',
-      ordre: 20,
-      reponse: "A la soumission de votre candidature. Un brouillon n'a pas de numero.",
-    },
-    {
-      question: "Que faire si l'UGP me demande une piece complementaire ?",
-      ordre: 30,
-      reponse: 'Vous la deposez depuis la page de suivi de votre dossier, avant l\'echeance indiquee. Ce depot s\'ajoute au dossier sans le modifier.',
-    },
-  ]) {
-    await upsertDocument(strapi, 'api::faq-entree.faq-entree', { question: row.question }, {
-      question: row.question,
-      ordre: row.ordre,
-      reponse: [{ type: 'paragraph', children: [{ type: 'text', text: row.reponse }] }],
-    });
-  }
+  // NB : l'ancienne FAQ `faq-entree` (Lot 1) a ete supprimee — collection orpheline
+  // qu'aucune page ne lisait. La FAQ affichee vit dans `faq-item` (cf. populate-faq-items.js).
 
   // Documents a telecharger (Lot 1) — le fichier media est ajoute au CMS par l'UGP.
   for (const row of [
@@ -703,8 +680,7 @@ async function ensureReferentials(strapi) {
 
   // K5 — canaux du Mecanisme de Gestion des Plaintes (MGP §13), affiches cote operateur
   // via la FAQ (contenu CMS, zero code operateur). Placeholder a confirmer UGP.
-  // NB : la page operateur « FAQ & documents » lit `faq-item` (getPortalFaqItems),
-  // PAS `faq-entree` (collection orpheline) — l'entree doit vivre dans faq-item.
+  // La page operateur « FAQ & documents » (et /faq) lit `faq-item` (getPortalFaqItems).
   // theme requis (enum eligibilite|dossier|financement|selection) : `dossier` = general.
   await upsertDocument(strapi, 'api::faq-item.faq-item', { question: 'Comment deposer une plainte (mecanisme de gestion des plaintes) ?' }, {
     question: 'Comment deposer une plainte (mecanisme de gestion des plaintes) ?',
@@ -713,15 +689,6 @@ async function ensureReferentials(strapi) {
     publie: true,
     reponse: [{ type: 'paragraph', children: [{ type: 'text', text: "Le Projet PRETE dispose d'un mecanisme de gestion des plaintes (MGP) distinct de l'assistance. Vous pouvez deposer une plainte, y compris de maniere confidentielle, via les canaux officiels du projet (a confirmer UGP : ligne telephonique dediee, adresse e-mail, points focaux). Les plaintes sensibles (EAS/HS) sont traitees de facon confidentielle par un dispositif specialise." }] }],
   });
-
-  // Purge de l'ancienne entree MGP mal placee dans `faq-entree` (orpheline, invisible)
-  // avant qu'elle ne vive dans faq-item ci-dessus. Idempotent : no-op si absente.
-  const orphanMgp = await strapi.documents('api::faq-entree.faq-entree').findMany({
-    filters: { question: { $containsi: 'plainte' } }, limit: 10,
-  });
-  for (const e of orphanMgp) {
-    await strapi.documents('api::faq-entree.faq-entree').delete({ documentId: e.documentId });
-  }
 
   // Migration phase 5 : l'ancien statut `a_demander` (2b) devient `en_preparation`.
   const legacyNobj = await strapi.documents('api::non-objection.non-objection').findMany({ filters: { statut: 'a_demander' }, limit: 100 });

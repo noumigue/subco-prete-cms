@@ -1564,36 +1564,6 @@ export interface ApiEventEvent extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiFaqEntreeFaqEntree extends Struct.CollectionTypeSchema {
-  collectionName: 'faq_entrees';
-  info: {
-    displayName: 'FAQ entree';
-    pluralName: 'faq-entrees';
-    singularName: 'faq-entree';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::faq-entree.faq-entree'
-    > &
-      Schema.Attribute.Private;
-    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    publishedAt: Schema.Attribute.DateTime;
-    question: Schema.Attribute.String & Schema.Attribute.Required;
-    reponse: Schema.Attribute.Blocks;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
 export interface ApiFaqItemFaqItem extends Struct.CollectionTypeSchema {
   collectionName: 'faq_items';
   info: {
@@ -3891,7 +3861,6 @@ declare module '@strapi/strapi' {
       'api::etape-programme.etape-programme': ApiEtapeProgrammeEtapeProgramme;
       'api::evaluation-dossier.evaluation-dossier': ApiEvaluationDossierEvaluationDossier;
       'api::event.event': ApiEventEvent;
-      'api::faq-entree.faq-entree': ApiFaqEntreeFaqEntree;
       'api::faq-item.faq-item': ApiFaqItemFaqItem;
       'api::faq.faq': ApiFaqFaq;
       'api::fiche-scoring.fiche-scoring': ApiFicheScoringFicheScoring;
