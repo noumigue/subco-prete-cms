@@ -18,7 +18,8 @@
 
 const crypto = require('crypto');
 const { journal, displayName, authorLabel } = require('../../../utils/portal-instruction');
-const { isEmailDeliveryConfigured, sendMail } = require('../../../utils/notification-mailer');
+// Invitations internes : envoi via la mail platform unifiee.
+const { sendTemplate } = require('../../../utils/mail/mail-service');
 
 const INTERNAL_ROLES = ['instructeur', 'ugp', 'comite'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -334,14 +335,12 @@ module.exports = {
 async function sendInvitation(strapi, { email, nom, token }) {
   const base = (process.env.PORTAL_PUBLIC_URL || process.env.PORTAL_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
   const link = `${base}/gestion/definir-mot-de-passe?token=${token}`;
-  const text = `Bonjour ${nom},\n\nUn compte vous a ete cree sur l'Espace de gestion SUBCO-PRETE.\nPour l'activer, definissez votre mot de passe via ce lien :\n${link}\n\nCe lien est personnel. Si vous n'attendiez pas cette invitation, ignorez ce message.\n\n— UGP PRETE`;
-  if (isEmailDeliveryConfigured()) {
-    try {
-      await sendMail({ to: email, subject: '[SUBCO-PRETE] Activez votre compte — Espace de gestion', text });
-    } catch (error) {
-      strapi.log.warn(`[gestion-admin] Echec e-mail d'invitation : ${error.message}`);
-    }
-  } else {
-    strapi.log.info(`[gestion-admin] SMTP non configure — lien d'invitation : ${link}`);
+  try {
+    // Mail platform unifiee : template `auth.account_invitation` (rendu + journal).
+    await sendTemplate('auth.account_invitation', { nom: nom || email, invitationUrl: link }, email, {
+      meta: { flow: 'internal-invitation' },
+    });
+  } catch (error) {
+    strapi.log.warn(`[gestion-admin] Echec e-mail d'invitation : ${error.message}`);
   }
 }

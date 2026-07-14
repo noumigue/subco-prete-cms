@@ -2,7 +2,8 @@
 
 const crypto = require('crypto');
 const { getUserId } = require('../../../utils/portal-owner');
-const { isEmailDeliveryConfigured, sendMail } = require('../../../utils/notification-mailer');
+// Changement d'e-mail (D2) : envoi via la mail platform unifiee.
+const { sendTemplate } = require('../../../utils/mail/mail-service');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -80,21 +81,15 @@ module.exports = {
       data: { pendingEmail: newEmail, emailChangeToken: token },
     });
 
-    const portalUrl = process.env.PORTAL_PUBLIC_URL || 'http://localhost:3000';
+    const portalUrl = (process.env.PORTAL_PUBLIC_URL || 'http://localhost:3000').replace(/\/+$/, '');
     const link = `${portalUrl}/confirmer-email?token=${token}`;
 
-    if (isEmailDeliveryConfigured()) {
-      try {
-        await sendMail({
-          to: newEmail,
-          subject: '[SUBCO-PRETE] Confirmez votre nouvelle adresse e-mail',
-          text: `Pour activer cette adresse comme identifiant de connexion, ouvrez ce lien : ${link}\n\nSi vous n'etes pas a l'origine de cette demande, ignorez ce message : votre adresse actuelle reste inchangee.`,
-        });
-      } catch (error) {
-        strapi.log.warn(`[portal-compte] Echec e-mail de changement d'adresse : ${error.message}`);
-      }
-    } else {
-      strapi.log.info(`[portal-compte] SMTP non configure — lien de confirmation : ${link}`);
+    try {
+      await sendTemplate('auth.email_change_confirmation', { confirmationUrl: link }, newEmail, {
+        meta: { userId, flow: 'email-change' },
+      });
+    } catch (error) {
+      strapi.log.warn(`[portal-compte] Echec e-mail de changement d'adresse : ${error.message}`);
     }
 
     ctx.body = { ok: true };

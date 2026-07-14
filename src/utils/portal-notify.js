@@ -10,7 +10,9 @@
 //    provisionnee, pas la valeur.
 // L'echec d'un canal n'annule jamais l'operation metier (le journal fait foi).
 
-const { isEmailDeliveryConfigured, sendMail } = require('./notification-mailer');
+// L'envoi passe desormais par la mail platform unifiee (rendu + journal + transport).
+// Une notification portail a sujet/corps libres -> template generique `notification.generic`.
+const { sendTemplate } = require('./mail/mail-service');
 
 function connectRelation(document) {
   if (!document?.documentId) return null;
@@ -60,14 +62,16 @@ async function sendPortalNotification(strapi, { userId, email, telephone, candid
     },
   });
 
-  if (email && isEmailDeliveryConfigured()) {
+  if (email) {
     try {
-      await sendMail({ to: email, subject: `[SUBCO-PRETE] ${sujet}`, text: corps });
+      // sendTemplate gere le SMTP non configure (statut « ignore » journalise) et ne leve
+      // jamais sur echec transport : la notification metier reste creee quoi qu'il arrive.
+      await sendTemplate('notification.generic', { sujet, corps }, email, {
+        meta: { candidature: candidature?.documentId || null, userId: userId || null },
+      });
     } catch (error) {
       strapi.log.warn(`[portal-notify] Echec e-mail « ${sujet} » : ${error.message}`);
     }
-  } else if (email) {
-    strapi.log.info('[portal-notify] E-mail non envoye (SMTP non configure).');
   }
 
   try {

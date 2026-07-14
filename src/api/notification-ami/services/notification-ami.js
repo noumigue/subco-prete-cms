@@ -2,7 +2,8 @@
 
 const { createCoreService } = require('@strapi/strapi').factories;
 const { isCallOpenForNotification } = require('../../../utils/call-notification-state');
-const { isEmailDeliveryConfigured, sendMail } = require('../../../utils/notification-mailer');
+// Envoi via la mail platform unifiee : template `ami.open_notification` (rendu + journal).
+const { sendTemplate, isEmailDeliveryConfigured } = require('../../../utils/mail/mail-service');
 
 const CALL_UID = 'api::call-for-proposal.call-for-proposal';
 const NOTIFICATION_UID = 'api::notification-ami.notification-ami';
@@ -70,12 +71,10 @@ async function fetchPendingNotifications(strapi) {
   });
 }
 
-function buildEmailPayload(entry, call) {
-  const callUrl = buildCallDetailUrl(call);
-  const unsubscribeUrl = buildUnsubscribeUrl(entry.token_desinscription);
+// Construit le payload du template `ami.open_notification` pour un inscrit + un appel.
+function buildTemplatePayload(entry, call) {
   const openingLabel = formatDateLabel(call.openingDate);
   const deadlineLabel = formatDateLabel(call.deadlineDate);
-  const subject = `SUBCO PRETE — ${call.title || "L'appel à propositions est ouvert"}`;
   const intro = call.title
     ? `L'appel à propositions « ${call.title} » est désormais ouvert.`
     : "L'appel à propositions SUBCO PRETE est désormais ouvert.";
@@ -84,36 +83,11 @@ function buildEmailPayload(entry, call) {
     .join(' · ');
 
   return {
-    to: entry.email,
-    subject,
-    text: [
-      'Bonjour,',
-      '',
-      intro,
-      dateBits,
-      '',
-      `Voir le détail de l'appel : ${callUrl}`,
-      '',
-      `Se désinscrire : ${unsubscribeUrl}`,
-    ]
-      .filter(Boolean)
-      .join('\n'),
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
-        <p>Bonjour,</p>
-        <p>${intro}</p>
-        ${dateBits ? `<p><strong>${dateBits}</strong></p>` : ''}
-        <p>
-          <a href="${callUrl}" style="display: inline-block; padding: 12px 18px; background: #0fa37f; color: #ffffff; text-decoration: none; border-radius: 999px;">
-            Voir le détail de l'appel
-          </a>
-        </p>
-        <p style="font-size: 14px; color: #4b5563;">
-          Si vous ne souhaitez plus recevoir ces alertes, vous pouvez vous désinscrire :
-          <a href="${unsubscribeUrl}">${unsubscribeUrl}</a>
-        </p>
-      </div>
-    `,
+    callTitle: call.title || '',
+    intro,
+    dateBits,
+    callUrl: buildCallDetailUrl(call),
+    unsubscribeUrl: buildUnsubscribeUrl(entry.token_desinscription),
   };
 }
 
@@ -157,7 +131,12 @@ module.exports = createCoreService(NOTIFICATION_UID, ({ strapi }) => ({
 
     for (const entry of entries) {
       try {
-        await sendMail(buildEmailPayload(entry, call));
+        const result = await sendTemplate('ami.open_notification', buildTemplatePayload(entry, call), entry.email, {
+          meta: { callDocumentId: call.documentId || null, reason },
+        });
+        if (!result.sent) {
+          throw new Error(result.results?.[0]?.error || result.reason || 'envoi non abouti');
+        }
         await markNotificationAsSent(strapi, entry);
         sent += 1;
       } catch (error) {

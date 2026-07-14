@@ -1,0 +1,48 @@
+{
+  "kind": "collectionType",
+  "collectionName": "mail_logs",
+  "info": {
+    "singularName": "mail-log",
+    "pluralName": "mail-logs",
+    "displayName": "Mail — Journal",
+    "description": "Journal des envois d'e-mails de la mail platform (audit, diagnostic)."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "cle": {
+      "type": "string"
+    },
+    "destinataire": {
+      "type": "string"
+    },
+    "sujet": {
+      "type": "string"
+    },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["envoye", "echec", "ignore"],
+      "default": "envoye",
+      "required": true
+    },
+    "source": {
+      "type": "enumeration",
+      "enum": ["code", "cms"],
+      "default": "code"
+    },
+    "erreur": {
+      "type": "text"
+    },
+    "messageId": {
+      "type": "string"
+    },
+    "meta": {
+      "type": "json"
+    },
+    "envoyeLe": {
+      "type": "datetime"
+    }
+  }
+}

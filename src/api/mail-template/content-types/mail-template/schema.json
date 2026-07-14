@@ -1,0 +1,43 @@
+{
+  "kind": "collectionType",
+  "collectionName": "mail_templates",
+  "info": {
+    "singularName": "mail-template",
+    "pluralName": "mail-templates",
+    "displayName": "Mail — Template",
+    "description": "Surcharge editable d'un template d'e-mail. Cle stable + brouillon/publie. Ne remplace le defaut code que si PUBLIE et valide."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "cle": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "regex": "^[a-z][a-z0-9]*(\\.[a-z0-9_]+)+$"
+    },
+    "sujet": {
+      "type": "string",
+      "required": true
+    },
+    "corpsTexte": {
+      "type": "text",
+      "required": true
+    },
+    "corpsHtml": {
+      "type": "richtext"
+    },
+    "actif": {
+      "type": "boolean",
+      "default": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "placeholdersConnus": {
+      "type": "json"
+    }
+  }
+}

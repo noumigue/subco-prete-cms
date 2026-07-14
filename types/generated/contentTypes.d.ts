@@ -2041,6 +2041,84 @@ export interface ApiJalonProjetJalonProjet extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiMailLogMailLog extends Struct.CollectionTypeSchema {
+  collectionName: 'mail_logs';
+  info: {
+    description: "Journal des envois d'e-mails de la mail platform (audit, diagnostic).";
+    displayName: 'Mail \u2014 Journal';
+    pluralName: 'mail-logs';
+    singularName: 'mail-log';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cle: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    destinataire: Schema.Attribute.String;
+    envoyeLe: Schema.Attribute.DateTime;
+    erreur: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::mail-log.mail-log'
+    > &
+      Schema.Attribute.Private;
+    messageId: Schema.Attribute.String;
+    meta: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    source: Schema.Attribute.Enumeration<['code', 'cms']> &
+      Schema.Attribute.DefaultTo<'code'>;
+    statut: Schema.Attribute.Enumeration<['envoye', 'echec', 'ignore']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'envoye'>;
+    sujet: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiMailTemplateMailTemplate
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'mail_templates';
+  info: {
+    description: "Surcharge editable d'un template d'e-mail. Cle stable + brouillon/publie. Ne remplace le defaut code que si PUBLIE et valide.";
+    displayName: 'Mail \u2014 Template';
+    pluralName: 'mail-templates';
+    singularName: 'mail-template';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    actif: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    cle: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    corpsHtml: Schema.Attribute.RichText;
+    corpsTexte: Schema.Attribute.Text & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::mail-template.mail-template'
+    > &
+      Schema.Attribute.Private;
+    placeholdersConnus: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    sujet: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiMessageAssistanceMessageAssistance
   extends Struct.CollectionTypeSchema {
   collectionName: 'messages_assistance';
@@ -3874,6 +3952,8 @@ declare module '@strapi/strapi' {
       'api::instruction-completude.instruction-completude': ApiInstructionCompletudeInstructionCompletude;
       'api::instruction-eligibilite.instruction-eligibilite': ApiInstructionEligibiliteInstructionEligibilite;
       'api::jalon-projet.jalon-projet': ApiJalonProjetJalonProjet;
+      'api::mail-log.mail-log': ApiMailLogMailLog;
+      'api::mail-template.mail-template': ApiMailTemplateMailTemplate;
       'api::message-assistance.message-assistance': ApiMessageAssistanceMessageAssistance;
       'api::mesure-corrective.mesure-corrective': ApiMesureCorrectiveMesureCorrective;
       'api::modalite-decaissement.modalite-decaissement': ApiModaliteDecaissementModaliteDecaissement;

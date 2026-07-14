@@ -12,6 +12,46 @@ module.exports = ({ env }) => {
     },
   };
 
+  // ---------------------------------------------------------------------------
+  // FILET DE SECURITE e-mail natif (facultatif) — la gouvernance des e-mails
+  // metier/auth passe par la mail platform (src/utils/mail + api/portal-auth),
+  // qui utilise directement nodemailer via les SMTP_*. Mais le panneau ADMIN
+  // Strapi (reset mot de passe d'un admin) utilise, lui, le plugin `email`.
+  // Si le provider nodemailer est installe ET le SMTP configure, on le branche
+  // pour couvrir ce cas — sinon on ne touche a rien (pas de crash au boot).
+  // ---------------------------------------------------------------------------
+  const smtpHost = env('SMTP_HOST');
+  const smtpUser = env('SMTP_USER');
+  const smtpPass = env('SMTP_PASS');
+  if (smtpHost && smtpUser && smtpPass) {
+    let nodemailerProviderAvailable = false;
+    try {
+      require.resolve('@strapi/provider-email-nodemailer');
+      nodemailerProviderAvailable = true;
+    } catch {
+      nodemailerProviderAvailable = false;
+    }
+
+    if (nodemailerProviderAvailable) {
+      const smtpPort = env.int('SMTP_PORT', 587);
+      config.email = {
+        config: {
+          provider: 'nodemailer',
+          providerOptions: {
+            host: smtpHost,
+            port: smtpPort,
+            secure: env.bool('SMTP_SECURE', smtpPort === 465),
+            auth: { user: smtpUser, pass: smtpPass },
+          },
+          settings: {
+            defaultFrom: env('NOTIFICATION_FROM_EMAIL', smtpUser),
+            defaultReplyTo: env('NOTIFICATION_FROM_EMAIL', smtpUser),
+          },
+        },
+      };
+    }
+  }
+
   if (env.bool('STRAPI_DISABLE_UPLOAD_PROVIDER', false)) {
     return config;
   }
