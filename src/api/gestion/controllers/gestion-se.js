@@ -252,7 +252,10 @@ module.exports = {
   // GET /gestion/se/depouillements
   async depouillements(ctx) {
     if (!requireRole(ctx, ['instructeur', 'ugp'])) return;
+    const appel = appelFilter(ctx);
+    const filters = appel ? { rapportRequis: { subvention: { candidature: { appel: { documentId: appel } } } } } : {};
     const items = await strapi.documents('api::depouillement-rapport.depouillement-rapport').findMany({
+      filters,
       populate: {
         saisiPar: { fields: ['orgName', 'username'] },
         rapportRequis: { fields: ['periodeLibelle', 'dateTransmission'], populate: { type: { fields: ['libelle'] }, fichier: { fields: ['url'] }, subvention: { fields: ['numeroConvention'], populate: { owner: { fields: ['orgName'] }, candidature: { fields: ['numeroDossier'] } } } } },
