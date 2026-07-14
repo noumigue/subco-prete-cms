@@ -313,7 +313,10 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
       telephone: candidature.owner?.phone || candidature.organisation?.telephone,
       candidature: submitted,
       sujet: 'Accuse de depot de votre candidature',
-      corps: `Votre dossier ${numeroDossier} a bien ete recu et inscrit au registre des depots. Vous serez informe a chaque etape de l'instruction.`,
+      // Promesse alignee sur le comportement reel (Option B) : on notifie sur ACTION REQUISE
+      // et a la DECISION ; l'avancement intermediaire se consulte dans « Suivi de mon dossier »
+      // (pas de notification a chaque jalon positif).
+      corps: `Votre dossier ${numeroDossier} a bien ete recu et inscrit au registre des depots. Vous serez notifie en cas d'action requise (pieces a completer) et a la decision. L'avancement detaille de l'instruction reste consultable a tout moment dans « Suivi de mon dossier ».`,
     });
 
     return this.transformResponse(submitted);
