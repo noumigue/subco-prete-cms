@@ -10,6 +10,18 @@
   "pluginOptions": {},
   "attributes": {
     "brandLabel": { "type": "string", "default": "SUBCO PRETE" },
+    "logo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "logoIcon": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
     "supportLabelFr": { "type": "string", "default": "Support / Contact" },
     "supportLabelRn": { "type": "string", "default": "Ubufasha / Twandikire" },
     "supportUrl": { "type": "string", "default": "/candidature" },

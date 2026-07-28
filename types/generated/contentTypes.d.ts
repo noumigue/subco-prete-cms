@@ -2910,6 +2910,8 @@ export interface ApiSiteNavigationSiteNavigation
       'api::site-navigation.site-navigation'
     > &
       Schema.Attribute.Private;
+    logo: Schema.Attribute.Media<'images'>;
+    logoIcon: Schema.Attribute.Media<'images'>;
     newsItems: Schema.Attribute.Component<'navigation.link', true>;
     newsLabelFr: Schema.Attribute.String &
       Schema.Attribute.DefaultTo<'Actualit\u00E9s'>;
