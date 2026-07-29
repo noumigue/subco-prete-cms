@@ -5,8 +5,30 @@ const { isCallOpenForNotification } = require('../../../utils/call-notification-
 // Envoi via la mail platform unifiee : template `ami.open_notification` (rendu + journal).
 const { sendTemplate, isEmailDeliveryConfigured } = require('../../../utils/mail/mail-service');
 
-const CALL_UID = 'api::call-for-proposal.call-for-proposal';
+// Source de vérité = le content-type OPÉRATIONNEL `appel` (aligné avec la home et les
+// candidatures). On alerte les abonnés quand un appel est réellement OUVERT (statut='ouvert',
+// posé manuellement par l'UGP côté gestion) — pas sur une simple date.
+const CALL_UID = 'api::appel.appel';
 const NOTIFICATION_UID = 'api::notification-ami.notification-ami';
+
+// Mappe un `appel` vers la forme attendue par isCallOpenForNotification / buildTemplatePayload
+// (callStatus / openingDate / deadlineDate / title). Pas de slug éditorial → détail = /candidature.
+function statutToCallStatus(statut) {
+  const s = String(statut || '').toLowerCase();
+  return s === 'ouvert' ? 'open' : s === 'ferme' ? 'closed' : 'upcoming';
+}
+function mapAppelToCall(a) {
+  if (!a) return null;
+  return {
+    documentId: a.documentId,
+    id: a.id,
+    title: a.nom || '',
+    slug: null,
+    callStatus: statutToCallStatus(a.statut),
+    openingDate: a.ouvertLe || null,
+    deadlineDate: a.clotureLe || null,
+  };
+}
 const DEFAULT_PORTAL_URL = 'http://localhost:3000';
 const DEFAULT_CMS_URL = 'http://localhost:1337';
 
@@ -31,7 +53,7 @@ function getCmsBaseUrl() {
 }
 
 function buildCallDetailUrl(call) {
-  if (!call?.slug) return `${getPortalBaseUrl()}/`;
+  if (!call?.slug) return `${getPortalBaseUrl()}/candidature`;
   return `${getPortalBaseUrl()}/appels/${call.slug}`;
 }
 
@@ -42,20 +64,22 @@ function buildUnsubscribeUrl(token) {
 async function fetchPublishedCall(strapi, documentId) {
   if (!documentId) return null;
 
-  return strapi.documents(CALL_UID).findOne({
+  const appel = await strapi.documents(CALL_UID).findOne({
     documentId,
     status: 'published',
   });
+  return mapAppelToCall(appel);
 }
 
 async function fetchCandidateCalls(strapi) {
-  return strapi.documents(CALL_UID).findMany({
+  const appels = await strapi.documents(CALL_UID).findMany({
     status: 'published',
-    sort: ['openingDate:asc', 'deadlineDate:asc', 'updatedAt:desc'],
+    sort: ['ouvertLe:asc', 'clotureLe:asc', 'updatedAt:desc'],
     pagination: {
       pageSize: 50,
     },
   });
+  return (appels || []).map(mapAppelToCall);
 }
 
 async function fetchPendingNotifications(strapi) {

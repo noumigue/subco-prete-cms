@@ -73,7 +73,9 @@ module.exports = {
 
     if (typeof notificationService?.dispatchOpenCallNotifications === 'function') {
       strapi.db.lifecycles.subscribe({
-        models: ['api::call-for-proposal.call-for-proposal'],
+        // Alerte AMI branchée sur l'appel OPÉRATIONNEL : quand l'UGP ouvre un appel
+        // (statut -> ouvert) via la gestion, l'afterUpdate déclenche l'envoi aux abonnés.
+        models: ['api::appel.appel'],
         async afterCreate(event) {
           await notificationService.dispatchOpenCallNotifications({
             callDocumentId: event.result?.documentId,
