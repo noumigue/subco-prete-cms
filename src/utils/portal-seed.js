@@ -97,6 +97,25 @@ function connectRelation(document) {
   return { connect: [document.documentId] };
 }
 
+// Upsert d'un appel qui PRÉSERVE le `statut` sur les enregistrements existants : le statut
+// (ouvert/ferme/a_venir) est un état OPÉRATIONNEL piloté par l'UGP (ouvrir/clore côté gestion) —
+// le seed ne doit jamais l'écraser à chaque boot. Les DATES (ouvertLe/clotureLe) et le nom
+// restent, eux, pilotés par le seed (config du programme). Statut posé uniquement à la création.
+async function upsertAppel(strapi, { codeCohorte, nom, ouvertLe, clotureLe, statutInitial }) {
+  const existing = await findOneBy(strapi, 'api::appel.appel', { codeCohorte });
+  if (existing?.documentId) {
+    return strapi.documents('api::appel.appel').update({
+      documentId: existing.documentId,
+      data: { nom, ouvertLe, clotureLe },
+      status: 'published',
+    });
+  }
+  return strapi.documents('api::appel.appel').create({
+    data: { nom, codeCohorte, ouvertLe, clotureLe, statut: statutInitial },
+    status: 'published',
+  });
+}
+
 async function ensureRole(strapi, type, name) {
   const existing = await strapi.db.query('plugin::users-permissions.role').findOne({
     where: { type },
@@ -471,22 +490,23 @@ async function ensurePortalRolesAndSettings(strapi) {
 }
 
 async function ensureReferentials(strapi) {
-  // Un appel OUVERT (cloture future) pour tester les CTA, + un appel A_VENIR pour tester le bandeau
-  // d'information (remediation 1.2). Seul `ouvert` est candidatable cote serveur.
-  const cohort = await upsertDocument(strapi, 'api::appel.appel', { codeCohorte: 'C1' }, {
-    nom: 'Appel a propositions - Cohorte 1',
+  // Dates réelles des cohortes (persistées par le seed). Statut initial = a_venir (candidatures
+  // fermées) ; l'UGP ouvre chaque appel le jour venu côté gestion, et ce statut est PRÉSERVÉ
+  // ensuite (upsertAppel ne réécrit jamais le statut d'un appel existant).
+  const cohort = await upsertAppel(strapi, {
     codeCohorte: 'C1',
-    ouvertLe: '2026-07-01',
-    clotureLe: '2026-12-31',
-    statut: 'ouvert',
+    nom: 'Appel a propositions - Cohorte 1',
+    ouvertLe: '2026-08-20',
+    clotureLe: '2026-09-05',
+    statutInitial: 'a_venir',
   });
 
-  await upsertDocument(strapi, 'api::appel.appel', { codeCohorte: 'C2' }, {
-    nom: 'Appel a propositions - Cohorte 2',
+  await upsertAppel(strapi, {
     codeCohorte: 'C2',
-    ouvertLe: '2027-01-15',
-    clotureLe: '2027-03-15',
-    statut: 'a_venir',
+    nom: 'Appel a propositions - Cohorte 2',
+    ouvertLe: '2026-12-01',
+    clotureLe: '2026-12-31',
+    statutInitial: 'a_venir',
   });
 
   const filieres = [
