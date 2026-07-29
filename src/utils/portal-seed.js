@@ -495,6 +495,7 @@ async function ensureReferentials(strapi) {
     { nom: 'Volaille', slug: 'volaille', transversal: false },
     { nom: 'Pisciculture', slug: 'pisciculture', transversal: false },
     { nom: 'Industrie miniere', slug: 'industrie-miniere', transversal: false },
+    { nom: 'Élevage porcin', slug: 'porcine', transversal: false },
     { nom: 'Projet transversal', slug: 'projet-transversal', transversal: true },
   ];
 
