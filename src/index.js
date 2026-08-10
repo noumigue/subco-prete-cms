@@ -11,7 +11,6 @@ const {
   ensureAdminDemoData,
   ensurePortalRolesAndSettings,
   ensureReferentials,
-  ensureConflitDepublie,
 } = require('./utils/portal-seed');
 const { ensureRevalidateWebhook } = require('./utils/portal-webhook');
 const { ensureReferentielsDecaissement, ensureSubventionDemo, ensureSubventionUgpDemo } = require('./utils/portal-seed-subvention');
@@ -36,8 +35,6 @@ module.exports = {
     // Roles, referentiels (editables au CMS) et webhook : toujours provisionnes.
     const { candidateRole } = await ensurePortalRolesAndSettings(strapi);
     await ensureReferentials(strapi);
-    // TODO(conflit-interet) depublication temporaire (A + B) — voir ROLLBACK_conflit-interet.md
-    await ensureConflitDepublie(strapi);
     await ensureReferentielsDecaissement(strapi);
     await ensureRevalidateWebhook(strapi);
 
