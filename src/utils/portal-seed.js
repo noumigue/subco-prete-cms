@@ -1559,9 +1559,30 @@ async function ensureAdminDemoData(strapi) {
   }
 }
 
+// ============================================================================
+// TODO(annexes-depub) Depublication TEMPORAIRE de documents (page candidature,
+// /ressources, /faq-documents) — Annexes 3, 5, 6 + Manuel.
+// Idempotent et REVERSIBLE : `unpublish` retire la version publiee mais GARDE le
+// brouillon (aucune suppression). Rejoue a chaque boot => couvre local et prod.
+// POUR RE-PUBLIER : retirer cette fonction + son appel dans src/index.js, puis
+// republier chaque entree (REST : PUT /api/resource-documents/<id>?status=published).
+// ============================================================================
+const ANNEXES_A_DEPUBLIER = ['Annexe 3 :', 'Annexe 5 :', 'Annexe 6 :', 'Manuel de gestion'];
+async function ensureAnnexesDepubliees(strapi) {
+  const uid = 'api::resource-document.resource-document';
+  for (const marqueur of ANNEXES_A_DEPUBLIER) {
+    const published = await strapi.documents(uid).findMany({ filters: { title: { $contains: marqueur } }, status: 'published' });
+    for (const doc of published) {
+      await strapi.documents(uid).unpublish({ documentId: doc.documentId });
+      strapi.log.info(`[annexes-depub] depublie (brouillon conserve) : ${doc.title}`);
+    }
+  }
+}
+
 module.exports = {
   DEMO_EMAIL,
   DEMO_PASSWORD,
+  ensureAnnexesDepubliees,
   ensureDemoPortalData,
   ensureAdminDemoData,
   ensureGestionDemoData,
