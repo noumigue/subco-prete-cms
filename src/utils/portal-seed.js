@@ -614,7 +614,8 @@ async function ensureReferentials(strapi) {
     { libelle: "Numero d'identification fiscale (NIF)", groupe: 'administratif', exigence: 'obligatoire', ordre: 20 },
     { libelle: "Numero de l'INSS", groupe: 'administratif', exigence: 'obligatoire', ordre: 25 },
     { libelle: 'Attestation de non-redevance fiscale', groupe: 'administratif', exigence: 'si_applicable', ordre: 30 },
-    { libelle: "Declaration de conflit d'interet", groupe: 'administratif', exigence: 'obligatoire', ordre: 40 },
+    // TODO(conflit-interet) retiree temporairement du referentiel — voir ROLLBACK_conflit-interet.md
+    // { libelle: "Declaration de conflit d'interet", groupe: 'administratif', exigence: 'obligatoire', ordre: 40 },
     // Financieres
     { libelle: 'Etats financiers recents (3 exercices)', groupe: 'financier', exigence: 'obligatoire', ordre: 50 },
     { libelle: 'Justificatif de mobilisation de la contrepartie', groupe: 'financier', exigence: 'obligatoire', ordre: 60 },
@@ -1559,9 +1560,36 @@ async function ensureAdminDemoData(strapi) {
   }
 }
 
+// ============================================================================
+// TODO(conflit-interet) Depublication TEMPORAIRE de « Declaration d'absence de conflit
+// d'interet » — voir ROLLBACK_conflit-interet.md.
+//   - A : resource-document « Annexe 8 : ... conflit d'interet ... » (page candidature,
+//     faq-documents, ressources) ;
+//   - B : type-piece « Declaration de conflit d'interet » (checklist Annexe 9 + upload
+//     formulaire operateur etape 4).
+// Idempotent et REVERSIBLE : `unpublish` retire la version publiee mais GARDE le brouillon
+// (aucune suppression). Rejoue a chaque boot => couvre local et prod sans token.
+// POUR RE-PUBLIER : retirer cette fonction + son appel dans src/index.js, decommenter la
+// ligne type-piece conflit, puis re-publier (le seed republie B ; A via admin/script).
+// ============================================================================
+async function ensureConflitDepublie(strapi) {
+  const targets = [
+    { uid: 'api::resource-document.resource-document', filters: { title: { $contains: 'conflit' } } },
+    { uid: 'api::type-piece.type-piece', filters: { libelle: { $contains: 'conflit' } } },
+  ];
+  for (const { uid, filters } of targets) {
+    const published = await strapi.documents(uid).findMany({ filters, status: 'published' });
+    for (const doc of published) {
+      await strapi.documents(uid).unpublish({ documentId: doc.documentId });
+      strapi.log.info(`[conflit-interet] depublie (brouillon conserve) : ${uid} ${doc.documentId}`);
+    }
+  }
+}
+
 module.exports = {
   DEMO_EMAIL,
   DEMO_PASSWORD,
+  ensureConflitDepublie,
   ensureDemoPortalData,
   ensureAdminDemoData,
   ensureGestionDemoData,
