@@ -65,11 +65,13 @@ function resoudreReplyTo(templateKey) {
   return adresse && adresse.trim() ? adresse.trim() : null;
 }
 
-// Le pied de page dit soit « ne repondez pas », soit l'inverse — jamais les deux.
-function noteReponsePour(replyTo) {
-  return replyTo
-    ? 'Vous pouvez répondre à ce message : votre réponse parviendra à l’équipe du projet.'
-    : 'Merci de ne pas répondre directement à cet e-mail.';
+// Le pied de page dit TOUJOURS de ne pas repondre, et oriente vers la plateforme :
+// c'est la consigne, pour tout le monde. Le Reply-To pose plus haut n'est pas une
+// invitation — c'est un FILET, pour que le message de celui qui repondra quand meme
+// arrive quelque part au lieu de se perdre dans noreply@. Les deux sont voulus
+// ensemble : la consigne oriente, le filet rattrape.
+function noteReponse(portalUrl) {
+  return `Merci de ne pas répondre directement à cet e-mail. Pour toute question, passez par ${portalUrl}.`;
 }
 
 function normalizeRecipients(recipients) {
@@ -202,7 +204,8 @@ async function sendTemplate(templateKey, payload = {}, recipients, options = {})
 
   const tpl = await resolveTemplate(templateKey);
   const replyTo = options.replyTo || resoudreReplyTo(templateKey);
-  const context = { ...buildBaseContext(), noteReponse: noteReponsePour(replyTo), ...payload };
+  const base = buildBaseContext();
+  const context = { ...base, noteReponse: noteReponse(base.portalUrl), ...payload };
   assertRequiredVars(templateKey, tpl.requiredVars, context);
 
   const rendered = renderTemplate(tpl, context);
