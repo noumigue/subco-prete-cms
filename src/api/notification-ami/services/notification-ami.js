@@ -153,7 +153,16 @@ module.exports = createCoreService(NOTIFICATION_UID, ({ strapi }) => ({
 
     let sent = 0;
 
+    // Le serveur de messagerie etrangle les rafales : enchainer les envois fait
+    // echouer chaque tentative. On espace, duree reglable sans redeploiement.
+    const pauseMs = Number(process.env.AMI_SEND_DELAY_MS || 0);
+    let premier = true;
+
     for (const entry of entries) {
+      if (!premier && pauseMs > 0) {
+        await new Promise((r) => setTimeout(r, pauseMs));
+      }
+      premier = false;
       try {
         const result = await sendTemplate('ami.open_notification', buildTemplatePayload(entry, call), entry.email, {
           meta: { callDocumentId: call.documentId || null, reason },
