@@ -495,7 +495,7 @@ async function ensureReferentials(strapi) {
   // ensuite (upsertAppel ne réécrit jamais le statut d'un appel existant).
   const cohort = await upsertAppel(strapi, {
     codeCohorte: 'C1',
-    nom: 'Appel a propositions - Cohorte 1',
+    nom: 'Appel à propositions - Cohorte 1',
     ouvertLe: '2026-08-20',
     clotureLe: '2026-09-05',
     statutInitial: 'a_venir',
@@ -503,7 +503,7 @@ async function ensureReferentials(strapi) {
 
   await upsertAppel(strapi, {
     codeCohorte: 'C2',
-    nom: 'Appel a propositions - Cohorte 2',
+    nom: 'Appel à propositions - Cohorte 2',
     ouvertLe: '2026-12-01',
     clotureLe: '2026-12-31',
     statutInitial: 'a_venir',

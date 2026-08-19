@@ -148,23 +148,27 @@ const TEMPLATES = {
     category: 'ami',
     description: "Alerte d'ouverture d'un appel a propositions aux inscrits AMI.",
     requiredVars: ['callUrl', 'unsubscribeUrl'],
-    subject: `${BRAND_NAME} — {{#if callTitle}}{{callTitle}}{{else}}L'appel a propositions est ouvert{{/if}}`,
+    subject: `${BRAND_NAME} — {{#if callTitle}}{{callTitle}} : les candidatures sont ouvertes{{else}}Les candidatures sont ouvertes{{/if}}`,
     text: [
       'Bonjour,',
       '',
       '{{intro}}',
       '{{#if dateBits}}{{dateBits}}{{/if}}',
       '',
-      "Voir le detail de l'appel : {{callUrl}}",
+      'Pour déposer un dossier, vous devez créer un compte sur la plateforme.',
+      'La page ci-dessous indique les pièces à préparer et mène au formulaire.',
       '',
-      'Se desinscrire : {{unsubscribeUrl}}',
+      'Préparer et déposer ma candidature : {{callUrl}}',
+      '',
+      'Se désinscrire : {{unsubscribeUrl}}',
     ].join('\n'),
     html: layout(`
       <p>Bonjour,</p>
       <p>{{intro}}</p>
       {{#if dateBits}}<p><strong>{{dateBits}}</strong></p>{{/if}}
-      ${button("Voir le detail de l'appel", '{{{callUrl}}}')}
-      <p style="font-size:13px;color:#6b7280;">Si vous ne souhaitez plus recevoir ces alertes, <a href="{{{unsubscribeUrl}}}" style="color:#0fa37f;">desinscrivez-vous</a>.</p>
+      <p>Pour déposer un dossier, vous devez créer un compte sur la plateforme. La page ci-dessous indique les pièces à préparer et mène au formulaire.</p>
+      ${button('Préparer et déposer ma candidature', '{{{callUrl}}}')}
+      <p style="font-size:13px;color:#6b7280;">Si vous ne souhaitez plus recevoir ces alertes, <a href="{{{unsubscribeUrl}}}" style="color:#0fa37f;">désinscrivez-vous</a>.</p>
     `),
   },
 
