@@ -51,6 +51,27 @@ function buildBaseContext() {
   return { portalUrl, cmsUrl, year, brandName: templatesModule.BRAND_NAME };
 }
 
+// Familles auxquelles une VRAIE adresse de reponse est associee. La famille est
+// deduite du prefixe de la cle (`ami.open_notification` -> `ami`), et non du champ
+// `category` : une surcharge CMS pourrait ne pas le porter.
+const REPLY_TO_PAR_FAMILLE = {
+  ami: 'NOTIFICATION_REPLY_TO_CANDIDATURE',
+  candidate: 'NOTIFICATION_REPLY_TO_CANDIDATURE',
+};
+
+function resoudreReplyTo(templateKey) {
+  const variable = REPLY_TO_PAR_FAMILLE[String(templateKey).split('.')[0]];
+  const adresse = variable ? process.env[variable] : null;
+  return adresse && adresse.trim() ? adresse.trim() : null;
+}
+
+// Le pied de page dit soit « ne repondez pas », soit l'inverse — jamais les deux.
+function noteReponsePour(replyTo) {
+  return replyTo
+    ? 'Vous pouvez répondre à ce message : votre réponse parviendra à l’équipe du projet.'
+    : 'Merci de ne pas répondre directement à cet e-mail.';
+}
+
 function normalizeRecipients(recipients) {
   const list = Array.isArray(recipients) ? recipients : [recipients];
   return list
@@ -180,7 +201,8 @@ async function sendTemplate(templateKey, payload = {}, recipients, options = {})
   }
 
   const tpl = await resolveTemplate(templateKey);
-  const context = { ...buildBaseContext(), ...payload };
+  const replyTo = options.replyTo || resoudreReplyTo(templateKey);
+  const context = { ...buildBaseContext(), noteReponse: noteReponsePour(replyTo), ...payload };
   assertRequiredVars(templateKey, tpl.requiredVars, context);
 
   const rendered = renderTemplate(tpl, context);
@@ -209,7 +231,7 @@ async function sendTemplate(templateKey, payload = {}, recipients, options = {})
         ...(options.from ? { from: options.from } : {}),
         ...(options.cc ? { cc: options.cc } : {}),
         ...(options.bcc ? { bcc: options.bcc } : {}),
-        ...(options.replyTo ? { replyTo: options.replyTo } : {}),
+        ...(replyTo ? { replyTo } : {}),
         ...(options.attachments ? { attachments: options.attachments } : {}),
       });
       sent += 1;

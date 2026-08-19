@@ -33,7 +33,7 @@ function layout(bodyHtml) {
           </td></tr>
           <tr><td style="padding:18px 28px;background:#f4f6f5;color:#6b7280;font-size:12px;line-height:1.5;">
             Message automatique — Subventions de contrepartie PRETE.<br/>
-            Merci de ne pas repondre directement a cet e-mail.
+            {{ noteReponse }}
           </td></tr>
         </table>
         <div style="color:#9ca3af;font-size:11px;font-family:Arial,sans-serif;margin-top:12px;">© {{ year }} ${BRAND_NAME}</div>
