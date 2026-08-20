@@ -27,9 +27,17 @@
     },
     "statut_notif": {
       "type": "enumeration",
-      "enum": ["en-attente", "notifie", "desabonne"],
+      "enum": ["en-attente", "notifie", "desabonne", "echec"],
       "default": "en-attente",
       "required": true
+    },
+    "tentatives_envoi": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "dernier_echec": {
+      "type": "text"
     },
     "token_desinscription": {
       "type": "string"

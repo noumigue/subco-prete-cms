@@ -128,6 +128,32 @@ async function markNotificationAsSent(strapi, entry) {
   });
 }
 
+// Au-dela de ce nombre d'echecs, l'adresse sort definitivement de la file.
+// Sans ce garde-fou, une adresse invalide est reessayee a CHAQUE passage du cron
+// (toutes les 10 min) jusqu'a la cloture de l'appel : le 20/08/2026, trois adresses
+// mortes ont ainsi produit 255 tentatives en une journee. Marteler des destinataires
+// invalides degrade la reputation du domaine expediteur aupres des relais.
+const MAX_TENTATIVES_ENVOI = Number(process.env.AMI_MAX_TENTATIVES || 3);
+
+async function markNotificationAsFailed(strapi, entry, error) {
+  const tentatives = Number(entry.tentatives_envoi || 0) + 1;
+  const abandon = tentatives >= MAX_TENTATIVES_ENVOI;
+
+  await strapi.documents(NOTIFICATION_UID).update({
+    documentId: entry.documentId,
+    data: {
+      tentatives_envoi: tentatives,
+      dernier_echec: String(error?.message || error || 'echec inconnu').slice(0, 500),
+      // L'entree ne redevient eligible que si un operateur la repasse en « en-attente ».
+      ...(abandon ? { statut_notif: 'echec' } : {}),
+    },
+  });
+
+  await strapi.documents(NOTIFICATION_UID).publish({ documentId: entry.documentId });
+
+  return { tentatives, abandon };
+}
+
 module.exports = createCoreService(NOTIFICATION_UID, ({ strapi }) => ({
   async dispatchOpenCallNotifications(options = {}) {
     const { callDocumentId, reason = 'manual' } = options;
@@ -152,6 +178,8 @@ module.exports = createCoreService(NOTIFICATION_UID, ({ strapi }) => ({
     }
 
     let sent = 0;
+    let echecs = 0;
+    let abandons = 0;
 
     // Le serveur de messagerie etrangle les rafales : enchainer les envois fait
     // echouer chaque tentative. On espace, duree reglable sans redeploiement.
@@ -173,21 +201,36 @@ module.exports = createCoreService(NOTIFICATION_UID, ({ strapi }) => ({
         await markNotificationAsSent(strapi, entry);
         sent += 1;
       } catch (error) {
+        echecs += 1;
+        // La comptabilite de l'echec ne doit JAMAIS interrompre la tournee : si elle
+        // echoue a son tour, on le signale et on passe a l'inscrit suivant.
+        let tentatives = '?';
+        let abandon = false;
+        try {
+          ({ tentatives, abandon } = await markNotificationAsFailed(strapi, entry, error));
+          if (abandon) abandons += 1;
+        } catch (marquageError) {
+          strapi.log.error(`[notification-ami] Echec du marquage pour ${entry.email}`, marquageError);
+        }
         strapi.log.error(
-          `[notification-ami] Echec d'envoi pour ${entry.email} (raison: ${reason}, appel: ${call.documentId || call.id})`,
+          `[notification-ami] Echec d'envoi pour ${entry.email} (tentative ${tentatives}/${MAX_TENTATIVES_ENVOI}` +
+            `${abandon ? ', ABANDON — adresse retiree de la file' : ''}, raison: ${reason}, appel: ${call.documentId || call.id})`,
           error
         );
       }
     }
 
     strapi.log.info(
-      `[notification-ami] ${sent}/${entries.length} notifications envoyées pour l'appel ${call.documentId || call.id} (raison: ${reason}).`
+      `[notification-ami] ${sent}/${entries.length} notifications envoyées pour l'appel ${call.documentId || call.id} ` +
+        `(raison: ${reason}, échecs: ${echecs}, abandons: ${abandons}).`
     );
 
     return {
       ok: true,
       reason,
       sent,
+      echecs,
+      abandons,
       total: entries.length,
       callDocumentId: call.documentId || null,
     };
