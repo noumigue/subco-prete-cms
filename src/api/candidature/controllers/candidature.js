@@ -9,6 +9,7 @@ const { createCoreController } = require('@strapi/strapi').factories;
 const { getUserId, withOwnerFilter, fetchOwned } = require('../../../utils/portal-owner');
 const { evaluateCandidatureGuard } = require('../../../utils/portal-status');
 const { buildCandidaturePdf } = require('../../../utils/portal-pdf');
+const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
 const { sendPortalNotification } = require('../../../utils/portal-notify');
 
 async function getStatusByCode(code) {
@@ -135,7 +136,11 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
       return ctx.notFound('Candidature introuvable.');
     }
 
-    return this.transformResponse(entity);
+    // Le candidat doit pouvoir relire les pieces qu'il a deposees (elles ne vivent que
+    // sous forme de `fileId` dans donneesProjet) — resolues ici, en lecture seule.
+    const piecesFichiers = await resolvePiecesFichiers(strapi, entity.donneesProjet);
+
+    return this.transformResponse({ ...entity, piecesFichiers });
   },
 
   async create(ctx) {

@@ -15,6 +15,7 @@
 
 const { connectRelation, displayName, getStatutByCode, journal } = require('../../../utils/portal-instruction');
 const { sendPortalNotification } = require('../../../utils/portal-notify');
+const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
 
 const INTERNAL_ROLES = ['instructeur', 'ugp'];
 
@@ -173,6 +174,9 @@ module.exports = {
       }),
     ]);
 
+    // Fichiers reellement deposes, resolus depuis les `fileId` de donneesProjet.
+    const piecesFichiers = await resolvePiecesFichiers(strapi, candidature.donneesProjet);
+
     // Repli d'organisation (dossier sans org liee — 1re candidature).
     const orgFallback = candidature.organisation ? null : (await resolveOrgByOwner(strapi, [candidature.owner?.id]))[candidature.owner?.id] || null;
 
@@ -180,6 +184,7 @@ module.exports = {
       data: {
         ...serializeCandidature(candidature, {}, orgFallback),
         donneesProjet: candidature.donneesProjet || null,
+        piecesFichiers,
         motifDecisionCourt: candidature.motifDecisionCourt || null,
         pdfPermanentUrl: candidature.pdfPermanent?.url || null,
         notificationDecisionUrl: candidature.notificationDecision?.url || null,
