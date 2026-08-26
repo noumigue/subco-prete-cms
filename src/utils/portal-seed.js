@@ -497,7 +497,10 @@ async function ensureReferentials(strapi) {
     codeCohorte: 'C1',
     nom: 'Appel à propositions - Cohorte 1',
     ouvertLe: '2026-08-20',
-    clotureLe: '2026-09-05',
+    // Prolonge du 5 au 12 septembre 2026 (23h59) — instruction UGP du 26/08.
+    // Cette valeur est REECRITE a chaque demarrage par upsertAppel : la changer
+    // en base seule ne tiendrait pas, elle doit vivre ici.
+    clotureLe: '2026-09-12',
     statutInitial: 'a_venir',
   });
 
