@@ -1567,16 +1567,34 @@ async function ensureAdminDemoData(strapi) {
 // POUR RE-PUBLIER : retirer cette fonction + son appel dans src/index.js, puis
 // republier chaque entree (REST : PUT /api/resource-documents/<id>?status=published).
 // ============================================================================
-const ANNEXES_A_DEPUBLIER = ['Annexe 3 :', 'Annexe 5 :', 'Annexe 6 :', 'Manuel de gestion'];
-async function ensureAnnexesDepubliees(strapi) {
-  const uid = 'api::resource-document.resource-document';
-  for (const marqueur of ANNEXES_A_DEPUBLIER) {
-    const published = await strapi.documents(uid).findMany({ filters: { title: { $contains: marqueur } }, status: 'published' });
+// Documents retires de la publication. Le seed les (re)cree et les publie a chaque
+// demarrage ; cette fonction passe APRES `ensureReferentials` et les redepublie, ce qui
+// rend le retrait durable. Le brouillon est conserve : republier = retirer d'ici.
+//
+// 10/08/2026 — Annexes 3, 5, 6 et Manuel de gestion (decision programme).
+// 26/08/2026 — Annexes 9 et 10 + les deux guides de l'espace operateur : instruction UGP
+//   du 26/08 (courriel P. Nduwimana) — ne publier que les documents signes par l'UGP PRETE.
+const ANNEXES_A_DEPUBLIER = ['Annexe 3 :', 'Annexe 5 :', 'Annexe 6 :', 'Manuel de gestion', 'Annexe 9 :', 'Annexe 10 :'];
+
+// Second referentiel (espace operateur, rubrique Documents) : le champ titre s'appelle `titre`.
+const DOCS_TELECHARGEABLES_A_DEPUBLIER = ['Guide du candidat', 'Notice de la note conceptuelle'];
+
+async function depublierPar(strapi, uid, champ, marqueurs) {
+  for (const marqueur of marqueurs) {
+    const published = await strapi.documents(uid).findMany({
+      filters: { [champ]: { $contains: marqueur } },
+      status: 'published',
+    });
     for (const doc of published) {
       await strapi.documents(uid).unpublish({ documentId: doc.documentId });
-      strapi.log.info(`[annexes-depub] depublie (brouillon conserve) : ${doc.title}`);
+      strapi.log.info(`[annexes-depub] depublie (brouillon conserve) : ${doc[champ]}`);
     }
   }
+}
+
+async function ensureAnnexesDepubliees(strapi) {
+  await depublierPar(strapi, 'api::resource-document.resource-document', 'title', ANNEXES_A_DEPUBLIER);
+  await depublierPar(strapi, 'api::document-telechargeable.document-telechargeable', 'titre', DOCS_TELECHARGEABLES_A_DEPUBLIER);
 }
 
 module.exports = {
