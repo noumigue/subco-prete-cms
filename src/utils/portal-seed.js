@@ -1574,7 +1574,10 @@ async function ensureAdminDemoData(strapi) {
 // 10/08/2026 — Annexes 3, 5, 6 et Manuel de gestion (decision programme).
 // 26/08/2026 — Annexes 9 et 10 + les deux guides de l'espace operateur : instruction UGP
 //   du 26/08 (courriel P. Nduwimana) — ne publier que les documents signes par l'UGP PRETE.
-const ANNEXES_A_DEPUBLIER = ['Annexe 3 :', 'Annexe 5 :', 'Annexe 6 :', 'Manuel de gestion', 'Annexe 9 :', 'Annexe 10 :'];
+const ANNEXES_A_DEPUBLIER = ['Annexe 3 :', 'Annexe 5 :', 'Annexe 6 :', 'Manuel de gestion', 'Annexe 9 :', 'Annexe 10 :', 'Annexe 8 :'];
+// NB Annexe 8 (26/08, 2e passage) : SEUL le document est retire. La piece obligatoire
+// « Declaration de conflit d'interet » (type-piece) reste exigee au dossier — portee
+// choisie explicitement, differente de celle du 10/08 qui retirait aussi la piece.
 
 // Second referentiel (espace operateur, rubrique Documents) : le champ titre s'appelle `titre`.
 const DOCS_TELECHARGEABLES_A_DEPUBLIER = ['Guide du candidat', 'Notice de la note conceptuelle'];
