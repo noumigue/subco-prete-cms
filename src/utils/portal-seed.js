@@ -615,8 +615,11 @@ async function ensureReferentials(strapi) {
     // Administratives
     { libelle: "Attestation d'existence legale (RC / acte constitutif)", groupe: 'administratif', exigence: 'obligatoire', ordre: 10 },
     { libelle: "Numero d'identification fiscale (NIF)", groupe: 'administratif', exigence: 'obligatoire', ordre: 20 },
-    { libelle: "Numero de l'INSS", groupe: 'administratif', exigence: 'obligatoire', ordre: 25 },
-    { libelle: 'Attestation de non-redevance fiscale', groupe: 'administratif', exigence: 'si_applicable', ordre: 30 },
+    // 27/08/2026 — echange d'exigence decide par l'UGP : l'INSS devient facultatif,
+    // l'attestation de non-redevance fiscale devient obligatoire. Applique retroactivement
+    // aux dossiers deja deposes (l'ecran de completude lit le referentiel vivant).
+    { libelle: "Numero de l'INSS", groupe: 'administratif', exigence: 'si_disponible', ordre: 25 },
+    { libelle: 'Attestation de non-redevance fiscale', groupe: 'administratif', exigence: 'obligatoire', ordre: 30 },
     { libelle: "Declaration de conflit d'interet", groupe: 'administratif', exigence: 'obligatoire', ordre: 40 },
     // Financieres
     { libelle: 'Etats financiers recents (3 exercices)', groupe: 'financier', exigence: 'obligatoire', ordre: 50 },
