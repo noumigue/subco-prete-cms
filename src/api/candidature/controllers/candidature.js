@@ -75,6 +75,19 @@ function checkEligibiliteBloquante(donneesProjet) {
     return "Les declarations d'eligibilite (§5) doivent toutes etre confirmees avant la soumission.";
   }
 
+  // Filiere et province du site : structurantes. La premiere rattache le projet a une
+  // chaine de valeur prioritaire, la seconde conditionne l'eligibilite geographique
+  // (le programme ne couvre que cinq regions). Cinq dossiers ont ete soumis sans elles
+  // avant ce garde-fou — dont un a 600 millions avec ses neuf pieces obligatoires.
+  const projet = donneesProjet?.projet || {};
+  if (!projet.filiereId) {
+    return 'La chaine de valeur du projet doit etre renseignee avant la soumission (etape 2).';
+  }
+  // Site declare identique au siege : la province vient de l'organisation, pas du formulaire.
+  if (!projet.memeSiege && !projet.siteProvinceId) {
+    return "La province d'implantation du site doit etre renseignee avant la soumission (etape 2).";
+  }
+
   const budget = Number(donneesProjet?.financement?.budgetTotal) || 0;
   const contrepartie = Number(donneesProjet?.financement?.contrepartie) || 0;
   if (budget <= 0) {
