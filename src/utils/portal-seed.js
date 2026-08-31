@@ -620,7 +620,12 @@ async function ensureReferentials(strapi) {
     // aux dossiers deja deposes (l'ecran de completude lit le referentiel vivant).
     { libelle: "Numero de l'INSS", groupe: 'administratif', exigence: 'si_disponible', ordre: 25 },
     { libelle: 'Attestation de non-redevance fiscale', groupe: 'administratif', exigence: 'obligatoire', ordre: 30 },
-    { libelle: "Declaration de conflit d'interet", groupe: 'administratif', exigence: 'obligatoire', ordre: 40 },
+    // 31/08/2026 — decision UGP : la declaration cesse d'etre obligatoire. Elle etait
+    // exigee sans modele depuis le retrait de l'Annexe 8 le 26/08, ce qui obligeait les
+    // candidats a la produire sans support. Le critere d'eligibilite « Absence de conflit
+    // d'interets » (§5.8.1) reste, lui, bloquant a l'etape 1 : on declare sur l'honneur,
+    // on n'a plus a le prouver par un document signe.
+    { libelle: "Declaration de conflit d'interet", groupe: 'administratif', exigence: 'si_applicable', ordre: 40 },
     // Financieres
     { libelle: 'Etats financiers recents (3 exercices)', groupe: 'financier', exigence: 'obligatoire', ordre: 50 },
     { libelle: 'Justificatif de mobilisation de la contrepartie', groupe: 'financier', exigence: 'obligatoire', ordre: 60 },
