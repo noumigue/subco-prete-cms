@@ -613,6 +613,14 @@ async function ensureReferentials(strapi) {
 
   for (const row of [
     // Administratives
+    // 02/09/2026 — decision de l'equipe des experts (courriel E. Bigirimana) : les trois
+    // pieces citees par les TdR section 7 et par l'Avis d'appel a projets deviennent
+    // obligatoires et recoivent un emplacement. Elles n'en avaient aucun jusqu'ici, ce
+    // qui provoquait des appels de candidats cherchant ou les deposer.
+    // Libelles sans accents : convention de la liste existante. NE PAS reaccentuer les
+    // entrees deja creees — upsertDocument les retrouve PAR LIBELLE, un renommage
+    // creerait un doublon au lieu de mettre a jour.
+    { libelle: 'Lettre de motivation', groupe: 'administratif', exigence: 'obligatoire', ordre: 5 },
     { libelle: "Attestation d'existence legale (RC / acte constitutif)", groupe: 'administratif', exigence: 'obligatoire', ordre: 10 },
     { libelle: "Numero d'identification fiscale (NIF)", groupe: 'administratif', exigence: 'obligatoire', ordre: 20 },
     // 27/08/2026 — echange d'exigence decide par l'UGP : l'INSS devient facultatif,
@@ -628,10 +636,12 @@ async function ensureReferentials(strapi) {
     { libelle: "Declaration de conflit d'interet", groupe: 'administratif', exigence: 'si_applicable', ordre: 40 },
     // Financieres
     { libelle: 'Etats financiers recents (3 exercices)', groupe: 'financier', exigence: 'obligatoire', ordre: 50 },
+    { libelle: 'Releves bancaires des 6 derniers mois', groupe: 'financier', exigence: 'obligatoire', ordre: 55 },
     { libelle: 'Justificatif de mobilisation de la contrepartie', groupe: 'financier', exigence: 'obligatoire', ordre: 60 },
     { libelle: "Plan d'affaires / budget detaille", groupe: 'financier', exigence: 'obligatoire', ordre: 70 },
     // Techniques
     { libelle: 'Note conceptuelle du projet', groupe: 'technique', exigence: 'obligatoire', ordre: 80 },
+    { libelle: 'Liste des beneficiaires potentiels', groupe: 'technique', exigence: 'obligatoire', ordre: 85 },
     { libelle: 'Preuve de disponibilite du site', groupe: 'technique', exigence: 'obligatoire', ordre: 90 },
     { libelle: "Devis / plans d'infrastructure", groupe: 'technique', exigence: 'si_disponible', ordre: 100 },
     { libelle: 'Plan de gestion environnementale et sociale (PGES)', groupe: 'technique', exigence: 'si_applicable', ordre: 110 },
