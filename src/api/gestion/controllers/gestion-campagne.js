@@ -140,6 +140,19 @@ async function envoyerLot(strapi, { cle, retenus, contexteRendu, mode }) {
   let echecs = 0;
   for (const destinataire of retenus) {
     const message = await rendre(contexteRendu, destinataire.payload);
+
+    // List-Unsubscribe : exige par Gmail et Yahoo sur les envois groupes depuis 2024, et
+    // decisif sur une liste froide — offrir la sortie coute une desinscription, la cacher
+    // coute un signalement en indesirable, qui pese sur tout le domaine.
+    // On le pose UNIQUEMENT depuis le lien personnel du destinataire : le payload commun
+    // peut porter un lien de DEMONSTRATION (pour la copie interne), qui ne doit jamais
+    // servir d'adresse de desinscription a quelqu'un.
+    const lienDesabo = destinataire.payload?.unsubscribeUrl;
+    // Pas de List-Unsubscribe-Post : la route de desinscription du CMS est en GET seul.
+    // Annoncer le « un clic » ferait poster Gmail sur un point d'entree qui repondrait
+    // 405 — un desabonnement casse est pire qu'un desabonnement lent.
+    const entetes = lienDesabo ? { 'List-Unsubscribe': `<${lienDesabo}>` } : undefined;
+
     try {
       const r = await sendRaw({
         to: destinataire.email,
@@ -148,6 +161,7 @@ async function envoyerLot(strapi, { cle, retenus, contexteRendu, mode }) {
         html: message.html,
         key: cle,
         meta: { campagne: cle, mode },
+        ...(entetes ? { headers: entetes } : {}),
       });
       if (r?.sent) envoyes += 1;
       else echecs += 1;
