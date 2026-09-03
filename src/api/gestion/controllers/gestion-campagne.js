@@ -231,7 +231,7 @@ function enteteCopie({ cle, mode, bilan, nbCibles, cumul }) {
     `Campagne   : ${cle}${mode === 'test' ? '  (mode test)' : ''}`,
     `Terminee   : ${new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Bujumbura' })}`,
     `Cet envoi  : ${nbCibles} candidat(s) vises — ${bilan.envoyes} envoye(s), ${echecs}`,
-    ...(cumul && cumul.total > bilan.envoyes
+    ...(cumul && cumul.total > nbCibles
       ? [`Campagne   : ${cumul.envoyes} candidat(s) servi(s) au total${cumul.echecs ? `, ${cumul.echecs} en echec` : ''}`]
       : []),
     '',
@@ -251,7 +251,7 @@ function enteteCopieHtml({ cle, mode, bilan, nbCibles, cumul }) {
       <div><b>Campagne :</b> ${escapeHtmlSimple(cle)}${mode === 'test' ? ' (mode test)' : ''}</div>
       <div><b>Terminee :</b> ${escapeHtmlSimple(new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Bujumbura' }))}</div>
       <div><b>Cet envoi :</b> ${nbCibles} candidat(s) vises — ${bilan.envoyes} envoye(s), ${echecs}</div>
-      ${cumul && cumul.total > bilan.envoyes
+      ${cumul && cumul.total > nbCibles
         ? `<div><b>Campagne :</b> ${cumul.envoyes} candidat(s) servi(s) au total${cumul.echecs ? `, ${cumul.echecs} en echec` : ''}</div>`
         : ''}
       <div style="margin-top:10px;color:#64748b;">Ci-dessous, le message tel que les candidats l'ont recu. L'exemple de pieces provient d'un compte de test, jamais d'un candidat reel.</div>
