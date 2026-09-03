@@ -57,6 +57,9 @@ function buildBaseContext() {
 const REPLY_TO_PAR_FAMILLE = {
   ami: 'NOTIFICATION_REPLY_TO_CANDIDATURE',
   candidate: 'NOTIFICATION_REPLY_TO_CANDIDATURE',
+  // Une relance de campagne appelle une reponse plus surement qu'une notification :
+  // le destinataire a une question sur SA piece manquante. Meme filet, meme boite.
+  campagne: 'NOTIFICATION_REPLY_TO_CANDIDATURE',
 };
 
 function resoudreReplyTo(templateKey) {
@@ -70,7 +73,15 @@ function resoudreReplyTo(templateKey) {
 // invitation — c'est un FILET, pour que le message de celui qui repondra quand meme
 // arrive quelque part au lieu de se perdre dans noreply@. Les deux sont voulus
 // ensemble : la consigne oriente, le filet rattrape.
-function noteReponse(portalUrl) {
+// EXCEPTION `campagne.*` : une relance INVITE explicitement a ecrire (voir le bloc
+// assistance du template). Lui laisser le pied de page « ne repondez pas » serait se
+// contredire dans le meme message. La consigne s'inverse donc pour cette famille, et
+// le Reply-To cesse d'etre un filet pour devenir l'adresse annoncee.
+function noteReponse(portalUrl, templateKey) {
+  if (String(templateKey || '').split('.')[0] === 'campagne') {
+    const adresse = (process.env.NOTIFICATION_REPLY_TO_CANDIDATURE || 'candidature@subco-prete.bi').trim();
+    return `Vous pouvez répondre à ce message : il arrive à l'équipe du projet (${adresse}).`;
+  }
   return `Merci de ne pas répondre directement à cet e-mail. Pour toute question, passez par ${portalUrl}.`;
 }
 
@@ -205,7 +216,7 @@ async function sendTemplate(templateKey, payload = {}, recipients, options = {})
   const tpl = await resolveTemplate(templateKey);
   const replyTo = options.replyTo || resoudreReplyTo(templateKey);
   const base = buildBaseContext();
-  const context = { ...base, noteReponse: noteReponse(base.portalUrl), ...payload };
+  const context = { ...base, noteReponse: noteReponse(base.portalUrl, templateKey), ...payload };
   assertRequiredVars(templateKey, tpl.requiredVars, context);
 
   const rendered = renderTemplate(tpl, context);
@@ -236,6 +247,9 @@ async function sendTemplate(templateKey, payload = {}, recipients, options = {})
         ...(options.bcc ? { bcc: options.bcc } : {}),
         ...(replyTo ? { replyTo } : {}),
         ...(options.attachments ? { attachments: options.attachments } : {}),
+        // En-tetes libres — ouvert pour les campagnes, qui doivent porter un
+        // List-Unsubscribe (exige par Gmail/Yahoo sur les envois groupes depuis 2024).
+        ...(options.headers ? { headers: options.headers } : {}),
       });
       sent += 1;
       results.push({ to: addr, status: 'envoye', messageId: info?.messageId || null });

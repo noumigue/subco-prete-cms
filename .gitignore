@@ -30,3 +30,9 @@ exports/
 
 # Comptes internes de provisionnement (données sensibles, hors VCS)
 scripts/internal-users.json
+
+# Scripts de campagne lances depuis un poste de travail : ils contiennent des adresses
+# de candidats REELS en dur (constitution des listes lors de la Cohorte 1). Les commiter
+# graverait des donnees personnelles dans l'historique Git, quasi impossible a purger.
+# Ils sont de toute facon inoperants hors du serveur : le relais SMTP filtre par IP.
+scripts/campagne/

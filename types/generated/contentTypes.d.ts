@@ -2344,6 +2344,7 @@ export interface ApiNotificationAmiNotificationAmi
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    dernier_echec: Schema.Attribute.Text;
     email: Schema.Attribute.Email &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
@@ -2355,10 +2356,18 @@ export interface ApiNotificationAmiNotificationAmi
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     statut_notif: Schema.Attribute.Enumeration<
-      ['en-attente', 'notifie', 'desabonne']
+      ['en-attente', 'notifie', 'desabonne', 'echec']
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'en-attente'>;
+    tentatives_envoi: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
     token_desinscription: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
