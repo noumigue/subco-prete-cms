@@ -223,14 +223,17 @@ async function construireSpecimen(strapi, email) {
   };
 }
 
-function enteteCopie({ cle, mode, bilan, nbCibles }) {
+function enteteCopie({ cle, mode, bilan, nbCibles, cumul }) {
   const echecs = bilan.echecs > 0 ? `${bilan.echecs} echec(s)` : 'aucun echec';
   const l = [
     'COPIE INTERNE — equipe des experts SUBCO-PRETE',
     '',
     `Campagne   : ${cle}${mode === 'test' ? '  (mode test)' : ''}`,
     `Terminee   : ${new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Bujumbura' })}`,
-    `Destinataires : ${nbCibles} candidat(s) vises — ${bilan.envoyes} envoye(s), ${echecs}`,
+    `Cet envoi  : ${nbCibles} candidat(s) vises — ${bilan.envoyes} envoye(s), ${echecs}`,
+    ...(cumul && cumul.total > bilan.envoyes
+      ? [`Campagne   : ${cumul.envoyes} candidat(s) servi(s) au total${cumul.echecs ? `, ${cumul.echecs} en echec` : ''}`]
+      : []),
     '',
     "Ci-dessous, le message tel que les candidats l'ont recu. L'exemple de pieces provient",
     "d'un compte de TEST, jamais d'un candidat reel.",
@@ -241,19 +244,51 @@ function enteteCopie({ cle, mode, bilan, nbCibles }) {
   return l.join('\n');
 }
 
-function enteteCopieHtml({ cle, mode, bilan, nbCibles }) {
+function enteteCopieHtml({ cle, mode, bilan, nbCibles, cumul }) {
   const echecs = bilan.echecs > 0 ? `<b style="color:#b45309">${bilan.echecs} echec(s)</b>` : 'aucun echec';
   return `<div style="margin:0 0 20px;padding:14px 16px;background:#f1f5f9;border-left:4px solid #334155;border-radius:6px;font-family:system-ui,sans-serif;font-size:13px;line-height:1.7;color:#334155;">
       <div style="font-weight:700;letter-spacing:.4px;text-transform:uppercase;font-size:11px;margin-bottom:8px;">Copie interne — equipe des experts</div>
       <div><b>Campagne :</b> ${escapeHtmlSimple(cle)}${mode === 'test' ? ' (mode test)' : ''}</div>
       <div><b>Terminee :</b> ${escapeHtmlSimple(new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Bujumbura' }))}</div>
-      <div><b>Diffusion :</b> ${nbCibles} candidat(s) vises — ${bilan.envoyes} envoye(s), ${echecs}</div>
+      <div><b>Cet envoi :</b> ${nbCibles} candidat(s) vises — ${bilan.envoyes} envoye(s), ${echecs}</div>
+      ${cumul && cumul.total > bilan.envoyes
+        ? `<div><b>Campagne :</b> ${cumul.envoyes} candidat(s) servi(s) au total${cumul.echecs ? `, ${cumul.echecs} en echec` : ''}</div>`
+        : ''}
       <div style="margin-top:10px;color:#64748b;">Ci-dessous, le message tel que les candidats l'ont recu. L'exemple de pieces provient d'un compte de test, jamais d'un candidat reel.</div>
     </div>`;
 }
 
 function escapeHtmlSimple(v) {
   return String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Bilan CUMULE de la campagne, toutes vagues confondues. Une campagne se deroule en
+// plusieurs envois (un lot d'essai, un lot de rodage, le solde) : annoncer le seul lot
+// courant sous-declare ce qui a ete diffuse. Constate sur relance-pieces-2026-09-03, ou
+// la copie annoncait 84 destinataires alors que 114 candidats avaient ete servis.
+// Les lignes de la copie elle-meme portent la cle « <cle>:copie-equipe » : l'egalite
+// stricte sur `cle` les laisse donc dehors, sans filtre supplementaire.
+async function cumulCampagne(strapi, cle) {
+  try {
+    const lignes = await strapi.db.query(UID_LOG).findMany({
+      where: { cle },
+      select: ['destinataire', 'statut'],
+      limit: 5000,
+    });
+    const envoyes = new Set();
+    const echoues = new Set();
+    for (const l of lignes) {
+      const e = String(l.destinataire || '').toLowerCase();
+      if (l.statut === 'envoye') envoyes.add(e);
+      else echoues.add(e);
+    }
+    // Une adresse ayant echoue puis reussi ne compte que comme reussie.
+    for (const e of envoyes) echoues.delete(e);
+    return { envoyes: envoyes.size, echecs: echoues.size, total: envoyes.size + echoues.size };
+  } catch (error) {
+    strapi?.log?.warn(`[campagne] cumul indisponible pour « ${cle} » : ${error.message}`);
+    return null;
+  }
 }
 
 async function envoyerCopieEquipe(strapi, { cle, mode, contexteRendu, bilan, servis, copie, specimenPayload, nbCibles }) {
@@ -263,7 +298,8 @@ async function envoyerCopieEquipe(strapi, { cle, mode, contexteRendu, bilan, ser
   if (destinataires.length === 0) return { copieEnvoyee: 0, copieIgnoree: 'tous deja destinataires de la campagne' };
 
   const message = await rendre(contexteRendu, specimenPayload || {});
-  const entete = { cle, mode, bilan, nbCibles };
+  const cumul = await cumulCampagne(strapi, cle);
+  const entete = { cle, mode, bilan, nbCibles, cumul };
   const texte = enteteCopie(entete) + (message.texte || '');
   const html = message.html ? enteteCopieHtml(entete) + message.html : undefined;
   const sujet = `[Copie interne] ${message.sujet}`;
