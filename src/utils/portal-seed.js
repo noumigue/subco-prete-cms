@@ -97,18 +97,22 @@ function connectRelation(document) {
   return { connect: [document.documentId] };
 }
 
-// Upsert d'un appel qui PRÉSERVE le `statut` sur les enregistrements existants : le statut
-// (ouvert/ferme/a_venir) est un état OPÉRATIONNEL piloté par l'UGP (ouvrir/clore côté gestion) —
-// le seed ne doit jamais l'écraser à chaque boot. Les DATES (ouvertLe/clotureLe) et le nom
-// restent, eux, pilotés par le seed (config du programme). Statut posé uniquement à la création.
+// Upsert d'un appel qui NE TOUCHE À RIEN sur un enregistrement existant. Nom, dates et statut
+// sont la configuration OPÉRATIONNELLE de l'appel, pilotée par l'UGP depuis le CMS ; les valeurs
+// ci-dessous ne servent qu'à la CRÉATION d'une nouvelle cohorte.
+//
+// Le statut était déjà préservé (l'UGP ouvre et clôt depuis l'espace de gestion). Les DATES le
+// sont désormais aussi, et ce n'est pas cosmétique : depuis que la clôture est automatique
+// (utils/portal-appel-cloture.js), réécrire `clotureLe` à chaque démarrage serait dangereux —
+// une prolongation saisie dans l'admin serait effacée au redéploiement suivant, et l'appel se
+// fermerait alors tout seul, en avance et silencieusement, sur l'ancienne date. Un automatisme
+// qui dépend d'une donnée impose que cette donnée ait une source de vérité unique : le CMS.
+//
+// Conséquence voulue : prolonger une cohorte se fait désormais dans l'admin, sans déploiement.
 async function upsertAppel(strapi, { codeCohorte, nom, ouvertLe, clotureLe, statutInitial }) {
   const existing = await findOneBy(strapi, 'api::appel.appel', { codeCohorte });
   if (existing?.documentId) {
-    return strapi.documents('api::appel.appel').update({
-      documentId: existing.documentId,
-      data: { nom, ouvertLe, clotureLe },
-      status: 'published',
-    });
+    return existing;
   }
   return strapi.documents('api::appel.appel').create({
     data: { nom, codeCohorte, ouvertLe, clotureLe, statut: statutInitial },
@@ -490,16 +494,15 @@ async function ensurePortalRolesAndSettings(strapi) {
 }
 
 async function ensureReferentials(strapi) {
-  // Dates réelles des cohortes (persistées par le seed). Statut initial = a_venir (candidatures
-  // fermées) ; l'UGP ouvre chaque appel le jour venu côté gestion, et ce statut est PRÉSERVÉ
-  // ensuite (upsertAppel ne réécrit jamais le statut d'un appel existant).
+  // Valeurs de CRÉATION des cohortes uniquement. Sur un appel qui existe déjà, upsertAppel
+  // ne réécrit plus rien : nom, dates et statut vivent dans le CMS, où l'UGP les pilote.
+  // Pour décaler une cohorte existante, modifier la date DANS L'ADMIN — pas ici : changer
+  // ces constantes n'a plus aucun effet sur C1 et C2, qui sont déjà créées.
   const cohort = await upsertAppel(strapi, {
     codeCohorte: 'C1',
     nom: 'Appel à propositions - Cohorte 1',
     ouvertLe: '2026-08-20',
-    // Prolonge du 5 au 12 septembre 2026 (23h59) — instruction UGP du 26/08.
-    // Cette valeur est REECRITE a chaque demarrage par upsertAppel : la changer
-    // en base seule ne tiendrait pas, elle doit vivre ici.
+    // Prolongé du 5 au 12 septembre 2026 — instruction UGP du 26/08, appliquée en base.
     clotureLe: '2026-09-12',
     statutInitial: 'a_venir',
   });

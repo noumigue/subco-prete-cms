@@ -14,6 +14,7 @@ const {
   ensureAnnexesDepubliees,
 } = require('./utils/portal-seed');
 const { ensureRevalidateWebhook } = require('./utils/portal-webhook');
+const { cloreAppelsEchus } = require('./utils/portal-appel-cloture');
 const { ensureReferentielsDecaissement, ensureSubventionDemo, ensureSubventionUgpDemo } = require('./utils/portal-seed-subvention');
 
 module.exports = {
@@ -112,6 +113,24 @@ module.exports = {
         });
       }, 3000);
     }
+
+    // Cloture automatique des appels a echeance (cf. utils/portal-appel-cloture.js).
+    // Independante du service de notification ci-dessus : elle est enregistree hors de son
+    // garde. Toutes les minutes, car la requete est filtree sur `statut: 'ouvert'` et ne
+    // ramene que zero ou une ligne — et parce qu'un quart d'heure de battement le dernier
+    // soir laisserait des candidats deposer apres l'heure limite de leurs concurrents.
+    strapi.cron.add({
+      cloreAppelsEchus: {
+        task: async () => {
+          try {
+            await cloreAppelsEchus(strapi);
+          } catch (error) {
+            strapi.log.error('[cloture] Echec de la verification des echeances', error);
+          }
+        },
+        options: process.env.APPEL_CLOTURE_CRON || '* * * * *',
+      },
+    });
 
     // Do not seed, update, or delete editorial content here.
     // Production content is managed in Strapi and data migrations must be explicit.
