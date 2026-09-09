@@ -16,6 +16,7 @@
 const { connectRelation, displayName, getStatutByCode, journal } = require('../../../utils/portal-instruction');
 const { sendPortalNotification } = require('../../../utils/portal-notify');
 const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
+const { archiverModificationsNonDeposees } = require('../../../utils/portal-depot');
 
 const INTERNAL_ROLES = ['instructeur', 'ugp'];
 
@@ -93,6 +94,12 @@ function serializeCandidature(c, extra = {}, orgFallback = null) {
       : null,
     statut: c.statut ? { code: c.statut.code, phase: c.statut.phase, groupe: c.statut.groupe, libelle: c.statut.libelleCandidat } : null,
     prisEnChargePar: c.prisEnChargePar ? { id: c.prisEnChargePar.id, nom: displayName(c.prisEnChargePar) } : null,
+    // Lot 1 — versionnement des depots. `modificationEnCours` dit a l'instructeur de ne pas
+    // prendre ce dossier en charge maintenant : le candidat est en train d'y travailler, et
+    // la version qu'il lit pourrait etre remplacee sous ses yeux.
+    versionDepot: c.versionDepot || 1,
+    dernierDepotLe: c.dernierDepotLe || c.dateDepot || null,
+    modificationEnCours: Boolean(c.donneesProjetTravail),
     ...extra,
   };
 }
@@ -276,7 +283,11 @@ module.exports = {
     const newInstructeurId = ctx.request.body?.data?.instructeurId || null;
     await strapi.documents('api::candidature.candidature').update({
       documentId: candidature.documentId,
-      data: { prisEnChargePar: newInstructeurId ? { connect: [newInstructeurId] } : { disconnect: [] } },
+      // `{ disconnect: [] }` ne deconnectait RIEN : sans instructeur cible, le dossier restait
+      // assigne et l'UGP n'avait aucun moyen de le liberer. Depuis le Lot 1 ce n'est plus
+      // seulement genant — un dossier pris en charge par erreur interdit definitivement a son
+      // candidat de le modifier. `null` vide reellement la relation.
+      data: { prisEnChargePar: newInstructeurId || null },
     });
     await journal(strapi, candidature.documentId, { auteurUser: user, type: 'reassignation', texte: 'Reassignation du dossier (C1)' });
 
@@ -556,6 +567,9 @@ module.exports = {
     const appel = await strapi.documents('api::appel.appel').findOne({ documentId: ctx.params.documentId });
     if (!appel?.documentId) return ctx.notFound('Appel introuvable.');
     await strapi.documents('api::appel.appel').update({ documentId: appel.documentId, data: { statut: 'ferme' }, status: 'published' });
+    // Meme traitement que la cloture automatique : les modifications commencees et jamais
+    // deposees sont archivees, et chaque candidat est notifie de la version retenue.
+    await archiverModificationsNonDeposees(strapi, appel.documentId);
     ctx.body = { ok: true };
   },
 

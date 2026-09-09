@@ -92,7 +92,71 @@ async function ensureDepotsInitiaux(strapi) {
   return crees;
 }
 
+/**
+ * A la cloture d'un appel : archive les modifications commencees mais JAMAIS deposees.
+ *
+ * C'est ici que se joue la reponse a « et si la cloture tombe pendant une modification ? ».
+ * Avec le modele R2 il n'y a rien a arbitrer : la derniere version DEPOSEE part en
+ * instruction, elle n'a jamais cesse d'etre valide. Le travail non depose est conserve
+ * (`travailNonDepose`) pour qu'un arbitrage reste possible sur demande, et le candidat est
+ * notifie en NOMMANT la version retenue — un message vague ici produirait exactement le
+ * litige qu'on cherche a eviter.
+ *
+ * @returns {Promise<number>} nombre de dossiers dont la modification a ete archivee.
+ */
+async function archiverModificationsNonDeposees(strapi, appelDocumentId) {
+  const enCours = await strapi.documents('api::candidature.candidature').findMany({
+    filters: {
+      donneesProjetTravail: { $notNull: true },
+      ...(appelDocumentId ? { appel: { documentId: appelDocumentId } } : {}),
+    },
+    populate: { owner: { fields: ['id', 'email', 'phone'] }, organisation: { fields: ['telephone'] } },
+    limit: 2000,
+  });
+
+  if (enCours.length === 0) return 0;
+
+  const { journal } = require('./portal-instruction');
+  const { sendPortalNotification } = require('./portal-notify');
+  const maintenant = new Date().toISOString();
+
+  for (const candidature of enCours) {
+    const version = Number(candidature.versionDepot) || 1;
+    const deposeLe = candidature.dernierDepotLe || candidature.dateDepot;
+    const dateLisible = deposeLe ? new Date(deposeLe).toLocaleDateString('fr-FR') : null;
+
+    const archive = await strapi.documents('api::candidature.candidature').update({
+      documentId: candidature.documentId,
+      data: {
+        travailNonDepose: candidature.donneesProjetTravail,
+        travailNonDeposeLe: maintenant,
+        donneesProjetTravail: null,
+        titreProjetTravail: null,
+      },
+    });
+
+    await journal(strapi, candidature.documentId, {
+      auteurLibelle: 'Systeme',
+      type: 'modification_non_deposee',
+      texte: `Cloture de l'appel : des modifications non deposees ont ete archivees. La version instruite reste la v${version}.`,
+    });
+
+    await sendPortalNotification(strapi, {
+      userId: candidature.owner?.id,
+      email: candidature.owner?.email,
+      telephone: candidature.owner?.phone || candidature.organisation?.telephone,
+      candidature: archive,
+      sujet: 'Cloture de l\'appel — version retenue de votre dossier',
+      corps: `L'appel est clos. Le dossier ${candidature.numeroDossier} est instruit dans sa version ${version}${dateLisible ? `, deposee le ${dateLisible}` : ''}. Les modifications que vous aviez commencees sans les deposer n'ont pas ete retenues ; elles restent conservees et peuvent vous etre communiquees sur demande.`,
+    });
+  }
+
+  strapi.log.info(`[depots] Cloture : ${enCours.length} modification(s) non deposee(s) archivee(s).`);
+  return enCours.length;
+}
+
 module.exports = {
   archiverVersionCourante,
+  archiverModificationsNonDeposees,
   ensureDepotsInitiaux,
 };

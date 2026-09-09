@@ -69,6 +69,12 @@ async function cloreAppelsEchus(strapi, now = Date.now()) {
       status: 'published',
     });
 
+    // La cloture emporte le sort des modifications commencees et jamais deposees (Lot 1).
+    // Le meme traitement est declenche par le bouton « Clore » de l'UGP : les deux chemins
+    // doivent produire exactement le meme etat.
+    const { archiverModificationsNonDeposees } = require('./portal-depot');
+    await archiverModificationsNonDeposees(strapi, appel.documentId);
+
     const code = appel.codeCohorte || appel.documentId;
     fermes.push(code);
     strapi.log.info(`[cloture] Appel ${code} ferme automatiquement (cloture le ${appel.clotureLe}).`);
