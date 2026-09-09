@@ -38,9 +38,21 @@
     "numeroDossier": { "type": "string" },
     "dateDepot": { "type": "datetime" },
     "donneesProjet": { "type": "json" },
+    "donneesProjetTravail": { "type": "json" },
+    "titreProjetTravail": { "type": "string" },
+    "versionDepot": { "type": "integer", "default": 1 },
+    "dernierDepotLe": { "type": "datetime" },
+    "travailNonDepose": { "type": "json" },
+    "travailNonDeposeLe": { "type": "datetime" },
     "pdfPermanent": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
     "notificationDecision": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
     "motifDecisionCourt": { "type": "text" },
+    "depots": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::depot-dossier.depot-dossier",
+      "mappedBy": "candidature"
+    },
     "complements": {
       "type": "relation",
       "relation": "oneToMany",

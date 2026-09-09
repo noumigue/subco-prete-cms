@@ -264,6 +264,10 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::candidature.candidature.delete',
     'api::candidature.candidature.soumettre',
     'api::candidature.candidature.pdfBrouillon',
+    // Lot 1 — modifier puis redeposer un dossier deja depose, jusqu'a la cloture.
+    'api::candidature.candidature.rouvrir',
+    'api::candidature.candidature.redeposer',
+    'api::candidature.candidature.annulerModification',
     'api::portal-compte.portal-compte.moi',
     'api::portal-compte.portal-compte.updateTelephone',
     'api::portal-compte.portal-compte.requestEmailChange',

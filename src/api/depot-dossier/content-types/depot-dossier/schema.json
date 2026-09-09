@@ -1,0 +1,25 @@
+{
+  "kind": "collectionType",
+  "collectionName": "depots_dossier",
+  "info": {
+    "singularName": "depot-dossier",
+    "pluralName": "depots-dossier",
+    "displayName": "Depot de dossier"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::candidature.candidature",
+      "inversedBy": "depots"
+    },
+    "version": { "type": "integer", "required": true },
+    "deposeLe": { "type": "datetime", "required": true },
+    "pdf": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "donneesProjet": { "type": "json" },
+    "titreProjet": { "type": "string" },
+    "auteurLibelle": { "type": "string" }
+  }
+}

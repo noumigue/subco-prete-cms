@@ -17,5 +17,24 @@ module.exports = {
       handler: 'candidature.pdfBrouillon',
       config: { policies: [] },
     },
+    // Lot 1 — modifier et redeposer un dossier deja depose, jusqu'a la cloture.
+    {
+      method: 'POST',
+      path: '/candidatures/:documentId/rouvrir',
+      handler: 'candidature.rouvrir',
+      config: { policies: [] },
+    },
+    {
+      method: 'POST',
+      path: '/candidatures/:documentId/redeposer',
+      handler: 'candidature.redeposer',
+      config: { policies: [] },
+    },
+    {
+      method: 'POST',
+      path: '/candidatures/:documentId/annuler-modification',
+      handler: 'candidature.annulerModification',
+      config: { policies: [] },
+    },
   ],
 };

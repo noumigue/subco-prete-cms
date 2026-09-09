@@ -15,6 +15,7 @@ const {
 } = require('./utils/portal-seed');
 const { ensureRevalidateWebhook } = require('./utils/portal-webhook');
 const { cloreAppelsEchus } = require('./utils/portal-appel-cloture');
+const { ensureDepotsInitiaux } = require('./utils/portal-depot');
 const { ensureReferentielsDecaissement, ensureSubventionDemo, ensureSubventionUgpDemo } = require('./utils/portal-seed-subvention');
 
 module.exports = {
@@ -41,6 +42,10 @@ module.exports = {
     await ensureAnnexesDepubliees(strapi);
     await ensureReferentielsDecaissement(strapi);
     await ensureRevalidateWebhook(strapi);
+
+    // Backfill de l'historique des depots (Lot 1) : tout dossier depose avant l'arrivee du
+    // versionnement recoit sa v1. Idempotent — au demarrage suivant il ne cree plus rien.
+    await ensureDepotsInitiaux(strapi);
 
     // Donnees de DEMO (comptes/candidatures/subventions fictifs) : JAMAIS en production
     // sauf activation explicite. Par defaut : seed demo hors production uniquement.

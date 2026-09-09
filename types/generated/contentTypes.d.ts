@@ -761,7 +761,13 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     dateDepot: Schema.Attribute.DateTime;
+    depots: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::depot-dossier.depot-dossier'
+    >;
+    dernierDepotLe: Schema.Attribute.DateTime;
     donneesProjet: Schema.Attribute.JSON;
+    donneesProjetTravail: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -794,9 +800,13 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
       'api::statut-candidature.statut-candidature'
     >;
     titreProjet: Schema.Attribute.String & Schema.Attribute.Required;
+    titreProjetTravail: Schema.Attribute.String;
+    travailNonDepose: Schema.Attribute.JSON;
+    travailNonDeposeLe: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    versionDepot: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<1>;
   };
 }
 
@@ -1299,6 +1309,44 @@ export interface ApiDemandeDecaissementDemandeDecaissement
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDepotDossierDepotDossier
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'depots_dossier';
+  info: {
+    displayName: 'Depot de dossier';
+    pluralName: 'depots-dossier';
+    singularName: 'depot-dossier';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    auteurLibelle: Schema.Attribute.String;
+    candidature: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::candidature.candidature'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    deposeLe: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    donneesProjet: Schema.Attribute.JSON;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::depot-dossier.depot-dossier'
+    > &
+      Schema.Attribute.Private;
+    pdf: Schema.Attribute.Media<'files'>;
+    publishedAt: Schema.Attribute.DateTime;
+    titreProjet: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    version: Schema.Attribute.Integer & Schema.Attribute.Required;
   };
 }
 
@@ -3946,6 +3994,7 @@ declare module '@strapi/strapi' {
       'api::critere-evaluation.critere-evaluation': ApiCritereEvaluationCritereEvaluation;
       'api::demande-assistance.demande-assistance': ApiDemandeAssistanceDemandeAssistance;
       'api::demande-decaissement.demande-decaissement': ApiDemandeDecaissementDemandeDecaissement;
+      'api::depot-dossier.depot-dossier': ApiDepotDossierDepotDossier;
       'api::depouillement-rapport.depouillement-rapport': ApiDepouillementRapportDepouillementRapport;
       'api::document-contractuel.document-contractuel': ApiDocumentContractuelDocumentContractuel;
       'api::document-telechargeable.document-telechargeable': ApiDocumentTelechargeableDocumentTelechargeable;

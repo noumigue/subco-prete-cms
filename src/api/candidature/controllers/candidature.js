@@ -11,6 +11,8 @@ const { evaluateCandidatureGuard } = require('../../../utils/portal-status');
 const { buildCandidaturePdf } = require('../../../utils/portal-pdf');
 const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
 const { sendPortalNotification } = require('../../../utils/portal-notify');
+const { journal } = require('../../../utils/portal-instruction');
+const { archiverVersionCourante } = require('../../../utils/portal-depot');
 
 async function getStatusByCode(code) {
   return strapi.documents('api::statut-candidature.statut-candidature').findFirst({
@@ -103,6 +105,33 @@ function checkEligibiliteBloquante(donneesProjet) {
   return null;
 }
 
+// Gardes communes a la reouverture et au re-depot (Lot 1 — modele R2).
+//
+// Le dossier reste DEPOSE pendant toute la modification : il n'existe aucun statut
+// « rouvert », et `donneesProjet` continue de porter la version deposee. On ne verifie donc
+// pas un etat de dossier, mais que l'instruction n'a pas commence — sinon l'instructeur
+// travaillerait sur une cible mouvante.
+function verifierModifiable(candidature) {
+  if (!candidature.numeroDossier || candidature.statut?.code === 'brouillon') {
+    return "Ce dossier n'est pas encore depose : il se modifie directement dans le formulaire de candidature.";
+  }
+  if (candidature.appel?.statut !== 'ouvert') {
+    return "L'appel est clos : votre dossier ne peut plus etre modifie.";
+  }
+  if (candidature.prisEnChargePar?.id || candidature.statut?.phase !== 'recu') {
+    return "L'instruction de votre dossier a commence : passez par l'assistance pour toute correction.";
+  }
+  return null;
+}
+
+// Populate minimal pour evaluer `verifierModifiable`.
+const MODIFIABLE_POPULATE = {
+  statut: true,
+  appel: true,
+  prisEnChargePar: { fields: ['id'] },
+  owner: { fields: ['id', 'email', 'phone'] },
+};
+
 // Upload programmatique d'un buffer PDF dans la mediatheque Strapi.
 async function uploadPdfBuffer(buffer, filename) {
   const tmpPath = path.join(os.tmpdir(), `subco-${crypto.randomUUID()}.pdf`);
@@ -143,7 +172,7 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     if (!userId) return;
 
     const entity = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId,
-      ['appel', 'organisation', 'statut', 'pdfPermanent', 'notificationDecision', 'complements.fichier', 'notifications']);
+      ['appel', 'organisation', 'statut', 'pdfPermanent', 'notificationDecision', 'complements.fichier', 'notifications', 'depots.pdf']);
 
     if (!entity) {
       return ctx.notFound('Candidature introuvable.');
@@ -211,7 +240,27 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
       return ctx.notFound('Candidature introuvable.');
     }
 
-    // Immutabilite : seul un brouillon est modifiable, et uniquement sur les champs autorises.
+    const payload = ctx.request.body?.data || {};
+
+    // Lot 1 — modification d'un dossier DEJA DEPOSE : on n'ecrit que la copie de travail.
+    // `donneesProjet` et `titreProjet` restent ceux de la version deposee jusqu'au re-depot ;
+    // c'est ce qui permet aux modules d'instruction et de suivi-evaluation de continuer a
+    // lire `donneesProjet` sans rien changer, et au dossier de rester instruisible.
+    if (existing.donneesProjetTravail) {
+      const data = { owner: userId };
+      if (payload.donneesProjet !== undefined) data.donneesProjetTravail = payload.donneesProjet;
+      if (payload.titreProjet !== undefined) data.titreProjetTravail = payload.titreProjet;
+
+      const enCours = await strapi.documents('api::candidature.candidature').update({
+        documentId: existing.documentId,
+        data,
+        populate: ['appel', 'organisation', 'statut'],
+      });
+
+      return this.transformResponse(enCours);
+    }
+
+    // Immutabilite : hors modification en cours, seul un brouillon est modifiable.
     if (existing.statut?.code !== 'brouillon') {
       return ctx.badRequest('Seuls les brouillons peuvent etre modifies.');
     }
@@ -219,7 +268,7 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     const updated = await strapi.documents('api::candidature.candidature').update({
       documentId: existing.documentId,
       data: {
-        ...pickDraftPayload(ctx.request.body?.data || {}),
+        ...pickDraftPayload(payload),
         owner: userId,
       },
       populate: ['appel', 'organisation', 'statut'],
@@ -340,6 +389,200 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     return this.transformResponse(submitted);
   },
 
+  // ===========================================================================
+  // LOT 1 — MODIFIER ET REDEPOSER (modele R2)
+  //
+  // Principe : rouvrir n'annule JAMAIS le depot. La derniere version deposee reste le
+  // dossier officiel pendant que le candidat travaille ; il n'existe aucun instant ou il
+  // n'a plus de candidature deposee. Si la cloture tombe pendant une modification, il n'y a
+  // donc rien a arbitrer : c'est la version deposee qui part en instruction.
+  // ===========================================================================
+
+  async rouvrir(ctx) {
+    const userId = getUserId(ctx);
+    if (!userId) return;
+
+    const candidature = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId, MODIFIABLE_POPULATE);
+
+    if (!candidature?.documentId) {
+      return ctx.notFound('Candidature introuvable.');
+    }
+
+    if (candidature.donneesProjetTravail) {
+      return ctx.badRequest('Une modification est deja en cours sur ce dossier.');
+    }
+
+    const erreur = verifierModifiable(candidature);
+    if (erreur) return ctx.badRequest(erreur);
+
+    const version = Number(candidature.versionDepot) || 1;
+
+    const updated = await strapi.documents('api::candidature.candidature').update({
+      documentId: candidature.documentId,
+      data: {
+        // Copie de travail. `donneesProjet` n'est pas touche : le dossier reste depose.
+        donneesProjetTravail: JSON.parse(JSON.stringify(candidature.donneesProjet || {})),
+        titreProjetTravail: candidature.titreProjet || null,
+      },
+      populate: ['appel', 'organisation', 'statut', 'pdfPermanent'],
+    });
+
+    await journal(strapi, candidature.documentId, {
+      auteurLibelle: 'Operateur',
+      type: 'reouverture',
+      texte: `Dossier rouvert pour modification par l'operateur — la version deposee v${version} reste inchangee`,
+    });
+
+    // Le malentendu a eviter absolument : croire que modifier suffit. On le dit ici, et le
+    // portail le repete en bandeau tant que la modification n'est pas deposee.
+    await sendPortalNotification(strapi, {
+      userId,
+      email: candidature.owner?.email,
+      telephone: candidature.owner?.phone || candidature.organisation?.telephone,
+      candidature: updated,
+      sujet: 'Votre dossier est ouvert pour modification',
+      corps: `Votre dossier ${candidature.numeroDossier} est ouvert pour modification. Votre candidature deposee (version ${version}) reste valide et c'est elle qui sera instruite : vos modifications ne seront prises en compte QUE si vous cliquez sur « Deposer cette version » avant la cloture de l'appel${candidature.appel?.clotureLe ? ` du ${candidature.appel.clotureLe}` : ''}.`,
+    });
+
+    return this.transformResponse(updated);
+  },
+
+  async redeposer(ctx) {
+    const userId = getUserId(ctx);
+    if (!userId) return;
+
+    const candidature = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId, {
+      ...MODIFIABLE_POPULATE,
+      pdfPermanent: true,
+      organisation: { populate: ['statutJuridique', 'province', 'commune', 'filierePrincipale'] },
+    });
+
+    if (!candidature?.documentId) {
+      return ctx.notFound('Candidature introuvable.');
+    }
+
+    if (!candidature.donneesProjetTravail) {
+      return ctx.badRequest("Aucune modification en cours : il n'y a rien a deposer.");
+    }
+
+    const erreur = verifierModifiable(candidature);
+    if (erreur) return ctx.badRequest(erreur);
+
+    const travail = candidature.donneesProjetTravail;
+
+    // Memes gardes §5 qu'a la premiere soumission : une nouvelle version doit etre au moins
+    // aussi valide que celle qu'elle remplace.
+    const eligibiliteError = checkEligibiliteBloquante(travail);
+    if (eligibiliteError) {
+      return ctx.badRequest(eligibiliteError);
+    }
+
+    // Archive la version actuellement deposee avant de la remplacer. Idempotent : le backfill
+    // du bootstrap l'a normalement deja creee.
+    await archiverVersionCourante(strapi, candidature);
+
+    const versionSuivante = (Number(candidature.versionDepot) || 1) + 1;
+    const deposeLe = new Date().toISOString();
+    const titreProjet = (candidature.titreProjetTravail || '').trim() || candidature.titreProjet;
+
+    // ORDRE IMPERATIF : le PDF est genere ET televerse AVANT toute ecriture sur le dossier.
+    // Si l'une des deux etapes echoue, rien n'est ecrit et le dossier reste depose dans sa
+    // version precedente, intacte — plutot que de se retrouver sans PDF valide.
+    let pdfFile = null;
+    try {
+      const pdfBuffer = await buildCandidaturePdf({
+        candidature: { ...candidature, titreProjet, donneesProjet: travail },
+        organisation: candidature.organisation,
+        appel: candidature.appel,
+        mode: 'permanent',
+      });
+      pdfFile = await uploadPdfBuffer(pdfBuffer, `${candidature.numeroDossier}-v${versionSuivante}.pdf`);
+    } catch (error) {
+      strapi.log.error('[redepot] Echec de generation du PDF', error);
+    }
+
+    if (!pdfFile?.id) {
+      return ctx.internalServerError('Le nouveau document de candidature n\'a pas pu etre genere. Votre dossier reste depose dans sa version precedente ; reessayez dans un instant.');
+    }
+
+    const updated = await strapi.documents('api::candidature.candidature').update({
+      documentId: candidature.documentId,
+      data: {
+        titreProjet,
+        donneesProjet: travail,
+        donneesProjetTravail: null,
+        titreProjetTravail: null,
+        versionDepot: versionSuivante,
+        dernierDepotLe: deposeLe,
+        pdfPermanent: pdfFile.id,
+        // `numeroDossier` et `dateDepot` ne bougent JAMAIS : le numero a ete notifie au
+        // candidat, et `dateDepot` est l'entree au registre des depots — ordre d'arrivee et
+        // base de calcul des delais du suivi-evaluation.
+      },
+      populate: ['appel', 'organisation', 'statut', 'pdfPermanent'],
+    });
+
+    // L'ancien PDF n'est jamais supprime : il reste reference par l'entree d'historique de
+    // la version precedente, ce qui rend le parcours opposable en cas de contestation.
+    await strapi.documents('api::depot-dossier.depot-dossier').create({
+      data: {
+        candidature: { connect: [candidature.documentId] },
+        version: versionSuivante,
+        deposeLe,
+        pdf: pdfFile.id,
+        donneesProjet: travail,
+        titreProjet,
+        auteurLibelle: 'Operateur',
+      },
+    });
+
+    await journal(strapi, candidature.documentId, {
+      auteurLibelle: 'Operateur',
+      type: 'redepot',
+      texte: `Nouvelle version deposee par l'operateur (v${versionSuivante}) — le document de candidature a ete remplace`,
+    });
+
+    await sendPortalNotification(strapi, {
+      userId,
+      email: candidature.owner?.email,
+      telephone: candidature.owner?.phone || candidature.organisation?.telephone,
+      candidature: updated,
+      sujet: `Accuse de depot de votre dossier (version ${versionSuivante})`,
+      corps: `Votre dossier ${candidature.numeroDossier} a bien ete redepose. C'est desormais la version ${versionSuivante} qui sera instruite ; elle remplace la precedente. Votre numero de dossier et votre date de depot initiale restent inchanges.`,
+    });
+
+    return this.transformResponse(updated);
+  },
+
+  async annulerModification(ctx) {
+    const userId = getUserId(ctx);
+    if (!userId) return;
+
+    const candidature = await fetchOwned(strapi, 'api::candidature.candidature', (ctx.params.documentId || ctx.params.id), userId, ['statut']);
+
+    if (!candidature?.documentId) {
+      return ctx.notFound('Candidature introuvable.');
+    }
+
+    if (!candidature.donneesProjetTravail) {
+      return ctx.badRequest("Aucune modification en cours sur ce dossier.");
+    }
+
+    const updated = await strapi.documents('api::candidature.candidature').update({
+      documentId: candidature.documentId,
+      data: { donneesProjetTravail: null, titreProjetTravail: null },
+      populate: ['appel', 'organisation', 'statut', 'pdfPermanent'],
+    });
+
+    await journal(strapi, candidature.documentId, {
+      auteurLibelle: 'Operateur',
+      type: 'modification_abandonnee',
+      texte: "Modification abandonnee par l'operateur — la version deposee est inchangee",
+    });
+
+    return this.transformResponse(updated);
+  },
+
   // PDF brouillon a la demande : filigrane « brouillon — non soumis », sans numero (3.0).
   async pdfBrouillon(ctx) {
     const userId = getUserId(ctx);
@@ -355,12 +598,27 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
       return ctx.notFound('Candidature introuvable.');
     }
 
-    if (candidature.statut?.code !== 'brouillon') {
-      return ctx.badRequest('Le PDF brouillon ne concerne que les dossiers non soumis.');
+    // Deux cas : un brouillon jamais depose, ou la version de travail d'un dossier deja
+    // depose (Lot 1). Dans les deux cas le PDF porte le filigrane « non depose ».
+    const enModification = Boolean(candidature.donneesProjetTravail);
+    if (candidature.statut?.code !== 'brouillon' && !enModification) {
+      return ctx.badRequest('Le PDF brouillon ne concerne que les dossiers non deposes ou en cours de modification.');
     }
 
     const pdfBuffer = await buildCandidaturePdf({
-      candidature: { ...candidature, numeroDossier: null, dateDepot: null },
+      candidature: {
+        ...candidature,
+        // Le numero et la date sont volontairement masques : ce document ne doit jamais
+        // pouvoir etre confondu avec la version reellement deposee.
+        numeroDossier: null,
+        dateDepot: null,
+        ...(enModification
+          ? {
+              donneesProjet: candidature.donneesProjetTravail,
+              titreProjet: candidature.titreProjetTravail || candidature.titreProjet,
+            }
+          : {}),
+      },
       organisation: candidature.organisation,
       appel: candidature.appel,
       mode: 'brouillon',
