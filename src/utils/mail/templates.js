@@ -197,6 +197,22 @@ const TEMPLATES = {
     `),
   },
 
+  // Rappel automatique tant qu'une modification de dossier n'est pas deposee (Lot 1).
+  // Ce message est le dernier filet avant la cloture : il doit dire QUELLE version sera
+  // instruite si le candidat ne fait rien, et combien de temps il lui reste. Un rappel vague
+  // ne declenche pas d'action.
+  'candidate.modification_non_deposee': {
+    category: 'candidate',
+    description: "Rappel : des modifications de dossier n'ont pas ete deposees avant la cloture.",
+    requiredVars: ['sujet', 'corps'],
+    subject: `[${BRAND_NAME}] {{sujet}}`,
+    text: '{{corps}}',
+    html: layout(`
+      <p style="white-space:pre-line;">{{corps}}</p>
+      {{#if candidatureUrl}}${button('Deposer ma nouvelle version', '{{{candidatureUrl}}}')}{{/if}}
+    `),
+  },
+
   // === ASSISTANCE =====================================================================
   'assistance.response_posted': {
     category: 'assistance',

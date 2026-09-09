@@ -423,6 +423,9 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
         // Copie de travail. `donneesProjet` n'est pas touche : le dossier reste depose.
         donneesProjetTravail: JSON.parse(JSON.stringify(candidature.donneesProjet || {})),
         titreProjetTravail: candidature.titreProjet || null,
+        // Compteur de rappels remis a zero : une nouvelle modification doit redonner droit
+        // a la serie complete, meme si le candidat en avait deja recu pour une precedente.
+        rappelsModification: null,
       },
       populate: ['appel', 'organisation', 'statut', 'pdfPermanent'],
     });

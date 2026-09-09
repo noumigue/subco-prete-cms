@@ -44,6 +44,9 @@ const CANDIDATURE_POPULATE = {
   owner: { fields: ['id', 'email', 'phone'] },
   pdfPermanent: true,
   notificationDecision: true,
+  // Historique des versions deposees (Lot 1) : sans lui, l'equipe ne peut pas montrer
+  // qui a depose quoi et quand — c'est ce qui rend le parcours opposable.
+  depots: { populate: ['pdf'] },
 };
 
 async function findCandidature(strapi, documentId) {
@@ -233,6 +236,16 @@ module.exports = {
           delaiComplementsJours: parametres.delaiComplementsJours,
         },
         journal: actes.map((a) => ({ date: a.date, auteur: a.auteurLibelle || 'Systeme', texte: a.texte })),
+        // Versions deposees, la plus recente d'abord. `pdfUrl` est le document qui faisait
+        // foi a cette date-la : il n'est jamais supprime, meme remplace.
+        depots: [...(candidature.depots || [])]
+          .sort((a, b) => (b.version || 0) - (a.version || 0))
+          .map((d) => ({
+            version: d.version,
+            deposeLe: d.deposeLe || null,
+            titreProjet: d.titreProjet || null,
+            pdfUrl: d.pdf?.url || null,
+          })),
         // Compléments : ce que l'operateur a deposé en reponse a une demande de pieces (N2),
         // ET les pieces qu'il a ajoutees spontanement avant la cloture (`origine: candidat`).
         // Les deux vivent dans le meme canal ; `origine` est ce qui les distingue a l'ecran.

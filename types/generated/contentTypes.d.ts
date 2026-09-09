@@ -795,6 +795,7 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
       'plugin::users-permissions.user'
     >;
     publishedAt: Schema.Attribute.DateTime;
+    rappelsModification: Schema.Attribute.JSON;
     statut: Schema.Attribute.Relation<
       'manyToOne',
       'api::statut-candidature.statut-candidature'

@@ -16,6 +16,7 @@ const {
 const { ensureRevalidateWebhook } = require('./utils/portal-webhook');
 const { cloreAppelsEchus } = require('./utils/portal-appel-cloture');
 const { ensureDepotsInitiaux } = require('./utils/portal-depot');
+const { envoyerRappelsModification } = require('./utils/portal-rappel-modification');
 const { ensureReferentielsDecaissement, ensureSubventionDemo, ensureSubventionUgpDemo } = require('./utils/portal-seed-subvention');
 
 module.exports = {
@@ -134,6 +135,22 @@ module.exports = {
           }
         },
         options: process.env.APPEL_CLOTURE_CRON || '* * * * *',
+      },
+    });
+
+    // Rappels aux candidats dont la modification n'est pas deposee (cf. portal-rappel-modification).
+    // Toutes les 15 minutes : assez fin pour que le palier « moins de six heures » reste juste,
+    // assez espace pour ne pas interroger la base en permanence.
+    strapi.cron.add({
+      rappelsModificationNonDeposee: {
+        task: async () => {
+          try {
+            await envoyerRappelsModification(strapi);
+          } catch (error) {
+            strapi.log.error('[rappel] Echec de la passe de rappels', error);
+          }
+        },
+        options: process.env.RAPPEL_MODIFICATION_CRON || '*/15 * * * *',
       },
     });
 

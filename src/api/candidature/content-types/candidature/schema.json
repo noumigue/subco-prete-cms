@@ -44,6 +44,7 @@
     "dernierDepotLe": { "type": "datetime" },
     "travailNonDepose": { "type": "json" },
     "travailNonDeposeLe": { "type": "datetime" },
+    "rappelsModification": { "type": "json" },
     "pdfPermanent": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
     "notificationDecision": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] },
     "motifDecisionCourt": { "type": "text" },
