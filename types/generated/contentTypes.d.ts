@@ -961,6 +961,8 @@ export interface ApiComplementComplement extends Struct.CollectionTypeSchema {
       'api::complement.complement'
     > &
       Schema.Attribute.Private;
+    origine: Schema.Attribute.Enumeration<['ugp', 'candidat']> &
+      Schema.Attribute.DefaultTo<'ugp'>;
     pieceDemandee: Schema.Attribute.String & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
     statut: Schema.Attribute.Enumeration<['demande', 'fourni']> &

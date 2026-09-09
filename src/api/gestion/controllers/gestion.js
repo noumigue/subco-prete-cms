@@ -132,7 +132,15 @@ module.exports = {
     const enValCompletude = new Set(propCompletude.map((i) => i.candidature?.documentId).filter(Boolean));
     const enValEligibilite = new Set(propEligibilite.map((i) => i.candidature?.documentId).filter(Boolean));
     const withComplement = new Set(complementsDemandes.map((i) => i.candidature?.documentId).filter(Boolean));
-    const withComplementRecu = new Set(complementsFournis.map((i) => i.candidature?.documentId).filter(Boolean));
+
+    // Les pieces `fourni` viennent de deux sources qu'il ne faut PAS confondre a l'ecran :
+    // celles que l'UGP avait reclamees (« Complements recus » = ce que j'attendais est arrive)
+    // et celles que le candidat a ajoutees de lui-meme avant la cloture (Lot 0).
+    // `origine` est NULL sur les lignes anterieures a ce champ : tout ce qui n'est pas
+    // explicitement `candidat` est donc traite comme une demande UGP.
+    const docIds = (list) => list.map((i) => i.candidature?.documentId).filter(Boolean);
+    const withComplementRecu = new Set(docIds(complementsFournis.filter((i) => i.origine !== 'candidat')));
+    const withPieceAjoutee = new Set(docIds(complementsFournis.filter((i) => i.origine === 'candidat')));
 
     // Repli d'organisation pour les dossiers sans org liee (1re candidature).
     const orgByOwner = await resolveOrgByOwner(strapi, list.filter((c) => !c.organisation).map((c) => c.owner?.id));
@@ -143,6 +151,7 @@ module.exports = {
         enValidationPhase: enValEligibilite.has(c.documentId) ? 'eligibilite' : enValCompletude.has(c.documentId) ? 'completude' : null,
         complementEnCours: withComplement.has(c.documentId),
         complementRecu: withComplementRecu.has(c.documentId),
+        pieceAjoutee: withPieceAjoutee.has(c.documentId),
         statutClos: c.statut?.groupe === 'non_retenu' ? (c.motifDecisionCourt ? 'Non retenu' : 'Non retenu') : null,
       }, orgByOwner[c.owner?.id]),
     );
@@ -217,12 +226,15 @@ module.exports = {
           delaiComplementsJours: parametres.delaiComplementsJours,
         },
         journal: actes.map((a) => ({ date: a.date, auteur: a.auteurLibelle || 'Systeme', texte: a.texte })),
-        // Compléments : ce que l'operateur a deposé en reponse a une demande de pieces (N2).
+        // Compléments : ce que l'operateur a deposé en reponse a une demande de pieces (N2),
+        // ET les pieces qu'il a ajoutees spontanement avant la cloture (`origine: candidat`).
+        // Les deux vivent dans le meme canal ; `origine` est ce qui les distingue a l'ecran.
         complements: complements.map((x) => ({
           documentId: x.documentId,
           pieceDemandee: x.pieceDemandee || '',
           echeance: x.echeance || null,
           statut: x.statut || 'demande',
+          origine: x.origine || 'ugp',
           fichierUrl: x.fichier?.url || null,
           fourniLe: x.statut === 'fourni' ? x.updatedAt || null : null,
         })),

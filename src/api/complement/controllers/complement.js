@@ -51,23 +51,81 @@ module.exports = createCoreController('api::complement.complement', ({ strapi })
     return this.transformResponse(item);
   },
 
+  // AJOUT SPONTANE d'une piece par le candidat, sur son dossier DEJA DEPOSE (Lot 0).
+  // On reutilise le canal des complements — depot en AJOUT, le pdfPermanent n'est jamais
+  // touche — mais l'origine est tracee : sans elle, la file de gestion confondrait
+  // « piece ajoutee spontanement » et « piece reclamee par l'UGP ».
+  // La piece est creee directement `fourni`. La creer `demande` allumerait le badge
+  // « complement en cours » de l'equipe, qui signifie « on attend le candidat » : le
+  // dossier apparaitrait en attente alors qu'il ne l'est pas.
   async create(ctx) {
     const userId = getUserId(ctx);
     if (!userId) return;
 
     const payload = ctx.request.body?.data || {};
-    const candidature = await fetchOwned(strapi, 'api::candidature.candidature', payload.candidature, userId);
+    const libelle = String(payload.pieceDemandee || '').trim();
+
+    if (!libelle) {
+      return ctx.badRequest('Le type de piece est requis.');
+    }
+    if (!payload.fichier) {
+      return ctx.badRequest('Un fichier est requis.');
+    }
+
+    const candidature = await fetchOwned(
+      strapi,
+      'api::candidature.candidature',
+      payload.candidature,
+      userId,
+      ['statut', 'appel'],
+    );
 
     if (!candidature?.documentId) {
       return ctx.badRequest('Candidature invalide.');
     }
 
+    // Un brouillon se modifie dans le formulaire : les pieces y ont leur emplacement normal,
+    // et elles entrent alors dans le PDF. Ce canal-ci ne sert qu'apres le depot.
+    if (!candidature.numeroDossier || candidature.statut?.code === 'brouillon') {
+      return ctx.badRequest("Ce dossier n'est pas encore depose : ajoutez la piece directement dans le formulaire de candidature.");
+    }
+
+    // Ajout spontane possible tant que l'appel est OUVERT. Apres la cloture, seules les
+    // pieces reclamees par l'UGP restent deposables (§4.2) : laisser un candidat completer
+    // son dossier apres la date limite romprait l'egalite de traitement.
+    if (candidature.appel?.statut !== 'ouvert') {
+      return ctx.badRequest("L'appel est clos : seules les pieces demandees par l'UGP peuvent encore etre deposees.");
+    }
+
     const created = await strapi.documents('api::complement.complement').create({
+      // Champs autorises uniquement : le reste du payload est ignore (pas d'ecriture libre).
       data: {
-        ...payload,
         candidature: connectRelation(candidature),
+        pieceDemandee: libelle.slice(0, 180),
+        fichier: payload.fichier,
+        statut: 'fourni',
+        origine: 'candidat',
       },
       populate: ['candidature', 'fichier'],
+    });
+
+    await strapi.documents('api::notification.notification').create({
+      data: {
+        owner: userId,
+        candidature: connectRelation(candidature),
+        canal: 'both',
+        sujet: 'Piece ajoutee a votre dossier',
+        corps: `Votre piece « ${libelle} » a bien ete ajoutee au dossier ${candidature.numeroDossier}. Elle complete votre candidature deja deposee, qui reste inchangee par ailleurs.`,
+        envoyeLe: new Date().toISOString(),
+        lu: false,
+      },
+    });
+
+    // Sans cet acte, l'instructeur n'a aucun signal que le candidat a ajoute une piece.
+    await journal(strapi, candidature.documentId, {
+      auteurLibelle: 'Operateur',
+      type: 'piece_ajoutee',
+      texte: `Piece ajoutee spontanement par l'operateur : « ${libelle} »`,
     });
 
     return this.transformResponse(created);
