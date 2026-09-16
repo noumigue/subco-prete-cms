@@ -439,6 +439,9 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion.priseEnCharge',
     'api::gestion.gestion.proposerCompletude',
     'api::gestion.gestion.proposerEligibilite',
+    // Verification « a blanc » des contradictions avant proposition (aucune ecriture).
+    'api::gestion.gestion.verifierCompletude',
+    'api::gestion.gestion.verifierEligibilite',
     ...evaluationInstructeurActions,
     ...comiteInstructeurActions,
     ...subventionInstructeurActions,

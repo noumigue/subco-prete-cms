@@ -1975,6 +1975,7 @@ export interface ApiInstructionCompletudeInstructionCompletude
     > &
       Schema.Attribute.Private;
     motifRejet: Schema.Attribute.Text;
+    observationsUgp: Schema.Attribute.Text;
     proposeLe: Schema.Attribute.DateTime;
     proposePar: Schema.Attribute.Relation<
       'manyToOne',
@@ -2027,6 +2028,7 @@ export interface ApiInstructionEligibiliteInstructionEligibilite
     > &
       Schema.Attribute.Private;
     motifRejet: Schema.Attribute.Text;
+    observationsUgp: Schema.Attribute.Text;
     proposeLe: Schema.Attribute.DateTime;
     proposePar: Schema.Attribute.Relation<
       'manyToOne',

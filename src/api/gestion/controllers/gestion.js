@@ -17,6 +17,28 @@ const { connectRelation, displayName, getStatutByCode, journal } = require('../.
 const { sendPortalNotification } = require('../../../utils/portal-notify');
 const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
 const { archiverModificationsNonDeposees } = require('../../../utils/portal-depot');
+const { detecterContradictionsCompletude, detecterContradictionsEligibilite } = require('../../../utils/portal-contradictions');
+
+const OBSERVATIONS_REQUISES = "Les observations a l'attention de l'UGP sont obligatoires (ecrivez « RAS » s'il n'y a rien a signaler).";
+
+async function chargerContexteCompletude(strapi, candidatureDocumentId) {
+  const [{ typePieces }, complementsFournis] = await Promise.all([
+    chargerReferentielsInstruction(strapi),
+    strapi.documents('api::complement.complement').findMany({
+      filters: { candidature: { documentId: candidatureDocumentId }, statut: 'fourni' }, limit: 100,
+    }),
+  ]);
+  return { typePieces, complementsFournis };
+}
+
+// Referentiels necessaires a la detection des contradictions (voir utils/portal-contradictions).
+async function chargerReferentielsInstruction(strapi) {
+  const [typePieces, criteres] = await Promise.all([
+    strapi.documents('api::type-piece.type-piece').findMany({ sort: ['ordre:asc'], limit: 100 }),
+    strapi.documents('api::critere-eligibilite.critere-eligibilite').findMany({ sort: ['ordre:asc'], limit: 100 }),
+  ]);
+  return { typePieces, criteres };
+}
 
 const INTERNAL_ROLES = ['instructeur', 'ugp'];
 
@@ -155,8 +177,31 @@ module.exports = {
     // Repli d'organisation pour les dossiers sans org liee (1re candidature).
     const orgByOwner = await resolveOrgByOwner(strapi, list.filter((c) => !c.organisation).map((c) => c.owner?.id));
 
+    // « A arbitrer » : contradictions entre verdict propose et constats, calculees ici (pas figees
+    // a la proposition) pour les seuls dossiers en attente de validation.
+    const propCompletudeParDossier = new Map(propCompletude.map((i) => [i.candidature?.documentId, i]));
+    const propEligibiliteParDossier = new Map(propEligibilite.map((i) => [i.candidature?.documentId, i]));
+    const referentiels = propCompletude.length || propEligibilite.length ? await chargerReferentielsInstruction(strapi) : null;
+    const complementsParDossier = new Map();
+    for (const x of complementsFournis) {
+      const k = x.candidature?.documentId;
+      if (!k) continue;
+      if (!complementsParDossier.has(k)) complementsParDossier.set(k, []);
+      complementsParDossier.get(k).push(x);
+    }
+    const aArbitrer = (c) => {
+      if (!referentiels) return [];
+      const ic = propCompletudeParDossier.get(c.documentId);
+      const ie = propEligibiliteParDossier.get(c.documentId);
+      return [
+        ...(ic ? detecterContradictionsCompletude({ instruction: ic, candidature: c, typePieces: referentiels.typePieces, complementsFournis: complementsParDossier.get(c.documentId) }) : []),
+        ...(ie ? detecterContradictionsEligibilite({ instruction: ie, criteres: referentiels.criteres }) : []),
+      ];
+    };
+
     const items = list.map((c) =>
       serializeCandidature(c, {
+        aArbitrer: aArbitrer(c),
         enValidation: enValCompletude.has(c.documentId) || enValEligibilite.has(c.documentId),
         enValidationPhase: enValEligibilite.has(c.documentId) ? 'eligibilite' : enValCompletude.has(c.documentId) ? 'completude' : null,
         complementEnCours: withComplement.has(c.documentId),
@@ -196,6 +241,13 @@ module.exports = {
     // Fichiers reellement deposes, resolus depuis les `fileId` de donneesProjet.
     const piecesFichiers = await resolvePiecesFichiers(strapi, candidature.donneesProjet);
 
+    const contradictionsCompletude = instructionCompletude
+      ? detecterContradictionsCompletude({ instruction: instructionCompletude, candidature, typePieces, complementsFournis: complements })
+      : [];
+    const contradictionsEligibilite = instructionEligibilite
+      ? detecterContradictionsEligibilite({ instruction: instructionEligibilite, criteres })
+      : [];
+
     // Repli d'organisation (dossier sans org liee — 1re candidature).
     const orgFallback = candidature.organisation ? null : (await resolveOrgByOwner(strapi, [candidature.owner?.id]))[candidature.owner?.id] || null;
 
@@ -207,6 +259,8 @@ module.exports = {
         motifDecisionCourt: candidature.motifDecisionCourt || null,
         pdfPermanentUrl: candidature.pdfPermanent?.url || null,
         notificationDecisionUrl: candidature.notificationDecision?.url || null,
+        contradictionsCompletude,
+        contradictionsEligibilite,
         instructionCompletude: instructionCompletude
           ? {
               documentId: instructionCompletude.documentId,
@@ -341,6 +395,7 @@ module.exports = {
     if (verdictGlobal === 'rejet' && !String(payload.motifRejet || '').trim()) {
       return ctx.badRequest('Un rejet de completude exige un motif.');
     }
+    if (!String(payload.observationsUgp || '').trim()) return ctx.badRequest(OBSERVATIONS_REQUISES);
 
     const data = {
       verdictsPieces,
@@ -365,8 +420,32 @@ module.exports = {
       await strapi.documents('api::instruction-completude.instruction-completude').create({ data: { ...data, candidature: connectRelation(candidature) } });
     }
 
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_completude', texte: `Verdict de completude propose : ${verdictGlobal}${data.observationsUgp ? ` — observations a l'attention de l'UGP : « ${data.observationsUgp} »` : ''}` });
+    const { typePieces, complementsFournis } = await chargerContexteCompletude(strapi, candidature.documentId);
+    const contradictions = detecterContradictionsCompletude({ instruction: data, candidature, typePieces, complementsFournis });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_completude', texte: `Verdict de completude propose : ${verdictGlobal}${contradictions.length ? ` — a arbitrer (${contradictions.length} contradiction(s))` : ''} — observations a l'attention de l'UGP : « ${data.observationsUgp} »` });
     ctx.body = { ok: true };
+  },
+
+  // Verification « a blanc » avant envoi : memes gardes que la proposition, aucune ecriture.
+  // L'ecran de l'instructeur l'appelle pour l'avertir des contradictions AVANT qu'il propose,
+  // avec la regle unique du serveur (pas de copie de la logique dans le portail).
+  async verifierCompletude(ctx) {
+    const user = requireRole(ctx, INTERNAL_ROLES);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.prisEnChargePar?.id !== user.id && user.role?.type !== 'ugp') {
+      return ctx.forbidden("Seul l'instructeur en charge peut proposer un verdict.");
+    }
+    const payload = ctx.request.body?.data || {};
+    if (!['complet', 'complements', 'rejet'].includes(payload.verdictGlobal)) return ctx.badRequest('Verdict de completude invalide.');
+    const instruction = {
+      verdictGlobal: payload.verdictGlobal,
+      verdictsPieces: payload.verdictsPieces && typeof payload.verdictsPieces === 'object' ? payload.verdictsPieces : {},
+      complementsProposes: payload.verdictGlobal === 'complements' ? payload.complementsProposes || null : null,
+    };
+    const { typePieces, complementsFournis } = await chargerContexteCompletude(strapi, candidature.documentId);
+    ctx.body = { data: { contradictions: detecterContradictionsCompletude({ instruction, candidature, typePieces, complementsFournis }) } };
   },
 
   async renvoyerCompletude(ctx) {
@@ -485,6 +564,7 @@ module.exports = {
     if (verdictGlobal === 'rejet' && !String(payload.motifRejet || '').trim()) {
       return ctx.badRequest('Un rejet d’eligibilite exige un motif.');
     }
+    if (!String(payload.observationsUgp || '').trim()) return ctx.badRequest(OBSERVATIONS_REQUISES);
 
     const data = {
       verdictsCriteres,
@@ -505,8 +585,29 @@ module.exports = {
       await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').create({ data: { ...data, candidature: connectRelation(candidature) } });
     }
 
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_eligibilite', texte: `Verdict d’eligibilite propose : ${verdictGlobal}${data.observationsUgp ? ` — observations a l'attention de l'UGP : « ${data.observationsUgp} »` : ''}` });
+    const { criteres } = await chargerReferentielsInstruction(strapi);
+    const contradictions = detecterContradictionsEligibilite({ instruction: data, criteres });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_eligibilite', texte: `Verdict d’eligibilite propose : ${verdictGlobal}${contradictions.length ? ` — a arbitrer (${contradictions.length} contradiction(s))` : ''} — observations a l'attention de l'UGP : « ${data.observationsUgp} »` });
     ctx.body = { ok: true };
+  },
+
+  // Verification « a blanc » avant envoi (eligibilite) : memes gardes, aucune ecriture.
+  async verifierEligibilite(ctx) {
+    const user = requireRole(ctx, INTERNAL_ROLES);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.prisEnChargePar?.id !== user.id && user.role?.type !== 'ugp') {
+      return ctx.forbidden("Seul l'instructeur en charge peut proposer un verdict.");
+    }
+    const payload = ctx.request.body?.data || {};
+    if (!['eligible', 'rejet'].includes(payload.verdictGlobal)) return ctx.badRequest('Verdict d’eligibilite invalide.');
+    const instruction = {
+      verdictGlobal: payload.verdictGlobal,
+      verdictsCriteres: payload.verdictsCriteres && typeof payload.verdictsCriteres === 'object' ? payload.verdictsCriteres : {},
+    };
+    const { criteres } = await chargerReferentielsInstruction(strapi);
+    ctx.body = { data: { contradictions: detecterContradictionsEligibilite({ instruction, criteres }) } };
   },
 
   async renvoyerEligibilite(ctx) {
