@@ -17,6 +17,7 @@
     "verdictsCriteres": { "type": "json" },
     "verdictGlobal": { "type": "enumeration", "enum": ["eligible", "rejet"] },
     "motifRejet": { "type": "text" },
+    "observationsUgp": { "type": "text" },
     "workflow": { "type": "enumeration", "enum": ["en_cours", "propose", "valide", "renvoye"], "default": "en_cours" },
     "proposePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
     "proposeLe": { "type": "datetime" },

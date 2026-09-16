@@ -214,6 +214,7 @@ module.exports = {
               verdictGlobal: instructionCompletude.verdictGlobal || null,
               complementsProposes: instructionCompletude.complementsProposes || null,
               motifRejet: instructionCompletude.motifRejet || null,
+              observationsUgp: instructionCompletude.observationsUgp || null,
               workflow: instructionCompletude.workflow || 'en_cours',
               proposePar: instructionCompletude.proposePar ? displayName(instructionCompletude.proposePar) : null,
               commentaireRenvoi: instructionCompletude.commentaireRenvoi || null,
@@ -225,6 +226,7 @@ module.exports = {
               verdictsCriteres: instructionEligibilite.verdictsCriteres || {},
               verdictGlobal: instructionEligibilite.verdictGlobal || null,
               motifRejet: instructionEligibilite.motifRejet || null,
+              observationsUgp: instructionEligibilite.observationsUgp || null,
               workflow: instructionEligibilite.workflow || 'en_cours',
               proposePar: instructionEligibilite.proposePar ? displayName(instructionEligibilite.proposePar) : null,
               commentaireRenvoi: instructionEligibilite.commentaireRenvoi || null,
@@ -345,6 +347,11 @@ module.exports = {
       verdictGlobal,
       complementsProposes: verdictGlobal === 'complements' ? payload.complementsProposes || null : null,
       motifRejet: verdictGlobal === 'rejet' ? String(payload.motifRejet).trim() : null,
+      // Observations internes a l'attention de l'UGP, quel que soit le verdict. Jamais transmises
+      // au candidat : ni les notifications ni aucune route candidat ne lisent ce champ. Le champ
+      // est reecrit a chaque proposition : leur texte est donc aussi copie au journal (interne a
+      // l'equipe), pour garder le fil complet des echanges avec les renvois de l'UGP.
+      observationsUgp: String(payload.observationsUgp || '').trim() || null,
       workflow: 'propose',
       proposePar: { connect: [user.id] },
       proposeLe: new Date().toISOString(),
@@ -358,7 +365,7 @@ module.exports = {
       await strapi.documents('api::instruction-completude.instruction-completude').create({ data: { ...data, candidature: connectRelation(candidature) } });
     }
 
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_completude', texte: `Verdict de completude propose : ${verdictGlobal}` });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_completude', texte: `Verdict de completude propose : ${verdictGlobal}${data.observationsUgp ? ` — observations a l'attention de l'UGP : « ${data.observationsUgp} »` : ''}` });
     ctx.body = { ok: true };
   },
 
@@ -371,11 +378,16 @@ module.exports = {
     const instruction = await findInstruction(strapi, 'api::instruction-completude.instruction-completude', candidature.documentId);
     if (!instruction?.documentId || instruction.workflow !== 'propose') return ctx.badRequest('Aucune proposition a renvoyer.');
 
+    // Un renvoi doit etre motive. Le commentaire est efface a la proposition suivante : son texte
+    // est donc recopie au journal, seule trace durable de ce que l'UGP a demande de revoir.
+    const commentaire = String(ctx.request.body?.data?.commentaire || '').trim();
+    if (!commentaire) return ctx.badRequest('Le renvoi doit etre motive : precisez ce qui doit etre revu.');
+
     await strapi.documents('api::instruction-completude.instruction-completude').update({
       documentId: instruction.documentId,
-      data: { workflow: 'renvoye', commentaireRenvoi: String(ctx.request.body?.data?.commentaire || '').trim() || null },
+      data: { workflow: 'renvoye', commentaireRenvoi: commentaire },
     });
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'renvoi_completude', texte: "Renvoye a l'instructeur avec commentaire" });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'renvoi_completude', texte: `Renvoye a l'instructeur : « ${commentaire} »` });
     ctx.body = { ok: true };
   },
 
@@ -478,6 +490,8 @@ module.exports = {
       verdictsCriteres,
       verdictGlobal,
       motifRejet: verdictGlobal === 'rejet' ? String(payload.motifRejet).trim() : null,
+      // Meme regle qu'a la completude : observations internes, jamais transmises au candidat.
+      observationsUgp: String(payload.observationsUgp || '').trim() || null,
       workflow: 'propose',
       proposePar: { connect: [user.id] },
       proposeLe: new Date().toISOString(),
@@ -491,7 +505,7 @@ module.exports = {
       await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').create({ data: { ...data, candidature: connectRelation(candidature) } });
     }
 
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_eligibilite', texte: `Verdict d’eligibilite propose : ${verdictGlobal}` });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_eligibilite', texte: `Verdict d’eligibilite propose : ${verdictGlobal}${data.observationsUgp ? ` — observations a l'attention de l'UGP : « ${data.observationsUgp} »` : ''}` });
     ctx.body = { ok: true };
   },
 
@@ -504,11 +518,15 @@ module.exports = {
     const instruction = await findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId);
     if (!instruction?.documentId || instruction.workflow !== 'propose') return ctx.badRequest('Aucune proposition a renvoyer.');
 
+    // Meme regle qu'a la completude : renvoi motive, texte conserve au journal.
+    const commentaire = String(ctx.request.body?.data?.commentaire || '').trim();
+    if (!commentaire) return ctx.badRequest('Le renvoi doit etre motive : precisez ce qui doit etre revu.');
+
     await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').update({
       documentId: instruction.documentId,
-      data: { workflow: 'renvoye', commentaireRenvoi: String(ctx.request.body?.data?.commentaire || '').trim() || null },
+      data: { workflow: 'renvoye', commentaireRenvoi: commentaire },
     });
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'renvoi_eligibilite', texte: "Renvoye a l'instructeur" });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'renvoi_eligibilite', texte: `Renvoye a l'instructeur : « ${commentaire} »` });
     ctx.body = { ok: true };
   },
 

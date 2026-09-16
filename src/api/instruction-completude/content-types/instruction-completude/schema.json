@@ -18,6 +18,7 @@
     "verdictGlobal": { "type": "enumeration", "enum": ["complet", "complements", "rejet"] },
     "complementsProposes": { "type": "json" },
     "motifRejet": { "type": "text" },
+    "observationsUgp": { "type": "text" },
     "workflow": { "type": "enumeration", "enum": ["en_cours", "propose", "valide", "renvoye"], "default": "en_cours" },
     "proposePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
     "proposeLe": { "type": "datetime" },
