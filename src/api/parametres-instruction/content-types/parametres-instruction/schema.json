@@ -9,6 +9,7 @@
   "options": { "draftAndPublish": false },
   "pluginOptions": {},
   "attributes": {
-    "delaiComplementsJours": { "type": "integer", "default": 10 }
+    "delaiComplementsJours": { "type": "integer", "default": 3 },
+    "delaiComplementsMinimumJours": { "type": "integer", "default": 2 }
   }
 }

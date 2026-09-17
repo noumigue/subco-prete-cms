@@ -14,6 +14,7 @@ module.exports = {
     { method: 'POST', path: '/gestion/dossiers/:documentId/completude/verifier', handler: 'gestion.verifierCompletude', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/completude/valider', handler: 'gestion.validerCompletude', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/completude/renvoyer', handler: 'gestion.renvoyerCompletude', config: { policies: [] } },
+    { method: 'POST', path: '/gestion/dossiers/:documentId/complements/prolonger', handler: 'gestion.prolongerComplements', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/eligibilite/proposer', handler: 'gestion.proposerEligibilite', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/eligibilite/verifier', handler: 'gestion.verifierEligibilite', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/eligibilite/valider', handler: 'gestion.validerEligibilite', config: { policies: [] } },

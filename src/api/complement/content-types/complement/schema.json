@@ -17,6 +17,7 @@
     },
     "pieceDemandee": { "type": "string", "required": true },
     "echeance": { "type": "date" },
+    "delaiJours": { "type": "integer" },
     "statut": { "type": "enumeration", "enum": ["demande", "fourni"], "default": "demande" },
     "origine": { "type": "enumeration", "enum": ["ugp", "candidat"], "default": "ugp" },
     "fichier": { "type": "media", "multiple": false, "allowedTypes": ["files", "images"] }

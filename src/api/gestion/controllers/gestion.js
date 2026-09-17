@@ -18,6 +18,7 @@ const { sendPortalNotification } = require('../../../utils/portal-notify');
 const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
 const { archiverModificationsNonDeposees } = require('../../../utils/portal-depot');
 const { detecterContradictionsCompletude, detecterContradictionsEligibilite } = require('../../../utils/portal-contradictions');
+const { aujourdHui, ajouterJoursOuvres, compterJoursOuvres, normaliserDelai } = require('../../../utils/portal-delais');
 
 const OBSERVATIONS_REQUISES = "Les observations a l'attention de l'UGP sont obligatoires (ecrivez « RAS » s'il n'y a rien a signaler).";
 
@@ -85,9 +86,23 @@ async function findInstruction(strapi, uid, candidatureDocumentId) {
   return items[0] || null;
 }
 
+// Delais en JOURS OUVRES (voir utils/portal-delais). Les valeurs vivent dans le referentiel
+// « Parametres instruction » : les replis ci-dessous ne servent qu'au tout premier demarrage,
+// avant que le type unique existe.
 async function getParametres(strapi) {
   const single = await strapi.documents('api::parametres-instruction.parametres-instruction').findFirst({});
-  return { delaiComplementsJours: single?.delaiComplementsJours ?? 10 };
+  return {
+    delaiComplementsJours: single?.delaiComplementsJours ?? 3,
+    delaiComplementsMinimumJours: single?.delaiComplementsMinimumJours ?? 2,
+  };
+}
+
+// Delai propose par l'instructeur pour une demande de complements, en jours ouvres.
+function delaiPropose(complementsProposes, parametres) {
+  return normaliserDelai(complementsProposes?.delaiJours, {
+    defaut: parametres.delaiComplementsJours,
+    minimum: parametres.delaiComplementsMinimumJours,
+  });
 }
 
 // Resout l'organisation a AFFICHER : celle liee au dossier, sinon (dossiers crees avant
@@ -199,9 +214,21 @@ module.exports = {
       ];
     };
 
+    // Depuis combien de jours la proposition attend l'UGP. Le delai du candidat ne court plus
+    // pendant ce temps (il est calcule a la validation), mais l'attente decale sa reponse et
+    // celle du calendrier d'instruction : elle doit se voir dans la file.
+    const MS_JOUR = 24 * 60 * 60 * 1000;
+    const attenteJours = (c) => {
+      const propose = propCompletudeParDossier.get(c.documentId)?.proposeLe || propEligibiliteParDossier.get(c.documentId)?.proposeLe;
+      if (!propose) return null;
+      const jours = Math.floor((Date.now() - new Date(propose).getTime()) / MS_JOUR);
+      return Number.isFinite(jours) && jours >= 0 ? jours : null;
+    };
+
     const items = list.map((c) =>
       serializeCandidature(c, {
         aArbitrer: aArbitrer(c),
+        enAttenteDepuisJours: attenteJours(c),
         enValidation: enValCompletude.has(c.documentId) || enValEligibilite.has(c.documentId),
         enValidationPhase: enValEligibilite.has(c.documentId) ? 'eligibilite' : enValCompletude.has(c.documentId) ? 'completude' : null,
         complementEnCours: withComplement.has(c.documentId),
@@ -290,7 +317,16 @@ module.exports = {
           typePieces: typePieces.map((p) => ({ id: p.documentId, libelle: p.libelle, groupe: p.groupe, exigence: p.exigence })),
           criteres: criteres.map((c) => ({ id: c.documentId, libelle: c.libelle, refManuel: c.refManuel || null })),
           delaiComplementsJours: parametres.delaiComplementsJours,
+          delaiComplementsMinimumJours: parametres.delaiComplementsMinimumJours,
         },
+        // Echeance que porterait la demande si l'UGP validait aujourd'hui : c'est elle qui
+        // partira au candidat, pas celle qu'avait sous les yeux l'instructeur le jour de sa
+        // proposition. Calculee ici pour que l'ecran de validation montre la meme date que
+        // celle que le serveur ecrira.
+        echeancePrevue:
+          instructionCompletude?.verdictGlobal === 'complements'
+            ? ajouterJoursOuvres(aujourdHui(), delaiPropose(instructionCompletude.complementsProposes, parametres))
+            : null,
         journal: actes.map((a) => ({ date: a.date, auteur: a.auteurLibelle || 'Systeme', texte: a.texte })),
         // Versions deposees, la plus recente d'abord. `pdfUrl` est le document qui faisait
         // foi a cette date-la : il n'est jamais supprime, meme remplace.
@@ -309,6 +345,7 @@ module.exports = {
           documentId: x.documentId,
           pieceDemandee: x.pieceDemandee || '',
           echeance: x.echeance || null,
+          delaiJours: x.delaiJours ?? null,
           statut: x.statut || 'demande',
           origine: x.origine || 'ugp',
           fichierUrl: x.fichier?.url || null,
@@ -385,12 +422,30 @@ module.exports = {
     }
 
     // Gardes serveur (C3) : compléments exige >= 1 pièce fautive ; rejet exige un motif.
+    const parametres = await getParametres(strapi);
+    let complementsProposes = null;
     if (verdictGlobal === 'complements') {
       const fautives = Object.values(verdictsPieces).filter((v) => v?.etat === 'absente' || v?.etat === 'non_conforme');
       const pieces = Array.isArray(payload.complementsProposes?.pieces) ? payload.complementsProposes.pieces : [];
       if (fautives.length === 0 || pieces.length === 0) {
         return ctx.badRequest('Une demande de complements exige au moins une piece absente ou non conforme.');
       }
+      // Le cabinet propose une DUREE en jours ouvres, plus une date : l'echeance reelle est
+      // calculee a la validation UGP, quand le candidat est notifie. `echeance` n'est conservee
+      // qu'a titre indicatif (ce que l'instructeur avait sous les yeux).
+      const delaiJours = normaliserDelai(payload.complementsProposes?.delaiJours, {
+        defaut: parametres.delaiComplementsJours,
+        minimum: parametres.delaiComplementsMinimumJours,
+      });
+      if (Number(payload.complementsProposes?.delaiJours) > 0 && delaiJours !== Math.floor(Number(payload.complementsProposes.delaiJours))) {
+        return ctx.badRequest(`Le delai accorde au candidat ne peut pas etre inferieur a ${parametres.delaiComplementsMinimumJours} jours ouvres.`);
+      }
+      complementsProposes = {
+        pieces,
+        delaiJours,
+        echeanceIndicative: ajouterJoursOuvres(aujourdHui(), delaiJours),
+        message: payload.complementsProposes?.message || '',
+      };
     }
     if (verdictGlobal === 'rejet' && !String(payload.motifRejet || '').trim()) {
       return ctx.badRequest('Un rejet de completude exige un motif.');
@@ -400,7 +455,7 @@ module.exports = {
     const data = {
       verdictsPieces,
       verdictGlobal,
-      complementsProposes: verdictGlobal === 'complements' ? payload.complementsProposes || null : null,
+      complementsProposes,
       motifRejet: verdictGlobal === 'rejet' ? String(payload.motifRejet).trim() : null,
       // Observations internes a l'attention de l'UGP, quel que soit le verdict. Jamais transmises
       // au candidat : ni les notifications ni aucune route candidat ne lisent ce champ. Le champ
@@ -422,7 +477,8 @@ module.exports = {
 
     const { typePieces, complementsFournis } = await chargerContexteCompletude(strapi, candidature.documentId);
     const contradictions = detecterContradictionsCompletude({ instruction: data, candidature, typePieces, complementsFournis });
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_completude', texte: `Verdict de completude propose : ${verdictGlobal}${contradictions.length ? ` — a arbitrer (${contradictions.length} contradiction(s))` : ''} — observations a l'attention de l'UGP : « ${data.observationsUgp} »` });
+    const delaiTexte = complementsProposes ? ` — delai propose : ${complementsProposes.delaiJours} jour(s) ouvre(s) a compter de la validation` : '';
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_completude', texte: `Verdict de completude propose : ${verdictGlobal}${delaiTexte}${contradictions.length ? ` — a arbitrer (${contradictions.length} contradiction(s))` : ''} — observations a l'attention de l'UGP : « ${data.observationsUgp} »` });
     ctx.body = { ok: true };
   },
 
@@ -485,6 +541,27 @@ module.exports = {
     const parametres = await getParametres(strapi);
     let notif = null; // charge utile de notification (envoyee apres commit)
 
+    // Echeance des complements : calculee MAINTENANT, pas a la proposition. Le delai accorde au
+    // candidat part du jour ou il est notifie ; l'attente de validation ne lui coute plus rien.
+    // L'UGP peut imposer sa propre date, tant qu'elle laisse au moins le minimum du referentiel.
+    let echeance = null;
+    let delaiJours = null;
+    let echeanceForcee = false;
+    if (verdict === 'complements') {
+      delaiJours = delaiPropose(instruction.complementsProposes, parametres);
+      echeance = ajouterJoursOuvres(aujourdHui(), delaiJours);
+      const override = String(ctx.request.body?.data?.echeance || '').slice(0, 10);
+      if (override && override !== echeance) {
+        const minimum = ajouterJoursOuvres(aujourdHui(), parametres.delaiComplementsMinimumJours);
+        if (override < minimum) {
+          return ctx.badRequest(`L'echeance doit laisser au moins ${parametres.delaiComplementsMinimumJours} jours ouvres au candidat (au plus tot le ${minimum}).`);
+        }
+        echeance = override;
+        delaiJours = compterJoursOuvres(aujourdHui(), echeance);
+        echeanceForcee = true;
+      }
+    }
+
     // Effets atomiques cote serveur (§4.2) : statut/complements/journal dans une transaction.
     await strapi.db.transaction(async () => {
       const baseTrace = { workflow: 'valide', validePar: { connect: [user.id] }, valideLe: new Date().toISOString() };
@@ -502,16 +579,19 @@ module.exports = {
       } else if (verdict === 'complements') {
         const proposes = instruction.complementsProposes || {};
         const pieceIds = Array.isArray(proposes.pieces) ? proposes.pieces : [];
-        const echeance = proposes.echeance || defaultEcheance(parametres.delaiComplementsJours);
         // Une entree `complement` par piece demandee (libelle depuis le referentiel type-piece).
         for (const pieceId of pieceIds) {
           const piece = await strapi.documents('api::type-piece.type-piece').findOne({ documentId: pieceId });
           await strapi.documents('api::complement.complement').create({
-            data: { candidature: connectRelation(candidature), pieceDemandee: piece?.libelle || 'Piece complementaire', echeance, statut: 'demande' },
+            data: { candidature: connectRelation(candidature), pieceDemandee: piece?.libelle || 'Piece complementaire', echeance, delaiJours, statut: 'demande' },
           });
         }
-        await journal(strapi, candidature.documentId, { auteurUser: user, type: 'validation_completude', texte: `Complements demandes — complement(s) crees + notification, echeance ${echeance}` });
-        notif = { sujet: 'Piece(s) complementaire(s) demandee(s)', corps: `Votre dossier ${candidature.numeroDossier} necessite des pieces complementaires. Merci de les deposer avant le ${echeance} depuis le suivi de votre dossier.${proposes.message ? ' ' + proposes.message : ''}` };
+        await journal(strapi, candidature.documentId, {
+          auteurUser: user,
+          type: 'validation_completude',
+          texte: `Complements demandes — complement(s) crees + notification, echeance fixee au ${echeance} (${delaiJours} jour(s) ouvre(s)${echeanceForcee ? ', date imposee par l’UGP' : ` — delai propose par l’instructeur`})`,
+        });
+        notif = { sujet: 'Piece(s) complementaire(s) demandee(s)', corps: `Votre dossier ${candidature.numeroDossier} necessite des pieces complementaires. Merci de les deposer avant le ${formatJour(echeance)} depuis le suivi de votre dossier.${proposes.message ? ' ' + proposes.message : ''}` };
       } else if (verdict === 'rejet') {
         const nonRetenu = await getStatutByCode(strapi, 'non_retenu');
         await strapi.documents('api::candidature.candidature').update({
@@ -535,6 +615,58 @@ module.exports = {
     }
 
     ctx.body = { ok: true };
+  },
+
+  // ===========================================================================
+  // PROLONGATION D'UNE DEMANDE DEJA ENVOYEE (ugp).
+  // Une echeance partie au candidat peut devoir etre repoussee : validation tardive d'une
+  // proposition ancienne, panne de messagerie (11/09), piece impossible a obtenir a temps.
+  // Sans cela, la seule issue etait de laisser expirer une demande que le candidat n'avait
+  // parfois jamais recue. La prolongation est motivee, journalisee et notifiee.
+  // ===========================================================================
+  async prolongerComplements(ctx) {
+    const user = requireRole(ctx, ['ugp']);
+    if (!user) return;
+
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+
+    const motif = String(ctx.request.body?.data?.motif || '').trim();
+    if (!motif) return ctx.badRequest('La prolongation doit etre motivee.');
+
+    const parametres = await getParametres(strapi);
+    const jours = normaliserDelai(ctx.request.body?.data?.jours, {
+      defaut: parametres.delaiComplementsJours,
+      minimum: parametres.delaiComplementsMinimumJours,
+    });
+
+    const enCours = await strapi.documents('api::complement.complement').findMany({
+      filters: { candidature: { documentId: candidature.documentId }, statut: 'demande' }, limit: 100,
+    });
+    // Les pieces que le candidat a ajoutees de lui-meme ne sont pas des demandes : rien a prolonger.
+    const aProlonger = enCours.filter((c) => c.origine !== 'candidat');
+    if (!aProlonger.length) return ctx.badRequest('Aucune demande de complements en cours sur ce dossier.');
+
+    const echeance = ajouterJoursOuvres(aujourdHui(), jours);
+    for (const c of aProlonger) {
+      await strapi.documents('api::complement.complement').update({ documentId: c.documentId, data: { echeance, delaiJours: jours } });
+    }
+    await journal(strapi, candidature.documentId, {
+      auteurUser: user,
+      type: 'validation_completude',
+      texte: `Echeance des complements prolongee au ${echeance} (${jours} jour(s) ouvre(s), ${aProlonger.length} piece(s)) — motif : « ${motif} »`,
+    });
+
+    await sendPortalNotification(strapi, {
+      userId: candidature.owner?.id,
+      email: candidature.owner?.email,
+      telephone: candidature.owner?.phone || candidature.organisation?.telephone,
+      candidature,
+      sujet: 'Nouveau delai pour vos pieces complementaires',
+      corps: `Le delai de depot des pieces complementaires de votre dossier ${candidature.numeroDossier} est reporte au ${formatJour(echeance)}. ${motif}`,
+    });
+
+    ctx.body = { ok: true, data: { echeance, jours, pieces: aProlonger.length } };
   },
 
   // ===========================================================================
@@ -712,9 +844,9 @@ module.exports = {
   },
 };
 
-// Echeance par defaut = aujourd'hui + delai (parametre referentiel, place-holder Annexe 11).
-function defaultEcheance(delaiJours) {
-  const d = new Date();
-  d.setDate(d.getDate() + (Number(delaiJours) || 10));
-  return d.toISOString().slice(0, 10);
+// Date affichee au candidat (JJ/MM/AAAA) a partir d'un jour « AAAA-MM-JJ ».
+function formatJour(jour) {
+  const s = String(jour || '').slice(0, 10);
+  const [a, m, j] = s.split('-');
+  return a && m && j ? `${j}/${m}/${a}` : s;
 }

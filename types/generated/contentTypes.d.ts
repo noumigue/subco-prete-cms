@@ -964,6 +964,7 @@ export interface ApiComplementComplement extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    delaiJours: Schema.Attribute.Integer;
     echeance: Schema.Attribute.Date;
     fichier: Schema.Attribute.Media<'files' | 'images'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -2623,7 +2624,9 @@ export interface ApiParametresInstructionParametresInstruction
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     delaiComplementsJours: Schema.Attribute.Integer &
-      Schema.Attribute.DefaultTo<10>;
+      Schema.Attribute.DefaultTo<3>;
+    delaiComplementsMinimumJours: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<2>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

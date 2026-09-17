@@ -468,6 +468,8 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion.reassigner',
     'api::gestion.gestion.validerCompletude',
     'api::gestion.gestion.renvoyerCompletude',
+    // Prolongation d'une echeance deja notifiee au candidat (motivee + journalisee).
+    'api::gestion.gestion.prolongerComplements',
     'api::gestion.gestion.validerEligibilite',
     'api::gestion.gestion.renvoyerEligibilite',
     'api::gestion.gestion.ouvrirAppel',
@@ -781,15 +783,19 @@ async function ensureReferentials(strapi) {
     await upsertDocument(strapi, 'api::critere-eligibilite.critere-eligibilite', { code: row.code }, row);
   }
 
-  // Parametre d'instruction (single type) : delai par defaut des complements (Annexe 11 —
-  // valeur PLACEHOLDER a confirmer UGP ; c'est la FORME qui est provisionnee, pas la valeur).
+  // Parametres d'instruction (single type) : delai par defaut accorde au candidat pour
+  // deposer ses pieces complementaires, et plancher en dessous duquel l'UGP ne peut pas
+  // descendre. Les deux sont en JOURS OUVRES et se reglent dans l'admin, sans deploiement.
+  // Le seed ne remplit que ce qui est VIDE : une valeur choisie par l'UGP n'est jamais ecrasee.
+  const PARAMETRES_DEFAUT = { delaiComplementsJours: 3, delaiComplementsMinimumJours: 2 };
   const paramExisting = await strapi.documents('api::parametres-instruction.parametres-instruction').findFirst({});
   if (paramExisting?.documentId) {
-    if (paramExisting.delaiComplementsJours == null) {
-      await strapi.documents('api::parametres-instruction.parametres-instruction').update({ documentId: paramExisting.documentId, data: { delaiComplementsJours: 10 } });
+    const manquants = Object.fromEntries(Object.entries(PARAMETRES_DEFAUT).filter(([k]) => paramExisting[k] == null));
+    if (Object.keys(manquants).length) {
+      await strapi.documents('api::parametres-instruction.parametres-instruction').update({ documentId: paramExisting.documentId, data: manquants });
     }
   } else {
-    await strapi.documents('api::parametres-instruction.parametres-instruction').create({ data: { delaiComplementsJours: 10 } });
+    await strapi.documents('api::parametres-instruction.parametres-instruction').create({ data: PARAMETRES_DEFAUT });
   }
 
   // ——— Phase 2 : barème d'évaluation (grille §6, éditable — E1 : rien en dur) ———
