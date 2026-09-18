@@ -113,7 +113,7 @@ async function resolveOrgByOwner(strapi, ownerIds) {
   if (!ids.length) return {};
   const orgs = await strapi.documents('api::organisation.organisation').findMany({
     filters: { owner: { id: { $in: ids } } },
-    populate: { owner: { fields: ['id'] }, filierePrincipale: { fields: ['nom'] } },
+    populate: { owner: { fields: ['id'] }, filierePrincipale: { fields: ['nom'] }, province: { fields: ['nom'] } },
     limit: 500,
   });
   const map = {};
@@ -130,7 +130,7 @@ function serializeCandidature(c, extra = {}, orgFallback = null) {
     titreProjet: c.titreProjet || '',
     dateDepot: c.dateDepot || null,
     organisation: org
-      ? { nom: org.nom || '', filiere: org.filierePrincipale?.nom || null }
+      ? { nom: org.nom || '', filiere: org.filierePrincipale?.nom || null, province: org.province?.nom || null }
       : null,
     statut: c.statut ? { code: c.statut.code, phase: c.statut.phase, groupe: c.statut.groupe, libelle: c.statut.libelleCandidat } : null,
     prisEnChargePar: c.prisEnChargePar ? { id: c.prisEnChargePar.id, nom: displayName(c.prisEnChargePar) } : null,
@@ -159,14 +159,14 @@ module.exports = {
       limit: 500,
     });
 
-    // Etat de validation : une candidature est « a valider » si son instruction (completude
-    // OU eligibilite) est au workflow `propose`. On charge les propositions en cours en un lot.
-    const [propCompletude, propEligibilite, complementsDemandes, complementsFournis] = await Promise.all([
+    // Toutes les instructions, en un lot : `propose` dit « a valider » (UGP) ; `renvoye` et
+    // `en_cours` disent a l'instructeur ou en est son propre travail (filtres de la file).
+    const [instrCompletude, instrEligibilite, complementsDemandes, complementsFournis, criteresRef] = await Promise.all([
       strapi.documents('api::instruction-completude.instruction-completude').findMany({
-        filters: { workflow: 'propose' }, populate: { candidature: { fields: ['documentId'] } }, limit: 500,
+        populate: { candidature: { fields: ['documentId'] } }, limit: 1000,
       }),
       strapi.documents('api::instruction-eligibilite.instruction-eligibilite').findMany({
-        filters: { workflow: 'propose' }, populate: { candidature: { fields: ['documentId'] } }, limit: 500,
+        populate: { candidature: { fields: ['documentId'] } }, limit: 1000,
       }),
       strapi.documents('api::complement.complement').findMany({
         filters: { statut: 'demande' }, populate: { candidature: { fields: ['documentId'] } }, limit: 500,
@@ -174,7 +174,13 @@ module.exports = {
       strapi.documents('api::complement.complement').findMany({
         filters: { statut: 'fourni' }, populate: { candidature: { fields: ['documentId'] } }, limit: 500,
       }),
+      strapi.documents('api::critere-eligibilite.critere-eligibilite').findMany({ fields: ['libelle'], limit: 100 }),
     ]);
+    const propCompletude = instrCompletude.filter((i) => i.workflow === 'propose');
+    const propEligibilite = instrEligibilite.filter((i) => i.workflow === 'propose');
+    const instrCompletudeParDossier = new Map(instrCompletude.map((i) => [i.candidature?.documentId, i]));
+    const instrEligibiliteParDossier = new Map(instrEligibilite.map((i) => [i.candidature?.documentId, i]));
+    const libelleCritere = new Map(criteresRef.map((c) => [c.documentId, c.libelle]));
 
     const enValCompletude = new Set(propCompletude.map((i) => i.candidature?.documentId).filter(Boolean));
     const enValEligibilite = new Set(propEligibilite.map((i) => i.candidature?.documentId).filter(Boolean));
@@ -225,9 +231,37 @@ module.exports = {
       return Number.isFinite(jours) && jours >= 0 ? jours : null;
     };
 
+    // Echeance la plus proche parmi les pieces reclamees au candidat et pas encore recues.
+    const echeanceParDossier = new Map();
+    for (const x of complementsDemandes) {
+      const k = x.candidature?.documentId;
+      if (!k || x.origine === 'candidat' || !x.echeance) continue;
+      const e = String(x.echeance).slice(0, 10);
+      if (!echeanceParDossier.has(k) || e < echeanceParDossier.get(k)) echeanceParDossier.set(k, e);
+    }
+
+    // Etat de l'instruction de l'etape en cours, pour les filtres de la file : l'instructeur y lit
+    // ce qu'il a a faire (instruire, reprendre un renvoi, attendre l'UGP), l'UGP le verdict propose.
+    const instructionCourante = (c) => {
+      const phase = c.statut?.phase;
+      const i = phase === 'eligibilite' ? instrEligibiliteParDossier.get(c.documentId)
+        : phase === 'completude' ? instrCompletudeParDossier.get(c.documentId) : null;
+      if (!i) return { workflow: null, verdictPropose: null };
+      return { workflow: i.workflow || 'en_cours', verdictPropose: i.workflow === 'propose' ? i.verdictGlobal || null : null };
+    };
+    // Criteres d'eligibilite constates non conformes (quel que soit l'etat de la proposition).
+    const criteresNonConformes = (c) => {
+      const v = instrEligibiliteParDossier.get(c.documentId)?.verdictsCriteres;
+      if (!v || typeof v !== 'object') return [];
+      return Object.entries(v).filter(([, x]) => x?.etat === 'non_conforme').map(([id]) => libelleCritere.get(id)).filter(Boolean);
+    };
+
     const items = list.map((c) =>
       serializeCandidature(c, {
         aArbitrer: aArbitrer(c),
+        instruction: instructionCourante(c),
+        echeanceComplement: echeanceParDossier.get(c.documentId) || null,
+        criteresNonConformes: criteresNonConformes(c),
         enAttenteDepuisJours: attenteJours(c),
         enValidation: enValCompletude.has(c.documentId) || enValEligibilite.has(c.documentId),
         enValidationPhase: enValEligibilite.has(c.documentId) ? 'eligibilite' : enValCompletude.has(c.documentId) ? 'completude' : null,
