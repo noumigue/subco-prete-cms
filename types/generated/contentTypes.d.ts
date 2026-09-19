@@ -1129,10 +1129,13 @@ export interface ApiCritereEligibiliteCritereEligibilite
     draftAndPublish: true;
   };
   attributes: {
+    acquis: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    actif: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     code: Schema.Attribute.UID<'libelle'> & Schema.Attribute.Required;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    groupe: Schema.Attribute.Enumeration<['candidat', 'infrastructure']>;
     libelle: Schema.Attribute.String & Schema.Attribute.Required;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<

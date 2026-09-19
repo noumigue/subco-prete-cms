@@ -767,20 +767,51 @@ async function ensureReferentials(strapi) {
   }
 
   // ——— Referentiels du socle back-office M5 ———
-  // Criteres d'eligibilite (grille Annexe 5 / §5) : libelles = PLACEHOLDERS, definitifs = contenu CMS.
+  // Criteres d'eligibilite : grille validee par l'UGP le 18/09/2026 (feu vert d'A. Hakizimana),
+  // version reduite de l'Annexe 5 du Manuel (« Grille d'evaluation de l'eligibilite »). Libelles
+  // repris mot pour mot de l'Annexe 5, numerotation de l'Annexe conservee dans `refManuel`.
+  // Retires de l'eligibilite (renvoyes a l'evaluation technique) : capacite financiere minimale,
+  // absence de conflit d'interet declare, capacite de gestion et d'exploitation, faisabilite
+  // technique minimale, viabilite economique preliminaire, conformite E&S preliminaire.
+  // « Dossier complet » est `acquis` : coche d'office (la completude a deja ete validee).
+  // La liste fait foi a chaque demarrage : la modifier ICI, jamais dans l'admin (ecrasee).
   const criteres = [
-    { code: 'statut-juridique', libelle: 'Statut juridique eligible (MPME, cooperative, association, ONG)', refManuel: '§5.1', ordre: 10 },
-    { code: 'existence-legale', libelle: 'Existence legale et documents juridiques valides', refManuel: '§5.2', ordre: 20 },
-    { code: 'contrepartie-20', libelle: 'Contrepartie >= 20 % confirmee et sourcee', refManuel: '§5.4', ordre: 30 },
-    { code: 'chaine-valeur', libelle: 'Chaine de valeur prioritaire ou projet transversal', refManuel: '§2.3', ordre: 40 },
-    { code: 'infrastructure', libelle: 'Infrastructure productive eligible', refManuel: '§2.5', ordre: 50 },
-    { code: 'site-implantation', libelle: "Site d'implantation conforme", refManuel: '§5.6', ordre: 60 },
-    { code: 'conflit-interet', libelle: "Absence de conflit d'interets", refManuel: '§5.8.1', ordre: 70 },
-    { code: 'conformite-es', libelle: 'Conformite environnementale et sociale prealable', refManuel: '§5.7', ordre: 80 },
-    { code: 'depenses-eligibles', libelle: 'Depenses prevues eligibles', refManuel: '§2.6 / §5.4', ordre: 90 },
+    { code: 'candidat-legalement-constitue', groupe: 'candidat', libelle: 'Candidat légalement constitué', refManuel: 'Annexe 5 · §2 n°1', ordre: 110, acquis: false },
+    { code: 'nif-rc-disponible', groupe: 'candidat', libelle: 'NIF / RC disponible', refManuel: 'Annexe 5 · §2 n°2', ordre: 120, acquis: false },
+    { code: 'conformite-fiscale', groupe: 'candidat', libelle: 'Conformité fiscale démontrée', refManuel: 'Annexe 5 · §2 n°3', ordre: 130, acquis: false },
+    { code: 'engagement-contrepartie', groupe: 'candidat', libelle: 'Engagement de contrepartie fourni', refManuel: 'Annexe 5 · §2 n°5', ordre: 150, acquis: false },
+    { code: 'dossier-complet', groupe: 'candidat', libelle: 'Dossier complet', refManuel: 'Annexe 5 · §2 n°8', ordre: 180, acquis: true },
+    { code: 'infrastructure-productive', groupe: 'infrastructure', libelle: "Infrastructure productive (nature de l'infrastructure)", refManuel: 'Annexe 5 · §3 n°1', ordre: 210, acquis: false },
+    { code: 'alignement-chaine-valeur', groupe: 'infrastructure', libelle: 'Alignement avec chaîne de valeur prioritaire', refManuel: 'Annexe 5 · §3 n°2', ordre: 220, acquis: false },
+    { code: 'service-mpme', groupe: 'infrastructure', libelle: 'Service aux MPME ou acteurs économiques', refManuel: 'Annexe 5 · §3 n°3', ordre: 230, acquis: false },
+    { code: 'site-disponible', groupe: 'infrastructure', libelle: 'Site disponible ou sécurisé', refManuel: 'Annexe 5 · §3 n°7', ordre: 270, acquis: false },
+    { code: 'absence-activite-exclue', groupe: 'infrastructure', libelle: "Absence d'activité exclue", refManuel: 'Annexe 5 · §3 n°8', ordre: 280, acquis: false },
   ];
   for (const row of criteres) {
-    await upsertDocument(strapi, 'api::critere-eligibilite.critere-eligibilite', { code: row.code }, row);
+    await upsertDocument(strapi, 'api::critere-eligibilite.critere-eligibilite', { code: row.code }, { ...row, actif: true });
+  }
+  // Les criteres retires de la grille ne disparaissent pas d'eux-memes (l'upsert ne fait
+  // qu'ajouter ou reecrire). On les supprime, SAUF s'ils portent deja des constats : une
+  // instruction qui les cite resterait sans libelle. Dans ce cas on les laisse et on le signale.
+  const codesGrille = new Set(criteres.map((c) => c.code));
+  const existants = await strapi.documents('api::critere-eligibilite.critere-eligibilite').findMany({ limit: 200 });
+  const obsoletes = existants.filter((c) => !codesGrille.has(c.code));
+  if (obsoletes.length) {
+    const instructions = await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').findMany({ fields: ['verdictsCriteres'], limit: 5000 });
+    const cites = new Set();
+    for (const i of instructions) for (const id of Object.keys(i.verdictsCriteres || {})) cites.add(id);
+    for (const c of obsoletes) {
+      if (cites.has(c.documentId)) {
+        // Conserve pour l'historique, mais retire de la grille presentee aux instructeurs.
+        if (c.actif !== false) {
+          await upsertDocument(strapi, 'api::critere-eligibilite.critere-eligibilite', { code: c.code }, { actif: false });
+        }
+        strapi.log.warn(`[seed] Critere d'eligibilite retire de la grille mais deja utilise : conserve, desactive (${c.code})`);
+        continue;
+      }
+      await strapi.documents('api::critere-eligibilite.critere-eligibilite').delete({ documentId: c.documentId });
+      strapi.log.info(`[seed] Critere d'eligibilite retire de la grille : ${c.code}`);
+    }
   }
 
   // Parametres d'instruction (single type) : delai par defaut accorde au candidat pour

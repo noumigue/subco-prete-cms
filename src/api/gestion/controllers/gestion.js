@@ -69,11 +69,22 @@ function controlerDemandeEnCours({ verdictGlobal, piecesIds, typePieces, enCours
   return { erreur: null, nouvelles };
 }
 
+// Criteres « acquis » (ex. « Dossier complet ») : coches d'office, jamais laisses a l'appreciation
+// de l'instructeur — la completude a deja ete validee par l'UGP. Le serveur les force a conforme.
+function appliquerCriteresAcquis(verdictsCriteres, criteres) {
+  const out = { ...(verdictsCriteres || {}) };
+  for (const c of criteres || []) {
+    if (c.acquis) out[c.documentId] = { etat: 'conforme', justification: 'Acquis : complétude validée' };
+  }
+  return out;
+}
+
 // Referentiels necessaires a la detection des contradictions (voir utils/portal-contradictions).
 async function chargerReferentielsInstruction(strapi) {
   const [typePieces, criteres] = await Promise.all([
     strapi.documents('api::type-piece.type-piece').findMany({ sort: ['ordre:asc'], limit: 100 }),
-    strapi.documents('api::critere-eligibilite.critere-eligibilite').findMany({ sort: ['ordre:asc'], limit: 100 }),
+    // Seuls les criteres de la grille en vigueur (un critere retire mais deja utilise reste en base, inactif).
+    strapi.documents('api::critere-eligibilite.critere-eligibilite').findMany({ filters: { $or: [{ actif: true }, { actif: { $null: true } }] }, sort: ['ordre:asc'], limit: 100 }),
   ]);
   return { typePieces, criteres };
 }
@@ -325,7 +336,7 @@ module.exports = {
       findInstruction(strapi, 'api::instruction-completude.instruction-completude', candidature.documentId),
       findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId),
       strapi.documents('api::type-piece.type-piece').findMany({ sort: ['ordre:asc'], limit: 100 }),
-      strapi.documents('api::critere-eligibilite.critere-eligibilite').findMany({ sort: ['ordre:asc'], limit: 100 }),
+      strapi.documents('api::critere-eligibilite.critere-eligibilite').findMany({ filters: { $or: [{ actif: true }, { actif: { $null: true } }] }, sort: ['ordre:asc'], limit: 100 }),
       getParametres(strapi),
       strapi.documents('api::acte-dossier.acte-dossier').findMany({
         filters: { candidature: { documentId: candidature.documentId } }, sort: ['date:asc', 'createdAt:asc'], limit: 200,
@@ -390,7 +401,7 @@ module.exports = {
           : null,
         referentiels: {
           typePieces: typePieces.map((p) => ({ id: p.documentId, libelle: p.libelle, groupe: p.groupe, exigence: p.exigence })),
-          criteres: criteres.map((c) => ({ id: c.documentId, libelle: c.libelle, refManuel: c.refManuel || null })),
+          criteres: criteres.map((c) => ({ id: c.documentId, libelle: c.libelle, refManuel: c.refManuel || null, groupe: c.groupe || null, acquis: Boolean(c.acquis) })),
           delaiComplementsJours: parametres.delaiComplementsJours,
           delaiComplementsMinimumJours: parametres.delaiComplementsMinimumJours,
         },
@@ -802,7 +813,8 @@ module.exports = {
     }
 
     const payload = ctx.request.body?.data || {};
-    const verdictsCriteres = payload.verdictsCriteres && typeof payload.verdictsCriteres === 'object' ? payload.verdictsCriteres : {};
+    const { criteres } = await chargerReferentielsInstruction(strapi);
+    const verdictsCriteres = appliquerCriteresAcquis(payload.verdictsCriteres && typeof payload.verdictsCriteres === 'object' ? payload.verdictsCriteres : {}, criteres);
     const verdictGlobal = payload.verdictGlobal;
     if (!['eligible', 'rejet'].includes(verdictGlobal)) return ctx.badRequest('Verdict d’eligibilite invalide.');
 
@@ -836,7 +848,6 @@ module.exports = {
       await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').create({ data: { ...data, candidature: connectRelation(candidature) } });
     }
 
-    const { criteres } = await chargerReferentielsInstruction(strapi);
     const contradictions = detecterContradictionsEligibilite({ instruction: data, criteres });
     await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_eligibilite', texte: `Verdict d’eligibilite propose : ${verdictGlobal}${contradictions.length ? ` — a arbitrer (${contradictions.length} contradiction(s))` : ''} — observations a l'attention de l'UGP : « ${data.observationsUgp} »` });
     ctx.body = { ok: true };
@@ -853,11 +864,11 @@ module.exports = {
     }
     const payload = ctx.request.body?.data || {};
     if (!['eligible', 'rejet'].includes(payload.verdictGlobal)) return ctx.badRequest('Verdict d’eligibilite invalide.');
+    const { criteres } = await chargerReferentielsInstruction(strapi);
     const instruction = {
       verdictGlobal: payload.verdictGlobal,
-      verdictsCriteres: payload.verdictsCriteres && typeof payload.verdictsCriteres === 'object' ? payload.verdictsCriteres : {},
+      verdictsCriteres: appliquerCriteresAcquis(payload.verdictsCriteres && typeof payload.verdictsCriteres === 'object' ? payload.verdictsCriteres : {}, criteres),
     };
-    const { criteres } = await chargerReferentielsInstruction(strapi);
     ctx.body = { data: { contradictions: detecterContradictionsEligibilite({ instruction, criteres }) } };
   },
 

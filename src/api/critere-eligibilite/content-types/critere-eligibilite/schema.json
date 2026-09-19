@@ -6,12 +6,41 @@
     "pluralName": "criteres-eligibilite",
     "displayName": "Critere eligibilite"
   },
-  "options": { "draftAndPublish": true },
+  "options": {
+    "draftAndPublish": true
+  },
   "pluginOptions": {},
   "attributes": {
-    "code": { "type": "uid", "targetField": "libelle", "required": true },
-    "libelle": { "type": "string", "required": true },
-    "refManuel": { "type": "string" },
-    "ordre": { "type": "integer", "default": 0 }
+    "code": {
+      "type": "uid",
+      "targetField": "libelle",
+      "required": true
+    },
+    "libelle": {
+      "type": "string",
+      "required": true
+    },
+    "refManuel": {
+      "type": "string"
+    },
+    "ordre": {
+      "type": "integer",
+      "default": 0
+    },
+    "groupe": {
+      "type": "enumeration",
+      "enum": [
+        "candidat",
+        "infrastructure"
+      ]
+    },
+    "acquis": {
+      "type": "boolean",
+      "default": false
+    },
+    "actif": {
+      "type": "boolean",
+      "default": true
+    }
   }
 }
