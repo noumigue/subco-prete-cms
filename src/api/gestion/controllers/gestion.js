@@ -32,6 +32,43 @@ async function chargerContexteCompletude(strapi, candidatureDocumentId) {
   return { typePieces, complementsFournis };
 }
 
+// Pieces reclamees au candidat et encore attendues (hors pieces qu'il a ajoutees de lui-meme).
+// Tant que l'echeance court, une nouvelle demande ne peut que COMPLETER celle-ci : sans cette
+// regle, un dossier repropose puis revalide recreait les memes pieces et renvoyait le meme
+// e-mail au candidat (18/09 : 18 dossiers, jusqu'a 4 e-mails identiques).
+const clePiece = (libelle) => String(libelle || '').trim().toLowerCase();
+async function chargerDemandeEnCours(strapi, candidatureDocumentId) {
+  const enAttente = await strapi.documents('api::complement.complement').findMany({
+    filters: { candidature: { documentId: candidatureDocumentId }, statut: 'demande' }, limit: 100,
+  });
+  const pieces = enAttente.filter((c) => c.origine !== 'candidat');
+  const echeance = pieces.map((c) => String(c.echeance || '').slice(0, 10)).filter(Boolean).sort().pop() || null;
+  return {
+    pieces,
+    libelles: [...new Set(pieces.map((c) => c.pieceDemandee).filter(Boolean))],
+    echeance,
+    // Une demande sans echeance reste « en cours » : mieux vaut bloquer que dupliquer.
+    active: pieces.length > 0 && (!echeance || echeance >= aujourdHui()),
+  };
+}
+
+// Garde commune a la proposition et a sa verification « a blanc ». Renvoie soit une erreur a
+// afficher, soit les seules pieces NOUVELLES (celles qui ne sont pas deja attendues).
+function controlerDemandeEnCours({ verdictGlobal, piecesIds, typePieces, enCours }) {
+  if (!enCours.active) return { erreur: null, nouvelles: piecesIds };
+  const jusquau = enCours.echeance ? ` jusqu'au ${formatJour(enCours.echeance)}` : '';
+  if (verdictGlobal !== 'complements') {
+    return { erreur: `Des pieces sont deja attendues de ce candidat${jusquau}. Attendez leur depot ou l'echeance avant de proposer un autre verdict ; vous pouvez seulement ajouter une piece a la demande en cours.` };
+  }
+  const libelle = new Map(typePieces.map((p) => [p.documentId, p.libelle]));
+  const deja = new Set(enCours.libelles.map(clePiece));
+  const nouvelles = piecesIds.filter((id) => !deja.has(clePiece(libelle.get(id))));
+  if (!nouvelles.length) {
+    return { erreur: `Toutes les pieces cochees sont deja demandees au candidat${jusquau}. Il n'y a rien de nouveau a lui demander.` };
+  }
+  return { erreur: null, nouvelles };
+}
+
 // Referentiels necessaires a la detection des contradictions (voir utils/portal-contradictions).
 async function chargerReferentielsInstruction(strapi) {
   const [typePieces, criteres] = await Promise.all([
@@ -215,7 +252,7 @@ module.exports = {
       const ic = propCompletudeParDossier.get(c.documentId);
       const ie = propEligibiliteParDossier.get(c.documentId);
       return [
-        ...(ic ? detecterContradictionsCompletude({ instruction: ic, candidature: c, typePieces: referentiels.typePieces, complementsFournis: complementsParDossier.get(c.documentId) }) : []),
+        ...(ic ? detecterContradictionsCompletude({ instruction: ic, candidature: c, typePieces: referentiels.typePieces, complementsFournis: complementsParDossier.get(c.documentId), dejaDemandees: ic.complementsProposes?.dejaDemandees || [] }) : []),
         ...(ie ? detecterContradictionsEligibilite({ instruction: ie, criteres: referentiels.criteres }) : []),
       ];
     };
@@ -284,7 +321,7 @@ module.exports = {
     const candidature = await findCandidature(strapi, ctx.params.documentId);
     if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
 
-    const [instructionCompletude, instructionEligibilite, typePieces, criteres, parametres, actes, complements] = await Promise.all([
+    const [instructionCompletude, instructionEligibilite, typePieces, criteres, parametres, actes, complements, enCours] = await Promise.all([
       findInstruction(strapi, 'api::instruction-completude.instruction-completude', candidature.documentId),
       findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId),
       strapi.documents('api::type-piece.type-piece').findMany({ sort: ['ordre:asc'], limit: 100 }),
@@ -297,13 +334,14 @@ module.exports = {
       strapi.documents('api::complement.complement').findMany({
         filters: { candidature: { documentId: candidature.documentId } }, populate: { fichier: true }, sort: ['createdAt:asc'], limit: 100,
       }),
+      chargerDemandeEnCours(strapi, candidature.documentId),
     ]);
 
     // Fichiers reellement deposes, resolus depuis les `fileId` de donneesProjet.
     const piecesFichiers = await resolvePiecesFichiers(strapi, candidature.donneesProjet);
 
     const contradictionsCompletude = instructionCompletude
-      ? detecterContradictionsCompletude({ instruction: instructionCompletude, candidature, typePieces, complementsFournis: complements })
+      ? detecterContradictionsCompletude({ instruction: instructionCompletude, candidature, typePieces, complementsFournis: complements, dejaDemandees: instructionCompletude.complementsProposes?.dejaDemandees || (enCours.active ? enCours.libelles : []) })
       : [];
     const contradictionsEligibilite = instructionEligibilite
       ? detecterContradictionsEligibilite({ instruction: instructionEligibilite, criteres })
@@ -322,6 +360,9 @@ module.exports = {
         notificationDecisionUrl: candidature.notificationDecision?.url || null,
         contradictionsCompletude,
         contradictionsEligibilite,
+        // Pieces deja reclamees au candidat et encore attendues : tant que `active`, l'instructeur
+        // ne peut que completer la demande (voir controlerDemandeEnCours).
+        demandeEnCours: { active: enCours.active, echeance: enCours.echeance, pieces: enCours.libelles },
         instructionCompletude: instructionCompletude
           ? {
               documentId: instructionCompletude.documentId,
@@ -457,13 +498,24 @@ module.exports = {
 
     // Gardes serveur (C3) : compléments exige >= 1 pièce fautive ; rejet exige un motif.
     const parametres = await getParametres(strapi);
+    const [enCours, { typePieces, complementsFournis }] = await Promise.all([
+      chargerDemandeEnCours(strapi, candidature.documentId),
+      chargerContexteCompletude(strapi, candidature.documentId),
+    ]);
     let complementsProposes = null;
+    if (verdictGlobal !== 'complements') {
+      const { erreur } = controlerDemandeEnCours({ verdictGlobal, piecesIds: [], typePieces, enCours });
+      if (erreur) return ctx.badRequest(erreur);
+    }
     if (verdictGlobal === 'complements') {
       const fautives = Object.values(verdictsPieces).filter((v) => v?.etat === 'absente' || v?.etat === 'non_conforme');
-      const pieces = Array.isArray(payload.complementsProposes?.pieces) ? payload.complementsProposes.pieces : [];
-      if (fautives.length === 0 || pieces.length === 0) {
+      const piecesCochees = Array.isArray(payload.complementsProposes?.pieces) ? payload.complementsProposes.pieces : [];
+      if (fautives.length === 0 || piecesCochees.length === 0) {
         return ctx.badRequest('Une demande de complements exige au moins une piece absente ou non conforme.');
       }
+      // Demande deja en cours : on ne garde que les pieces nouvelles.
+      const { erreur, nouvelles: pieces } = controlerDemandeEnCours({ verdictGlobal, piecesIds: piecesCochees, typePieces, enCours });
+      if (erreur) return ctx.badRequest(erreur);
       // Le cabinet propose une DUREE en jours ouvres, plus une date : l'echeance reelle est
       // calculee a la validation UGP, quand le candidat est notifie. `echeance` n'est conservee
       // qu'a titre indicatif (ce que l'instructeur avait sous les yeux).
@@ -476,6 +528,8 @@ module.exports = {
       }
       complementsProposes = {
         pieces,
+        // Pieces deja attendues au moment de la proposition : affichees a l'UGP, jamais renvoyees.
+        dejaDemandees: enCours.active ? enCours.libelles : [],
         delaiJours,
         echeanceIndicative: ajouterJoursOuvres(aujourdHui(), delaiJours),
         message: payload.complementsProposes?.message || '',
@@ -509,8 +563,7 @@ module.exports = {
       await strapi.documents('api::instruction-completude.instruction-completude').create({ data: { ...data, candidature: connectRelation(candidature) } });
     }
 
-    const { typePieces, complementsFournis } = await chargerContexteCompletude(strapi, candidature.documentId);
-    const contradictions = detecterContradictionsCompletude({ instruction: data, candidature, typePieces, complementsFournis });
+    const contradictions = detecterContradictionsCompletude({ instruction: data, candidature, typePieces, complementsFournis, dejaDemandees: enCours.active ? enCours.libelles : [] });
     const delaiTexte = complementsProposes ? ` — delai propose : ${complementsProposes.delaiJours} jour(s) ouvre(s) a compter de la validation` : '';
     await journal(strapi, candidature.documentId, { auteurUser: user, type: 'proposition_completude', texte: `Verdict de completude propose : ${verdictGlobal}${delaiTexte}${contradictions.length ? ` — a arbitrer (${contradictions.length} contradiction(s))` : ''} — observations a l'attention de l'UGP : « ${data.observationsUgp} »` });
     ctx.body = { ok: true };
@@ -534,8 +587,15 @@ module.exports = {
       verdictsPieces: payload.verdictsPieces && typeof payload.verdictsPieces === 'object' ? payload.verdictsPieces : {},
       complementsProposes: payload.verdictGlobal === 'complements' ? payload.complementsProposes || null : null,
     };
-    const { typePieces, complementsFournis } = await chargerContexteCompletude(strapi, candidature.documentId);
-    ctx.body = { data: { contradictions: detecterContradictionsCompletude({ instruction, candidature, typePieces, complementsFournis }) } };
+    const [enCours, { typePieces, complementsFournis }] = await Promise.all([
+      chargerDemandeEnCours(strapi, candidature.documentId),
+      chargerContexteCompletude(strapi, candidature.documentId),
+    ]);
+    const piecesIds = Array.isArray(instruction.complementsProposes?.pieces) ? instruction.complementsProposes.pieces : [];
+    const { erreur } = controlerDemandeEnCours({ verdictGlobal: payload.verdictGlobal, piecesIds, typePieces, enCours });
+    if (erreur) return ctx.badRequest(erreur);
+    const dejaDemandees = enCours.active ? enCours.libelles : [];
+    ctx.body = { data: { contradictions: detecterContradictionsCompletude({ instruction, candidature, typePieces, complementsFournis, dejaDemandees }) } };
   },
 
   async renvoyerCompletude(ctx) {
@@ -581,6 +641,9 @@ module.exports = {
     let echeance = null;
     let delaiJours = null;
     let echeanceForcee = false;
+    // Pieces deja reclamees et encore attendues : jamais recreees (garde de derniere ligne, meme
+    // si la proposition a ete faite avant ce controle ou par un autre chemin).
+    const enCours = verdict === 'complements' ? await chargerDemandeEnCours(strapi, candidature.documentId) : null;
     if (verdict === 'complements') {
       delaiJours = delaiPropose(instruction.complementsProposes, parametres);
       echeance = ajouterJoursOuvres(aujourdHui(), delaiJours);
@@ -613,19 +676,41 @@ module.exports = {
       } else if (verdict === 'complements') {
         const proposes = instruction.complementsProposes || {};
         const pieceIds = Array.isArray(proposes.pieces) ? proposes.pieces : [];
+        const existantes = new Map((enCours?.pieces || []).map((c) => [clePiece(c.pieceDemandee), c]));
+        const envoyees = []; // pieces qui partent au candidat (nouvelles ou relancees)
+        const ignorees = []; // deja attendues, echeance en cours : rien a renvoyer
         // Une entree `complement` par piece demandee (libelle depuis le referentiel type-piece).
         for (const pieceId of pieceIds) {
           const piece = await strapi.documents('api::type-piece.type-piece').findOne({ documentId: pieceId });
-          await strapi.documents('api::complement.complement').create({
-            data: { candidature: connectRelation(candidature), pieceDemandee: piece?.libelle || 'Piece complementaire', echeance, delaiJours, statut: 'demande' },
-          });
+          const libelle = piece?.libelle || 'Piece complementaire';
+          const existante = existantes.get(clePiece(libelle));
+          if (!existante) {
+            await strapi.documents('api::complement.complement').create({
+              data: { candidature: connectRelation(candidature), pieceDemandee: libelle, echeance, delaiJours, statut: 'demande' },
+            });
+            envoyees.push(libelle);
+          } else if (existante.echeance && String(existante.echeance).slice(0, 10) < aujourdHui()) {
+            // Demandee autrefois, echeance depassee : on relance la MEME ligne avec la nouvelle date.
+            await strapi.documents('api::complement.complement').update({ documentId: existante.documentId, data: { echeance, delaiJours } });
+            envoyees.push(libelle);
+          } else {
+            ignorees.push(libelle);
+          }
         }
+        const detail = ignorees.length ? ` ; deja attendue(s), non renvoyee(s) : ${ignorees.join(', ')}` : '';
         await journal(strapi, candidature.documentId, {
           auteurUser: user,
           type: 'validation_completude',
-          texte: `Complements demandes — complement(s) crees + notification, echeance fixee au ${echeance} (${delaiJours} jour(s) ouvre(s)${echeanceForcee ? ', date imposee par l’UGP' : ` — delai propose par l’instructeur`})`,
+          texte: envoyees.length
+            ? `Complements demandes — ${envoyees.length} piece(s) + notification, echeance fixee au ${echeance} (${delaiJours} jour(s) ouvre(s)${echeanceForcee ? ', date imposee par l’UGP' : ` — delai propose par l’instructeur`})${detail}`
+            : `Complements valides sans nouvelle piece — aucune notification${detail}`,
         });
-        notif = { sujet: 'Piece(s) complementaire(s) demandee(s)', corps: `Votre dossier ${candidature.numeroDossier} necessite des pieces complementaires. Merci de les deposer avant le ${formatJour(echeance)} depuis le suivi de votre dossier.${proposes.message ? ' ' + proposes.message : ''}` };
+        if (envoyees.length) {
+          notif = {
+            sujet: 'Piece(s) complementaire(s) demandee(s)',
+            corps: `Votre dossier ${candidature.numeroDossier} necessite des pieces complementaires : ${envoyees.join(', ')}. Merci de les deposer avant le ${formatJour(echeance)} depuis le suivi de votre dossier.${proposes.message ? ' ' + proposes.message : ''}`,
+          };
+        }
       } else if (verdict === 'rejet') {
         const nonRetenu = await getStatutByCode(strapi, 'non_retenu');
         await strapi.documents('api::candidature.candidature').update({

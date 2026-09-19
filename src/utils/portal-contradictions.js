@@ -38,7 +38,9 @@ function aUnFichier(piece, donneesProjet, complementsFournis) {
 
 // instruction : { verdictGlobal, verdictsPieces, complementsProposes }
 // candidature : { dateDepot, donneesProjet }
-function detecterContradictionsCompletude({ instruction, candidature, typePieces, complementsFournis }) {
+// `dejaDemandees` : libelles des pieces deja reclamees au candidat et encore attendues. Une piece
+// fautive qui en fait partie n'a pas a figurer dans la nouvelle demande (elle est deja en cours).
+function detecterContradictionsCompletude({ instruction, candidature, typePieces, complementsFournis, dejaDemandees = [] }) {
   const verdict = instruction?.verdictGlobal;
   if (!verdict) return [];
   const constats = instruction.verdictsPieces && typeof instruction.verdictsPieces === 'object' ? instruction.verdictsPieces : {};
@@ -46,13 +48,15 @@ function detecterContradictionsCompletude({ instruction, candidature, typePieces
   const obligatoires = piecesObligatoiresApplicables(typePieces, candidature?.dateDepot);
   const out = [];
   const etat = (p) => constats[p.documentId]?.etat;
+  const enCours = new Set((dejaDemandees || []).map((l) => String(l || '').trim().toLowerCase()));
+  const dejaEnCours = (p) => enCours.has(String(p.libelle || '').trim().toLowerCase());
 
   for (const p of obligatoires) {
     const e = etat(p);
     if (verdict === 'complet' && FAUTIVES.includes(e)) {
       out.push({ code: 'C1', message: `Déclaré complet alors que « ${p.libelle} » est marquée ${ETAT_LIBELLE[e]}.` });
     }
-    if (verdict === 'complements' && FAUTIVES.includes(e) && !demandees.has(p.documentId)) {
+    if (verdict === 'complements' && FAUTIVES.includes(e) && !demandees.has(p.documentId) && !dejaEnCours(p)) {
       out.push({ code: 'C2', message: `« ${p.libelle} » est marquée ${ETAT_LIBELLE[e]} mais n'est pas demandée au candidat.` });
     }
     if (e === 'presente' && !aUnFichier(p, candidature?.donneesProjet, complementsFournis)) {
