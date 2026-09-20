@@ -800,6 +800,62 @@ module.exports = {
   },
 
   // ===========================================================================
+  // REOUVERTURE DE LA COMPLETUDE (ugp) — depuis l'etape eligibilite.
+  // Cas rencontre le 20/09 : une piece non conforme decouverte APRES la validation « complet ».
+  // Aucun ecran ne permettait de revenir en arriere ; l'UGP devait laisser passer le dossier.
+  //
+  // Le travail d'eligibilite deja fait est INTOUCHABLE : cette route ne touche ni l'instruction
+  // d'eligibilite ni ses constats. Ils sont reecrits nulle part et n'ont pas d'historique ; les
+  // perdre obligerait a recoter le dossier critere par critere. La validation « complet » qui
+  // suivra ne recree une instruction d'eligibilite que s'il n'en existe aucune (voir plus haut).
+  // ===========================================================================
+  async rouvrirCompletude(ctx) {
+    const user = requireRole(ctx, ['ugp']);
+    if (!user) return;
+
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.statut?.phase !== 'eligibilite') {
+      return ctx.badRequest("La reouverture n'est possible que depuis l'etape d'eligibilite.");
+    }
+
+    const motif = String(ctx.request.body?.data?.motif || '').trim();
+    if (!motif) return ctx.badRequest('La reouverture doit etre motivee : precisez ce qui doit etre revu a la completude.');
+
+    const [instructionCompletude, instructionEligibilite] = await Promise.all([
+      findInstruction(strapi, 'api::instruction-completude.instruction-completude', candidature.documentId),
+      findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId),
+    ]);
+    // Deux circuits ne peuvent pas courir sur le meme dossier : la proposition d'eligibilite en
+    // attente doit d'abord etre validee ou renvoyee.
+    if (instructionEligibilite?.workflow === 'propose') {
+      return ctx.badRequest("Une proposition d'eligibilite attend votre validation. Validez-la ou renvoyez-la a l'instructeur avant de rouvrir la completude.");
+    }
+    if (!instructionCompletude?.documentId) return ctx.badRequest('Aucune instruction de completude sur ce dossier.');
+
+    const completude = await getStatutByCode(strapi, 'completude');
+    await strapi.db.transaction(async () => {
+      await strapi.documents('api::candidature.candidature').update({
+        documentId: candidature.documentId,
+        data: { statut: connectRelation(completude) },
+      });
+      // Meme etat qu'un renvoi ordinaire : l'instructeur retrouve le dossier « a reprendre »,
+      // avec ses constats pieces par piece et le motif affiche en bandeau.
+      await strapi.documents('api::instruction-completude.instruction-completude').update({
+        documentId: instructionCompletude.documentId,
+        data: { workflow: 'renvoye', commentaireRenvoi: motif },
+      });
+      await journal(strapi, candidature.documentId, {
+        auteurUser: user,
+        type: 'reouverture_completude',
+        texte: `Completude rouverte depuis l'eligibilite : « ${motif} » — constats d'eligibilite conserves, candidat non notifie`,
+      });
+    });
+
+    ctx.body = { ok: true };
+  },
+
+  // ===========================================================================
   // C4 — ELIGIBILITE : proposer (instructeur) -> valider/renvoyer (ugp).
   // ===========================================================================
   async proposerEligibilite(ctx) {
