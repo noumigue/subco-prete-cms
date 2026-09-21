@@ -20,6 +20,8 @@
     "bande": { "type": "string" },
     "statut": { "type": "enumeration", "enum": ["en_cours", "figee"], "default": "en_cours" },
     "figeePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
-    "figeeLe": { "type": "datetime" }
+    "figeeLe": { "type": "datetime" },
+    "arbitrageEs": { "type": "enumeration", "enum": ["conforme", "non_conforme"] },
+    "arbitrageEsMotif": { "type": "text" }
   }
 }

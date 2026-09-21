@@ -350,6 +350,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-evaluation.consolidationDetail',
     'api::gestion.gestion-evaluation.harmoniser',
     'api::gestion.gestion-evaluation.troisiemeEvaluateur',
+    'api::gestion.gestion-evaluation.arbitrerEs',
     'api::gestion.gestion-evaluation.figer',
   ];
   // Phase 3 (actes de subvention) — Cabinet dépose les avis techniques ; l'UGP valide/décide/signe.

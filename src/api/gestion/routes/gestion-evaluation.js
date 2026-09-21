@@ -18,6 +18,7 @@ module.exports = {
     { method: 'GET', path: '/gestion/dossiers/:documentId/consolidation', handler: 'gestion-evaluation.consolidationDetail', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/consolidation/harmoniser', handler: 'gestion-evaluation.harmoniser', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/consolidation/troisieme', handler: 'gestion-evaluation.troisiemeEvaluateur', config: { policies: [] } },
+    { method: 'POST', path: '/gestion/dossiers/:documentId/consolidation/arbitrer-es', handler: 'gestion-evaluation.arbitrerEs', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/consolidation/figer', handler: 'gestion-evaluation.figer', config: { policies: [] } },
   ],
 };
