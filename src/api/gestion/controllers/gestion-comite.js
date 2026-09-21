@@ -94,15 +94,34 @@ async function buildDossierList(strapi, appel, params) {
   return items;
 }
 
-// Jointure avec `evaluation-dossier` (créé à la volée, reco pré-remplie depuis la bande).
+// Forces / faiblesses des fiches soumises (rang 1, 2, 3), sans doublon : pre-remplissage du
+// rapport (6.3.3) que le Cabinet synthetise ensuite.
+async function forcesFaiblessesDesFiches(strapi, candidatureDocumentId) {
+  const fiches = await strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
+    filters: { candidature: { documentId: candidatureDocumentId }, statut: 'soumise' }, sort: ['rang:asc'], limit: 10,
+  });
+  const uniq = (key) => {
+    const seen = new Set(); const out = [];
+    for (const f of fiches) for (const l of (Array.isArray(f[key]) ? f[key] : [])) {
+      const t = String(l || '').trim(); const k = t.toLowerCase();
+      if (t && !seen.has(k)) { seen.add(k); out.push(t); }
+    }
+    return out;
+  };
+  return { forces: uniq('forces'), faiblesses: uniq('faiblesses') };
+}
+
+// Jointure avec `evaluation-dossier` (créé à la volée, reco pré-remplie depuis la bande,
+// forces/faiblesses pré-remplies depuis les fiches des évaluateurs).
 async function ensureAndJoin(strapi, appel, params) {
   const list = await buildDossierList(strapi, appel, params);
   const out = [];
   for (const it of list) {
     let ed = await findEvalDossier(strapi, it.candidatureDocumentId);
     if (!ed) {
+      const ff = await forcesFaiblessesDesFiches(strapi, it.candidatureDocumentId);
       ed = await strapi.documents('api::evaluation-dossier.evaluation-dossier').create({
-        data: { candidature: { connect: [it.candidatureDocumentId] }, rang: it.rang, reco: recoFromScore(it.totalHorsBonus, params), conditions: [], forces: [], faiblesses: [] },
+        data: { candidature: { connect: [it.candidatureDocumentId] }, rang: it.rang, reco: recoFromScore(it.totalHorsBonus, params), conditions: [], forces: ff.forces, faiblesses: ff.faiblesses },
       });
     } else if (ed.rang !== it.rang) {
       ed = await strapi.documents('api::evaluation-dossier.evaluation-dossier').update({ documentId: ed.documentId, data: { rang: it.rang } });

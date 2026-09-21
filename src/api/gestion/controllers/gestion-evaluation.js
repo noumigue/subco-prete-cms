@@ -90,6 +90,12 @@ async function ensureConsolidationEnCours(strapi, candidature) {
   });
 }
 
+// Forces / faiblesses (Manuel 6.3.3) : liste de lignes non vides, bornee (20 x 400 car.).
+function cleanLignes(v) {
+  const arr = Array.isArray(v) ? v : typeof v === 'string' ? v.split('\n') : [];
+  return arr.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 20).map((x) => x.slice(0, 400));
+}
+
 // Porte E&S (A6) sur les fiches SOUMISES. Désaccord = au moins une « conforme » ET au moins une
 // « non conforme » : tant que l'UGP n'a pas arbitré, le figeage est bloqué (sinon la consolidation
 // se calculait sur la seule fiche notée, en silence). Projet écarté = arbitrage « non conforme »,
@@ -170,6 +176,7 @@ module.exports = {
         fiche: fiche ? {
           coiDeclare: !!fiche.coiDeclare, esConforme: fiche.esConforme ?? null,
           notes: fiche.notes || {}, bonus: fiche.bonus || {}, statut: fiche.statut, signeLe: fiche.signeLe || null,
+          forces: cleanLignes(fiche.forces), faiblesses: cleanLignes(fiche.faiblesses),
         } : null,
         bareme: { blocA: bareme.blocA, blocB: bareme.blocB, bonus: bareme.bonus, porteEs: bareme.all.find((c) => c.type === 'eliminatoire') || null },
         parametres: { seuilBase: params.seuilBase, bandes: params.bandes, porteEsDifferee: params.porteEsDifferee },
@@ -231,7 +238,9 @@ module.exports = {
     await strapi.documents('api::fiche-scoring.fiche-scoring').update({
       documentId: fiche.documentId,
       // Porte differee : l'E&S reste « non evaluee » (null), jamais « conforme » par defaut.
-      data: { esConforme: paramsEs.porteEsDifferee ? null : (payload.esConforme ?? fiche.esConforme ?? null), notes, bonus, coiDeclare: true },
+      data: { esConforme: paramsEs.porteEsDifferee ? null : (payload.esConforme ?? fiche.esConforme ?? null), notes, bonus, coiDeclare: true,
+        ...(payload.forces !== undefined ? { forces: cleanLignes(payload.forces) } : {}),
+        ...(payload.faiblesses !== undefined ? { faiblesses: cleanLignes(payload.faiblesses) } : {}) },
     });
     ctx.body = { ok: true };
   },
@@ -262,7 +271,12 @@ module.exports = {
     const rawBonus = payload.bonus && Object.keys(payload.bonus).length ? payload.bonus : (fiche.bonus || {});
     const notes = {};
     const bonus = {};
+    const forces = cleanLignes(payload.forces !== undefined ? payload.forces : fiche.forces);
+    const faiblesses = cleanLignes(payload.faiblesses !== undefined ? payload.faiblesses : fiche.faiblesses);
     if (esConforme === true || porteDifferee) {
+      // 6.3.3 : le rapport doit analyser forces et faiblesses ; la matiere vient des fiches.
+      if (!forces.length) return ctx.badRequest('Indiquez au moins une force du dossier.');
+      if (!faiblesses.length) return ctx.badRequest('Indiquez au moins une faiblesse du dossier.');
       for (const c of bareme.notes) {
         const entry = rawNotes[c.code];
         const raw = entry && typeof entry === 'object' ? entry.note : entry;
@@ -285,7 +299,7 @@ module.exports = {
 
     await strapi.documents('api::fiche-scoring.fiche-scoring').update({
       documentId: fiche.documentId,
-      data: { esConforme, notes, bonus, statut: 'soumise', signeLe: new Date().toISOString(), signePar: { connect: [user.id] } },
+      data: { esConforme, notes, bonus, forces, faiblesses, statut: 'soumise', signeLe: new Date().toISOString(), signePar: { connect: [user.id] } },
     });
     await journal(strapi, candidature.documentId, { auteurUser: user, type: 'fiche_soumise', texte: `Fiche de scoring soumise & signee (evaluateur ${fiche.rang})${esConforme === false ? ' — projet ecarte a la porte E&S' : porteDifferee ? ' — E&S non evaluee (porte differee, a verifier avant le comite)' : ''}` });
 
@@ -422,6 +436,7 @@ module.exports = {
         organisation: candidature.organisation ? { nom: candidature.organisation.nom } : null,
         evaluateur1Nom: displayName(r1.evaluateur), evaluateur2Nom: displayName(r2.evaluateur), aTroisieme: !!r3,
         rows, bonusRows, totals, ecartsNonTraites, ecartPct: params.ecartPct, porteEs,
+        forcesFaiblesses: soumisesOrdered.map((f) => ({ rang: f.rang, nom: displayName(f.evaluateur), forces: cleanLignes(f.forces), faiblesses: cleanLignes(f.faiblesses) })),
         statut: cons?.statut || 'en_cours',
         evaluateurs: await listEvaluateurs(strapi),
       },

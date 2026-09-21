@@ -16,6 +16,8 @@
     "esConforme": { "type": "boolean" },
     "notes": { "type": "json" },
     "bonus": { "type": "json" },
+    "forces": { "type": "json" },
+    "faiblesses": { "type": "json" },
     "statut": { "type": "enumeration", "enum": ["brouillon", "soumise"], "default": "brouillon" },
     "signeLe": { "type": "datetime" },
     "signePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" }
