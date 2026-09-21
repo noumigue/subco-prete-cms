@@ -83,6 +83,7 @@ function buildRapportPdf({ appel, dossiers }) {
     doc.moveDown(0.8);
     dossiers.forEach((d) => {
       doc.font('Helvetica-Bold').fontSize(10).fillColor(PINE).text(`${d.rang}. ${d.op} — ${d.proj}  (${d.totalFinal}/100, ${d.bande})`);
+      if (d.esStatut === 'differee') doc.font('Helvetica-Bold').fontSize(9).fillColor('#8a6d1f').text('Conformite E&S : a verifier avant le comite (porte E&S differee a l\'evaluation).');
       if (d.forces?.length) doc.font('Helvetica').fontSize(9).fillColor(INK).text('Forces : ' + d.forces.join(' ; '));
       if (d.faiblesses?.length) doc.font('Helvetica').fontSize(9).fillColor(INK).text('Faiblesses : ' + d.faiblesses.join(' ; '));
       if (d.motifReco) doc.font('Helvetica-Oblique').fontSize(9).fillColor(MUTED).text('Motif : ' + d.motifReco);

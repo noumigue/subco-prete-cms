@@ -31,6 +31,8 @@ async function getParams(strapi) {
     seuilBase: p?.seuilBase ?? 60,
     ecartPct: p?.ecartPct != null ? Number(p.ecartPct) : 0.2,
     bandes: Array.isArray(p?.bandes) && p.bandes.length ? p.bandes : DEFAULT_BANDES,
+    // « differee » : la porte E&S (A6) n'est pas tranchee a l'evaluation ; elle est verifiee avant le comite.
+    porteEsDifferee: p?.porteEsMode === 'differee',
   };
 }
 

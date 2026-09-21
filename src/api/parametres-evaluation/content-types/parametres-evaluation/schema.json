@@ -11,6 +11,7 @@
   "attributes": {
     "seuilBase": { "type": "integer", "default": 60 },
     "ecartPct": { "type": "decimal", "default": 0.2 },
-    "bandes": { "type": "json" }
+    "bandes": { "type": "json" },
+    "porteEsMode": { "type": "enumeration", "enum": ["active", "differee"], "default": "active" }
   }
 }

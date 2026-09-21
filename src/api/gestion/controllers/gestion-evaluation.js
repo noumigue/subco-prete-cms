@@ -94,7 +94,11 @@ async function ensureConsolidationEnCours(strapi, candidature) {
 // « non conforme » : tant que l'UGP n'a pas arbitré, le figeage est bloqué (sinon la consolidation
 // se calculait sur la seule fiche notée, en silence). Projet écarté = arbitrage « non conforme »,
 // ou, sans arbitrage, toutes les fiches soumises « non conforme ».
-function etatPorteEs(soumises, cons) {
+function etatPorteEs(soumises, cons, differee = false) {
+  if (differee) {
+    // Porte differee (decision UGP 21/09) : ni desaccord ni ecartement a l'evaluation.
+    return { conformes: [], nonConformes: [], arbitrage: null, motif: null, desaccordNonArbitre: false, ecarte: false, differee: true };
+  }
   const conformes = soumises.filter((f) => f.esConforme === true);
   const nonConformes = soumises.filter((f) => f.esConforme === false);
   const arbitrage = cons?.arbitrageEs || null;
@@ -107,6 +111,7 @@ function etatPorteEs(soumises, cons) {
     motif: cons?.arbitrageEsMotif || null,
     desaccordNonArbitre: desaccord && !arbitrage,
     ecarte,
+    differee: false,
   };
 }
 
@@ -167,7 +172,7 @@ module.exports = {
           notes: fiche.notes || {}, bonus: fiche.bonus || {}, statut: fiche.statut, signeLe: fiche.signeLe || null,
         } : null,
         bareme: { blocA: bareme.blocA, blocB: bareme.blocB, bonus: bareme.bonus, porteEs: bareme.all.find((c) => c.type === 'eliminatoire') || null },
-        parametres: { seuilBase: params.seuilBase, bandes: params.bandes },
+        parametres: { seuilBase: params.seuilBase, bandes: params.bandes, porteEsDifferee: params.porteEsDifferee },
         // Porte E&S arbitree « conforme » par l'UGP : l'evaluateur ne peut plus conclure « non conforme ».
         arbitrageEs: cons?.arbitrageEs || null,
         arbitrageEsMotif: cons?.arbitrageEsMotif || null,
@@ -220,12 +225,13 @@ module.exports = {
     if (fiche.statut === 'soumise') return ctx.badRequest('Fiche deja soumise, non modifiable.');
 
     const payload = ctx.request.body?.data || {};
-    const bareme = await getBareme(strapi);
+    const [bareme, paramsEs] = await Promise.all([getBareme(strapi), getParams(strapi)]);
     const { notes, bonus } = sanitizeNotes(bareme, payload.notes, payload.bonus);
 
     await strapi.documents('api::fiche-scoring.fiche-scoring').update({
       documentId: fiche.documentId,
-      data: { esConforme: payload.esConforme ?? fiche.esConforme ?? null, notes, bonus, coiDeclare: true },
+      // Porte differee : l'E&S reste « non evaluee » (null), jamais « conforme » par defaut.
+      data: { esConforme: paramsEs.porteEsDifferee ? null : (payload.esConforme ?? fiche.esConforme ?? null), notes, bonus, coiDeclare: true },
     });
     ctx.body = { ok: true };
   },
@@ -241,9 +247,10 @@ module.exports = {
     if (!fiche.coiDeclare) return ctx.badRequest("Declaration de conflit d'interets requise (E2).");
 
     const payload = ctx.request.body?.data || {};
-    const bareme = await getBareme(strapi);
-    const esConforme = payload.esConforme ?? fiche.esConforme;
-    if (esConforme == null) return ctx.badRequest('La porte E&S (A6) doit etre renseignee avant soumission.');
+    const [bareme, paramsEs] = await Promise.all([getBareme(strapi), getParams(strapi)]);
+    const porteDifferee = paramsEs.porteEsDifferee;
+    const esConforme = porteDifferee ? null : (payload.esConforme ?? fiche.esConforme);
+    if (!porteDifferee && esConforme == null) return ctx.badRequest('La porte E&S (A6) doit etre renseignee avant soumission.');
     if (esConforme === false) {
       const consEs = await findConsolidation(strapi, candidature.documentId);
       if (consEs?.arbitrageEs === 'conforme') return ctx.badRequest("L'UGP a arbitre la porte E&S : le projet est conforme. Notez-le critere par critere.");
@@ -255,7 +262,7 @@ module.exports = {
     const rawBonus = payload.bonus && Object.keys(payload.bonus).length ? payload.bonus : (fiche.bonus || {});
     const notes = {};
     const bonus = {};
-    if (esConforme === true) {
+    if (esConforme === true || porteDifferee) {
       for (const c of bareme.notes) {
         const entry = rawNotes[c.code];
         const raw = entry && typeof entry === 'object' ? entry.note : entry;
@@ -280,7 +287,7 @@ module.exports = {
       documentId: fiche.documentId,
       data: { esConforme, notes, bonus, statut: 'soumise', signeLe: new Date().toISOString(), signePar: { connect: [user.id] } },
     });
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'fiche_soumise', texte: `Fiche de scoring soumise & signee (evaluateur ${fiche.rang})${esConforme === false ? ' — projet ecarte a la porte E&S' : ''}` });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'fiche_soumise', texte: `Fiche de scoring soumise & signee (evaluateur ${fiche.rang})${esConforme === false ? ' — projet ecarte a la porte E&S' : porteDifferee ? ' — E&S non evaluee (porte differee, a verifier avant le comite)' : ''}` });
 
     // Double soumission (rang 1 & 2) -> consolidation en_cours (visibilite ouverte, E3 levee).
     const fiches = await findFiches(strapi, candidature.documentId);
@@ -381,7 +388,7 @@ module.exports = {
     const harmon = cons?.notesRetenues || {};
     const r3 = fiches.find((f) => f.rang === 3 && f.statut === 'soumise');
     const soumisesOrdered = [r1, r2, ...(r3 ? [r3] : [])];
-    const porteEs = etatPorteEs(soumisesOrdered, cons);
+    const porteEs = etatPorteEs(soumisesOrdered, cons, params.porteEsDifferee);
     // Seules les fiches « conforme » portent des notes ; projet ecarte -> aucune note retenue.
     const notees = porteEs.ecarte ? [] : soumisesOrdered.filter((f) => f.esConforme !== false);
 
@@ -485,6 +492,8 @@ module.exports = {
     if (cons.statut === 'figee') return ctx.badRequest('Consolidation figee.');
     const fiches = await findFiches(strapi, candidature.documentId);
     const soumises = fiches.filter((f) => f.statut === 'soumise');
+    const paramsArb = await getParams(strapi);
+    if (paramsArb.porteEsDifferee) return ctx.badRequest("Porte E&S differee : elle n'est pas tranchee a l'evaluation.");
     const porteEs = etatPorteEs(soumises, cons);
     if (!porteEs.desaccordNonArbitre) return ctx.badRequest('Aucun desaccord E&S a arbitrer sur ce dossier.');
 
@@ -521,11 +530,12 @@ module.exports = {
     const r2 = fiches.find((f) => f.rang === 2 && f.statut === 'soumise');
     const r3 = fiches.find((f) => f.rang === 3 && f.statut === 'soumise');
     if (!r1 || !r2) return ctx.badRequest('Les deux fiches doivent etre soumises.');
+    const figerDifferee = params.porteEsDifferee;
     const harmon = cons.notesRetenues || {};
     const soumises = [r1, r2, ...(r3 ? [r3] : [])];
 
     // Figeage refuse tant que les evaluateurs divergent sur la porte E&S sans arbitrage UGP.
-    const porteEs = etatPorteEs(soumises, cons);
+    const porteEs = etatPorteEs(soumises, cons, figerDifferee);
     if (porteEs.desaccordNonArbitre) return ctx.badRequest('Desaccord E&S a arbitrer : les evaluateurs divergent sur la porte E&S (A6).');
     const notees = porteEs.ecarte ? [] : soumises.filter((f) => f.esConforme !== false);
 
@@ -549,9 +559,10 @@ module.exports = {
       data: {
         notesRetenues, statut: 'figee', figeePar: { connect: [user.id] }, figeeLe: new Date().toISOString(),
         totalA: totals.totalA, totalB: totals.totalB, bonus: totals.bonus, totalHorsBonus: totals.totalHorsBonus, totalFinal: totals.totalFinal, bande: totals.bande,
+        porteEsStatut: porteEs.differee ? 'differee' : porteEs.ecarte ? 'non_conforme' : 'conforme',
       },
     });
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'figeage', texte: `Consolidation figee — ${porteEs.ecarte ? 'projet ecarte a la porte E&S — ' : ''}total ${totals.totalHorsBonus}/100 (+${totals.bonus} bonus) · ${totals.bande}` });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'figeage', texte: `Consolidation figee — ${porteEs.ecarte ? 'projet ecarte a la porte E&S — ' : porteEs.differee ? 'conformite E&S a verifier avant le comite — ' : ''}total ${totals.totalHorsBonus}/100 (+${totals.bonus} bonus) · ${totals.bande}` });
     ctx.body = { ok: true, totals };
   },
 };

@@ -863,9 +863,9 @@ async function ensureReferentials(strapi) {
   ];
   const paramEval = await strapi.documents('api::parametres-evaluation.parametres-evaluation').findFirst({});
   if (paramEval?.documentId) {
-    await strapi.documents('api::parametres-evaluation.parametres-evaluation').update({ documentId: paramEval.documentId, data: { seuilBase: paramEval.seuilBase ?? 60, ecartPct: paramEval.ecartPct ?? 0.2, bandes: Array.isArray(paramEval.bandes) && paramEval.bandes.length ? paramEval.bandes : bandes } });
+    await strapi.documents('api::parametres-evaluation.parametres-evaluation').update({ documentId: paramEval.documentId, data: { seuilBase: paramEval.seuilBase ?? 60, ecartPct: paramEval.ecartPct ?? 0.2, bandes: Array.isArray(paramEval.bandes) && paramEval.bandes.length ? paramEval.bandes : bandes, porteEsMode: paramEval.porteEsMode ?? 'differee' } });
   } else {
-    await strapi.documents('api::parametres-evaluation.parametres-evaluation').create({ data: { seuilBase: 60, ecartPct: 0.2, bandes } });
+    await strapi.documents('api::parametres-evaluation.parametres-evaluation').create({ data: { seuilBase: 60, ecartPct: 0.2, bandes, porteEsMode: 'differee' } });
   }
 
   // Paramètres du Comité (temps 2 — F3 : quorum éditable, placeholder 5 à confirmer UGP §8.10).

@@ -22,6 +22,7 @@
     "figeePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
     "figeeLe": { "type": "datetime" },
     "arbitrageEs": { "type": "enumeration", "enum": ["conforme", "non_conforme"] },
-    "arbitrageEsMotif": { "type": "text" }
+    "arbitrageEsMotif": { "type": "text" },
+    "porteEsStatut": { "type": "enumeration", "enum": ["conforme", "non_conforme", "differee"] }
   }
 }

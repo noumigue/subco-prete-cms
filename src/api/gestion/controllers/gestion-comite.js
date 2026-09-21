@@ -86,7 +86,7 @@ async function buildDossierList(strapi, appel, params) {
       budget, contrepartie, montantSubvention: Math.max(0, budget - contrepartie),
       totalA: Number(c.totalA) || 0, totalB: Number(c.totalB) || 0, bonus: Number(c.bonus) || 0,
       totalHorsBonus: Number(c.totalHorsBonus) || 0, totalFinal: Number(c.totalFinal) || 0, bande: c.bande || '',
-      a5, hasHarmon, tauxContrepartie: budget > 0 ? contrepartie / budget : 0,
+      a5, hasHarmon, esStatut: c.porteEsStatut || null, tauxContrepartie: budget > 0 ? contrepartie / budget : 0,
     });
   }
   items.sort((x, y) => y.totalFinal - x.totalFinal || y.totalA - x.totalA || y.a5 - x.a5 || y.tauxContrepartie - x.tauxContrepartie || y.bonus - x.bonus);
@@ -441,14 +441,14 @@ async function seanceBody(appel) {
     ready: true,
     appel: { documentId: appel.documentId, nom: appel.nom, codeCohorte: appel.codeCohorte },
     rapportPdfUrl: rapport.pdf?.url || null,
-    dossiers: dossiers.map((d) => ({ rang: d.rang, op: d.op, proj: d.proj, totalFinal: d.totalFinal, totalA: d.totalA, totalB: d.totalB, bonus: d.bonus, bande: d.bande, reco: d.reco, forces: d.forces, faiblesses: d.faiblesses, conditions: d.conditions })),
+    dossiers: dossiers.map((d) => ({ rang: d.rang, op: d.op, proj: d.proj, totalFinal: d.totalFinal, totalA: d.totalA, totalB: d.totalB, bonus: d.bonus, bande: d.bande, esStatut: d.esStatut || null, reco: d.reco, forces: d.forces, faiblesses: d.faiblesses, conditions: d.conditions })),
   };
 }
 
 function serializeDossier(d) {
   return {
     candidatureId: d.candidatureDocumentId, rang: d.rang, num: d.num, op: d.op, proj: d.proj,
-    totalA: d.totalA, totalB: d.totalB, bonus: d.bonus, totalHorsBonus: d.totalHorsBonus, totalFinal: d.totalFinal, bande: d.bande, hasHarmon: d.hasHarmon,
+    totalA: d.totalA, totalB: d.totalB, bonus: d.bonus, totalHorsBonus: d.totalHorsBonus, totalFinal: d.totalFinal, bande: d.bande, hasHarmon: d.hasHarmon, esStatut: d.esStatut || null,
     reco: d.reco, motifReco: d.motifReco, conditions: d.conditions, forces: d.forces, faiblesses: d.faiblesses,
     decisionComite: d.decisionComite,
   };
