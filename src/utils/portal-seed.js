@@ -833,21 +833,22 @@ async function ensureReferentials(strapi) {
 
   // ——— Phase 2 : barème d'évaluation (grille §6, éditable — E1 : rien en dur) ———
   // E1 arbitré : A6 (E&S) = porte ELIMINATOIRE non notée ; A5 Impact socio-éco = 15.
+  // Descriptions : texte intégral du Manuel du 21/07 (§6.2.1 à 6.2.3), repris le 21/09.
   const criteresEval = [
-    { code: 'A1', bloc: 'A', libelle: 'Pertinence stratégique', description: 'Alignement PRETE, PAD, priorités nationales, emplois, inclusion', points: 15, type: 'note', ordre: 10 },
-    { code: 'A2', bloc: 'A', libelle: 'Cohérence technique', description: 'Intégration production–transformation–logistique–commercialisation', points: 10, type: 'note', ordre: 20 },
-    { code: 'A3', bloc: 'A', libelle: 'Faisabilité technique', description: 'Maturité, site, technologie, calendrier, conformité réglementaire', points: 10, type: 'note', ordre: 30 },
-    { code: 'A4', bloc: 'A', libelle: 'Viabilité économique', description: "Rentabilité, débouchés, solidité du plan d'affaires", points: 10, type: 'note', ordre: 40 },
-    { code: 'A5', bloc: 'A', libelle: 'Impact socio-économique', description: "Emplois, inclusion, effets d'entraînement local", points: 15, type: 'note', ordre: 50 },
-    { code: 'A6', bloc: 'A', libelle: 'Conformité environnementale et sociale', description: 'Porte préalable éliminatoire (§6.2.1) — non notée', points: 0, type: 'eliminatoire', ordre: 60 },
-    { code: 'B1', bloc: 'B', libelle: 'Conformité juridique et réglementaire', description: 'Statut légal, conformité fiscale et sociale, absence de contentieux', points: 5, type: 'note', ordre: 70 },
-    { code: 'B2', bloc: 'B', libelle: 'Capacité financière', description: 'Solidité, accès aux ressources, mobilisation de la contrepartie', points: 10, type: 'note', ordre: 80 },
+    { code: 'A1', bloc: 'A', libelle: 'Pertinence stratégique', description: 'Alignement du projet avec les objectifs du PRETE, les orientations du PAD, les priorités nationales de développement ainsi que les objectifs de création d’emplois, de transformation économique et d’inclusion poursuivis par le Projet.', points: 15, type: 'note', ordre: 10 },
+    { code: 'A2', bloc: 'A', libelle: 'Cohérence technique', description: 'Logique globale de l’investissement, intégration production–transformation–logistique–commercialisation', points: 10, type: 'note', ordre: 20 },
+    { code: 'A3', bloc: 'A', libelle: 'Faisabilité technique', description: 'Maturité du projet, disponibilité du site, technologie, calendrier, conformité réglementaire', points: 10, type: 'note', ordre: 30 },
+    { code: 'A4', bloc: 'A', libelle: 'Viabilité économique', description: 'Rentabilité prévisionnelle, débouchés, solidité du plan d’affaires', points: 10, type: 'note', ordre: 40 },
+    { code: 'A5', bloc: 'A', libelle: 'Impact socio-économique', description: 'Emplois, inclusion (femmes/jeunes/réfugiés), effets d’entraînement local', points: 15, type: 'note', ordre: 50 },
+    { code: 'A6', bloc: 'A', libelle: 'Conformité environnementale et sociale', description: 'Résultat du screening environnemental et social, conformité aux exigences environnementales et sociales applicables et disponibilité des mesures de gestion requises.', points: 0, type: 'eliminatoire', ordre: 60 },
+    { code: 'B1', bloc: 'B', libelle: 'Conformité juridique et réglementaire', description: 'Statut légal, conformité fiscale et sociale, absence de contentieux majeur', points: 5, type: 'note', ordre: 70 },
+    { code: 'B2', bloc: 'B', libelle: 'Capacité financière', description: 'Solidité financière, accès aux ressources, capacité de mobilisation de la contrepartie', points: 10, type: 'note', ordre: 80 },
     { code: 'B3', bloc: 'B', libelle: 'Capacité technique et managériale', description: 'Expérience, organisation, ressources humaines clés', points: 10, type: 'note', ordre: 90 },
-    { code: 'B4', bloc: 'B', libelle: "Capacité d'exploitation et maintenance (O&M)", description: "Plan d'exploitation, maintenance, modèle opérationnel", points: 10, type: 'note', ordre: 100 },
+    { code: 'B4', bloc: 'B', libelle: "Capacité d'exploitation et maintenance (O&M)", description: 'Plan d’exploitation, maintenance, modèle économique opérationnel', points: 10, type: 'note', ordre: 100 },
     { code: 'B5', bloc: 'B', libelle: 'Gouvernance et transparence', description: 'Organisation, procédures internes, gestion des risques', points: 5, type: 'note', ordre: 110 },
-    { code: 'G', bloc: 'bonus', libelle: 'Genre', description: '≥ 50 % de bénéficiaires femmes ou women-led', points: 5, type: 'note', ordre: 120 },
-    { code: 'J', bloc: 'bonus', libelle: 'Jeunes / réfugiés', description: 'Intégration substantielle de jeunes ou réfugiés', points: 3, type: 'note', ordre: 130 },
-    { code: 'L', bloc: 'bonus', libelle: 'Local / rural', description: 'Impact significatif en zones rurales / fragiles', points: 2, type: 'note', ordre: 140 },
+    { code: 'G', bloc: 'bonus', libelle: 'Genre', description: '≥ 50% des bénéficiaires finaux sont des femmes ou projet women-led', points: 5, type: 'note', ordre: 120 },
+    { code: 'J', bloc: 'bonus', libelle: 'Jeunes / réfugiés', description: 'Intégration substantielle (emplois, gouvernance, bénéficiaires)', points: 3, type: 'note', ordre: 130 },
+    { code: 'L', bloc: 'bonus', libelle: 'Local / rural', description: 'Impact significatif en zones rurales/fragiles', points: 2, type: 'note', ordre: 140 },
   ];
   for (const row of criteresEval) {
     await upsertDocument(strapi, 'api::critere-evaluation.critere-evaluation', { code: row.code }, row);
