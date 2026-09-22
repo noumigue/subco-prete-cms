@@ -31,4 +31,49 @@ async function resolvePiecesFichiers(strapi, donneesProjet) {
   );
 }
 
-module.exports = { resolvePiecesFichiers };
+// Vue « Pieces du dossier » pour les ecrans d'evaluation : une ligne par type de piece du
+// referentiel, avec le fichier depose, le complement recu qui le remplace (le plus recent), ou
+// « non fourni ». Les pieces ajoutees d'elles-memes par le candidat sans type connu vont dans
+// `autres`. Lecture seule. Le rapprochement complement <-> type de piece se fait par libelle :
+// c'est le libelle du referentiel que la demande de complement recopie.
+async function construirePiecesDossier(strapi, candidature) {
+  const cle = (l) => String(l || '').trim().toLowerCase();
+  const [typePieces, fichiers, complements] = await Promise.all([
+    strapi.documents('api::type-piece.type-piece').findMany({ sort: ['ordre:asc'], limit: 100 }),
+    resolvePiecesFichiers(strapi, candidature.donneesProjet),
+    strapi.documents('api::complement.complement').findMany({
+      filters: { candidature: { documentId: candidature.documentId }, statut: 'fourni' },
+      populate: { fichier: true }, sort: ['updatedAt:desc'], limit: 100,
+    }),
+  ]);
+  const deposees = Array.isArray(candidature.donneesProjet?.pieces) ? candidature.donneesProjet.pieces : [];
+  const recus = complements.filter((c) => c.fichier?.url);
+  const utilises = new Set();
+
+  const pieces = typePieces.map((tp) => {
+    const depot = deposees.find((d) => d && d.id === tp.documentId && d.depose && d.fileId);
+    const f = depot ? fichiers[String(depot.fileId)] : null;
+    const complement = recus.find((c) => !utilises.has(c.documentId) && cle(c.pieceDemandee) === cle(tp.libelle));
+    if (complement) utilises.add(complement.documentId);
+    return {
+      libelle: tp.libelle,
+      groupe: tp.groupe || 'autre',
+      exigence: tp.exigence || null,
+      depot: f?.url ? { url: f.url, nom: f.nom || depot.nomFichier || 'Fichier' } : null,
+      complement: complement ? { url: complement.fichier.url, nom: complement.fichier.name || 'Complément', recuLe: complement.updatedAt || null } : null,
+    };
+  });
+
+  // PGES depose dans le volet E&S du formulaire, hors liste des pieces.
+  const pges = fichiers[String(candidature.donneesProjet?.es?.pges?.fileId || '')];
+  const lignePges = pieces.find((p) => /pges|gestion environnementale/i.test(p.libelle));
+  if (pges?.url && lignePges && !lignePges.depot) lignePges.depot = { url: pges.url, nom: pges.nom || 'PGES' };
+
+  const autres = recus
+    .filter((c) => !utilises.has(c.documentId))
+    .map((c) => ({ libelle: c.pieceDemandee || 'Pièce ajoutée', url: c.fichier.url, nom: c.fichier.name || 'Fichier', spontanee: c.origine === 'candidat' }));
+
+  return { pieces, autres };
+}
+
+module.exports = { resolvePiecesFichiers, construirePiecesDossier };

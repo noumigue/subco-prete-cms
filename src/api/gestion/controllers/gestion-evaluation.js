@@ -11,6 +11,7 @@
 
 const { connectRelation, displayName, journal } = require('../../../utils/portal-instruction');
 const { getBareme, getParams, computeTotals, noteOf, bonusOf, detectEcarts } = require('../../../utils/portal-evaluation');
+const { construirePiecesDossier } = require('../../../utils/portal-pieces');
 
 const INTERNAL_ROLES = ['instructeur', 'ugp'];
 
@@ -164,6 +165,10 @@ module.exports = {
 
     const fiche = await findMyFiche(strapi, candidature.documentId, user.id);
     const [bareme, params, cons] = await Promise.all([getBareme(strapi), getParams(strapi), findConsolidation(strapi, candidature.documentId)]);
+    // Pieces du dossier : seulement apres la declaration d'absence de conflit d'interets. Un
+    // evaluateur qui ne l'a pas faite (ou qui se recuse — il n'est alors plus « assignee ») n'y
+    // a pas acces.
+    const piecesDossier = fiche?.coiDeclare ? await construirePiecesDossier(strapi, candidature) : null;
 
     ctx.body = {
       data: {
@@ -183,6 +188,7 @@ module.exports = {
         // Porte E&S arbitree « conforme » par l'UGP : l'evaluateur ne peut plus conclure « non conforme ».
         arbitrageEs: cons?.arbitrageEs || null,
         arbitrageEsMotif: cons?.arbitrageEsMotif || null,
+        piecesDossier,
       },
     };
   },
@@ -437,6 +443,7 @@ module.exports = {
         evaluateur1Nom: displayName(r1.evaluateur), evaluateur2Nom: displayName(r2.evaluateur), aTroisieme: !!r3,
         rows, bonusRows, totals, ecartsNonTraites, ecartPct: params.ecartPct, porteEs,
         forcesFaiblesses: soumisesOrdered.map((f) => ({ rang: f.rang, nom: displayName(f.evaluateur), forces: cleanLignes(f.forces), faiblesses: cleanLignes(f.faiblesses) })),
+        piecesDossier: await construirePiecesDossier(strapi, candidature),
         statut: cons?.statut || 'en_cours',
         evaluateurs: await listEvaluateurs(strapi),
       },
