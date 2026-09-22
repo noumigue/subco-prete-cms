@@ -19,6 +19,7 @@ const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
 const { archiverModificationsNonDeposees } = require('../../../utils/portal-depot');
 const { detecterContradictionsCompletude, detecterContradictionsEligibilite } = require('../../../utils/portal-contradictions');
 const { aujourdHui, ajouterJoursOuvres, compterJoursOuvres, normaliserDelai } = require('../../../utils/portal-delais');
+const { getBareme, getParams: getParamsEvaluation, detectEcarts } = require('../../../utils/portal-evaluation');
 
 const OBSERVATIONS_REQUISES = "Les observations a l'attention de l'UGP sont obligatoires (ecrivez « RAS » s'il n'y a rien a signaler).";
 
@@ -192,6 +193,88 @@ function serializeCandidature(c, extra = {}, orgFallback = null) {
   };
 }
 
+// Etat de la notation de chaque dossier en EVALUATION, pour les filtres de la file (UGP).
+// Tout est charge en un lot (assignations, fiches, consolidations) : pas de requete par dossier.
+// Retourne une Map documentId -> { etat, evaluateurs, assignes, fichesSoumises, ... }.
+const MS_JOUR_EVAL = 24 * 60 * 60 * 1000;
+async function etatsEvaluation(strapi, dossiersEnEvaluation) {
+  const ids = new Set(dossiersEnEvaluation.map((c) => c.documentId));
+  const out = new Map();
+  if (!ids.size) return out;
+  const [assignations, fiches, consolidations, eligibilites, bareme, params] = await Promise.all([
+    strapi.documents('api::assignation-evaluation.assignation-evaluation').findMany({
+      populate: { candidature: { fields: ['documentId'] }, evaluateur: { fields: ['id', 'username', 'email', 'orgName'] } }, limit: 5000,
+    }),
+    strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
+      populate: { candidature: { fields: ['documentId'] }, evaluateur: { fields: ['id'] } }, limit: 5000,
+    }),
+    strapi.documents('api::consolidation.consolidation').findMany({ populate: { candidature: { fields: ['documentId'] } }, limit: 2000 }),
+    strapi.documents('api::instruction-eligibilite.instruction-eligibilite').findMany({
+      filters: { workflow: 'valide' }, fields: ['valideLe'], populate: { candidature: { fields: ['documentId'] } }, limit: 2000,
+    }),
+    getBareme(strapi),
+    getParamsEvaluation(strapi),
+  ]);
+  const par = (liste) => {
+    const m = new Map();
+    for (const x of liste) {
+      const k = x.candidature?.documentId;
+      if (!k || !ids.has(k)) continue;
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(x);
+    }
+    return m;
+  };
+  const assignParDossier = par(assignations);
+  const fichesParDossier = par(fiches);
+  const consParDossier = new Map(consolidations.map((c) => [c.candidature?.documentId, c]));
+  const entreeParDossier = new Map(eligibilites.map((e) => [e.candidature?.documentId, e.valideLe]));
+
+  for (const docId of ids) {
+    const as = assignParDossier.get(docId) || [];
+    const actifs = as.filter((a) => a.statut === 'assignee');
+    const recuses = as.filter((a) => a.statut === 'recusee').length;
+    const idsActifs = new Set(actifs.map((a) => a.evaluateur?.id).filter(Boolean));
+    const fs = (fichesParDossier.get(docId) || []).filter((f) => idsActifs.has(f.evaluateur?.id));
+    const soumises = fs.filter((f) => f.statut === 'soumise');
+    const cons = consParDossier.get(docId);
+    const r1 = soumises.find((f) => f.rang === 1);
+    const r2 = soumises.find((f) => f.rang === 2);
+    const r3 = soumises.find((f) => f.rang === 3);
+
+    let etat = 'a_designer';
+    if (cons?.statut === 'figee') etat = 'figee';
+    else if (r1 && r2) etat = 'a_consolider';
+    else if (actifs.length >= 2) etat = 'notation';
+    else if (actifs.length === 1) etat = 'un_evaluateur';
+
+    // Ecarts non harmonises (meme regle que l'ecran de consolidation).
+    const harmon = cons?.notesRetenues || {};
+    const ecarts = r1 && r2 && !r3 ? detectEcarts(bareme, params, [r1, r2]).filter((e) => !(harmon[e.code]?.harmonisee === true)) : [];
+    // Desaccord E&S : fiches soumises qui ne concluent pas pareil, non arbitre par l'UGP.
+    const avis = new Set(soumises.map((f) => f.esConforme).filter((v) => v === true || v === false));
+    const desaccordEs = !params.porteEsDifferee && avis.size > 1 && !cons?.arbitrageEs && etat !== 'figee';
+    // Attente des fiches : depuis la derniere designation, si toutes ne sont pas soumises.
+    const derniereDesignation = actifs.map((a) => a.assigneLe).filter(Boolean).sort().pop();
+    const attente = (etat === 'notation' || etat === 'un_evaluateur') && soumises.length < actifs.length && derniereDesignation
+      ? Math.floor((Date.now() - new Date(derniereDesignation).getTime()) / MS_JOUR_EVAL) : null;
+
+    out.set(docId, {
+      etat,
+      evaluateurs: actifs.sort((a, b) => (a.rang || 0) - (b.rang || 0)).map((a) => ({ id: a.evaluateur?.id || null, nom: displayName(a.evaluateur) })),
+      assignes: actifs.length,
+      fichesSoumises: soumises.length,
+      recuseARemplacer: recuses > 0 && actifs.length < 2,
+      ecartsNonHarmonises: ecarts.length,
+      desaccordEs,
+      sansFicheDepuisJours: attente,
+      totalFinal: etat === 'figee' && cons?.totalFinal != null ? Number(cons.totalFinal) : null,
+      entreeEvaluationLe: entreeParDossier.get(docId) || null,
+    });
+  }
+  return out;
+}
+
 module.exports = {
   // ===========================================================================
   // FILE DES DOSSIERS — lecture transverse (tous les dossiers soumis).
@@ -304,8 +387,12 @@ module.exports = {
       return Object.entries(v).filter(([, x]) => x?.etat === 'non_conforme').map(([id]) => libelleCritere.get(id)).filter(Boolean);
     };
 
+    // Onglet Evaluation : etat de la notation, pour les filtres de l'UGP.
+    const etatsEval = await etatsEvaluation(strapi, list.filter((c) => c.statut?.phase === 'evaluation'));
+
     const items = list.map((c) =>
       serializeCandidature(c, {
+        evaluation: etatsEval.get(c.documentId) || null,
         aArbitrer: aArbitrer(c),
         instruction: instructionCourante(c),
         echeanceComplement: echeanceParDossier.get(c.documentId) || null,
