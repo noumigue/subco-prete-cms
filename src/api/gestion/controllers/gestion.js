@@ -127,9 +127,13 @@ async function findCandidature(strapi, documentId) {
 }
 
 async function findInstruction(strapi, uid, candidatureDocumentId) {
+  const nom = { fields: ['id', 'orgName', 'username'] };
+  // `reexamenPar` n'existe QUE sur l'instruction d'eligibilite : le demander sur la completude
+  // fait echouer la requete (400) et l'ecran d'instruction devient introuvable.
+  const populate = { proposePar: nom, validePar: nom, ...(uid.includes('eligibilite') ? { reexamenPar: nom } : {}) };
   const items = await strapi.documents(uid).findMany({
     filters: { candidature: { documentId: candidatureDocumentId } },
-    populate: { proposePar: { fields: ['id', 'orgName', 'username'] }, validePar: { fields: ['id', 'orgName', 'username'] }, reexamenPar: { fields: ['id', 'orgName', 'username'] } },
+    populate,
     limit: 1,
   });
   return items[0] || null;
