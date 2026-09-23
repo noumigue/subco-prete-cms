@@ -41,7 +41,8 @@ async function findAssignations(strapi, candidatureDocumentId) {
 
 async function findFiches(strapi, candidatureDocumentId) {
   return strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
-    filters: { candidature: { documentId: candidatureDocumentId } },
+    // Les fiches annulees ne comptent plus nulle part : ni double soumission, ni consolidation.
+    filters: { candidature: { documentId: candidatureDocumentId }, statut: { $ne: 'annulee' } },
     populate: { evaluateur: { fields: ['id', 'orgName', 'username'] }, signePar: { fields: ['id', 'orgName', 'username'] } },
     sort: ['rang:asc'],
     limit: 10,
@@ -62,7 +63,8 @@ async function estEnReexamen(strapi, candidatureDocumentId) {
 // portent le meme rang et la consolidation peut retenir celle de l'evaluateur remplace).
 async function findFichesDuRang(strapi, candidatureDocumentId, rang) {
   return strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
-    filters: { candidature: { documentId: candidatureDocumentId }, rang },
+    // Une fiche annulee ne verrouille plus rien : elle ne vit que comme piece d'audit.
+    filters: { candidature: { documentId: candidatureDocumentId }, rang, statut: { $ne: 'annulee' } },
     populate: { evaluateur: { fields: ['id', 'orgName', 'username'] } },
     limit: 10,
   });
@@ -70,7 +72,7 @@ async function findFichesDuRang(strapi, candidatureDocumentId, rang) {
 
 async function findMyFiche(strapi, candidatureDocumentId, userId) {
   const items = await strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
-    filters: { candidature: { documentId: candidatureDocumentId }, evaluateur: { id: userId } },
+    filters: { candidature: { documentId: candidatureDocumentId }, evaluateur: { id: userId }, statut: { $ne: 'annulee' } },
     limit: 1,
   });
   return items[0] || null;
@@ -375,7 +377,7 @@ module.exports = {
 
     const rangInfo = (rang) => {
       const a = assigns.find((x) => x.rang === rang && x.statut === 'assignee');
-      const f = fiches.find((x) => x.rang === rang);
+      const f = fiches.find((x) => x.rang === rang && x.statut !== 'annulee');
       return a ? { evaluateurId: a.evaluateur?.id || null, nom: a.evaluateur ? displayName(a.evaluateur) : null, ficheStatut: f?.statut || null } : null;
     };
     const r1 = rangInfo(1);
@@ -431,6 +433,71 @@ module.exports = {
     const evalUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: evaluateurId } });
     await journal(strapi, candidature.documentId, { auteurUser: user, type: 'assignation', texte: `Assignation evaluateur ${rang} : ${displayName(evalUser)} (E2)` });
     ctx.body = { ok: true };
+  },
+
+  // Annulation d'une fiche SIGNEE (UGP) : conflit d'interets decouvert apres coup, fiche
+  // manifestement viciee, depart de l'evaluateur. La fiche n'est jamais supprimee — c'est une
+  // piece du dossier : elle est marquee « annulee », avec auteur, date et motif. La place se
+  // libere, la consolidation revient en arriere (de-figeage automatique) et les harmonisations,
+  // qui arbitraient entre des notes desormais invalides, sont effacees.
+  async annulerFiche(ctx) {
+    const user = requireRole(ctx, ['ugp']);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.statut?.phase !== 'evaluation') return ctx.badRequest("Ce dossier n'est plus en evaluation.");
+    const rang = Number(ctx.request.body?.data?.rang);
+    const motif = String(ctx.request.body?.data?.motif || '').trim();
+    if (![1, 2, 3].includes(rang)) return ctx.badRequest('Rang (1|2|3) requis.');
+    if (!motif) return ctx.badRequest("L'annulation d'une fiche signee doit etre motivee.");
+
+    const fiches = await findFichesDuRang(strapi, candidature.documentId, rang);
+    const fiche = fiches.find((f) => f.statut === 'soumise');
+    if (!fiche) return ctx.badRequest(`Aucune fiche signee a annuler pour l'evaluateur ${rang}.`);
+
+    // Le classement parti au Comite ne se reecrit pas : il faut d'abord renvoyer le rapport.
+    const rapports = await strapi.documents('api::rapport-evaluation.rapport-evaluation').findMany({
+      filters: { appel: { documentId: candidature.appel?.documentId } }, limit: 1,
+    });
+    if (rapports[0] && rapports[0].statut !== 'brouillon') {
+      return ctx.badRequest('Le rapport d’evaluation est deja soumis ou valide : renvoyez-le avant d’annuler une fiche.');
+    }
+    const evalDossiers = await strapi.documents('api::evaluation-dossier.evaluation-dossier').findMany({
+      filters: { candidature: { documentId: candidature.documentId } }, limit: 1,
+    });
+    if (evalDossiers[0]?.decisionComite) return ctx.badRequest('Le Comite a deja statue sur ce dossier.');
+
+    const cons = await findConsolidation(strapi, candidature.documentId);
+    const etaitFigee = cons?.statut === 'figee';
+    const assigns = await findAssignations(strapi, candidature.documentId);
+    const assignation = assigns.find((a) => a.rang === rang && a.statut === 'assignee');
+    const nom = displayName(fiche.evaluateur) || displayName(assignation?.evaluateur) || 'evaluateur';
+
+    await strapi.db.transaction(async () => {
+      await strapi.documents('api::fiche-scoring.fiche-scoring').update({
+        documentId: fiche.documentId,
+        data: { statut: 'annulee', annuleePar: { connect: [user.id] }, annuleeLe: new Date().toISOString(), annulationMotif: motif },
+      });
+      if (assignation?.documentId) {
+        await strapi.documents('api::assignation-evaluation.assignation-evaluation').update({ documentId: assignation.documentId, data: { statut: 'recusee' } });
+      }
+      if (cons?.documentId) {
+        await strapi.documents('api::consolidation.consolidation').update({
+          documentId: cons.documentId,
+          data: {
+            statut: 'en_cours', notesRetenues: {}, ecarts: [],
+            totalA: null, totalB: null, bonus: null, totalHorsBonus: null, totalFinal: null, bande: null,
+            figeePar: null, figeeLe: null, porteEsStatut: null,
+          },
+        });
+      }
+      await journal(strapi, candidature.documentId, {
+        auteurUser: user,
+        type: 'annulation_fiche',
+        texte: `Fiche signee de l'evaluateur ${rang} (${nom}) ANNULEE : « ${motif} » — fiche conservee pour l'audit, place liberee${etaitFigee ? ', consolidation figee annulee' : ''}${cons ? ', harmonisations effacees' : ''}`,
+      });
+    });
+    ctx.body = { ok: true, etaitFigee };
   },
 
   // L'UGP libere la place d'un evaluateur qui a commence mais ne finira pas (absent,

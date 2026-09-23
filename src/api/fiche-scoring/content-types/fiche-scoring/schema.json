@@ -18,7 +18,10 @@
     "bonus": { "type": "json" },
     "forces": { "type": "json" },
     "faiblesses": { "type": "json" },
-    "statut": { "type": "enumeration", "enum": ["brouillon", "soumise"], "default": "brouillon" },
+    "statut": { "type": "enumeration", "enum": ["brouillon", "soumise", "annulee"], "default": "brouillon" },
+    "annuleePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "annuleeLe": { "type": "datetime" },
+    "annulationMotif": { "type": "text" },
     "signeLe": { "type": "datetime" },
     "signePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" }
   }

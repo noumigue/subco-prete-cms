@@ -348,6 +348,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-evaluation.evaluationAssign',
     'api::gestion.gestion-evaluation.assigner',
     'api::gestion.gestion-evaluation.libererPlace',
+    'api::gestion.gestion-evaluation.annulerFiche',
     'api::gestion.gestion-evaluation.consolidationDetail',
     'api::gestion.gestion-evaluation.harmoniser',
     'api::gestion.gestion-evaluation.troisiemeEvaluateur',
