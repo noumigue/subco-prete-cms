@@ -403,6 +403,8 @@ module.exports = {
         complementEnCours: withComplement.has(c.documentId),
         complementRecu: withComplementRecu.has(c.documentId),
         pieceAjoutee: withPieceAjoutee.has(c.documentId),
+        // Dossier renvoye de l'evaluation : signal dedie dans l'onglet Eligibilite.
+        reexamen: Boolean(instrEligibiliteParDossier.get(c.documentId)?.reexamen),
         statutClos: c.statut?.groupe === 'non_retenu' ? (c.motifDecisionCourt ? 'Non retenu' : 'Non retenu') : null,
       }, orgByOwner[c.owner?.id]),
     );
