@@ -48,6 +48,15 @@ async function findFiches(strapi, candidatureDocumentId) {
   });
 }
 
+// Dossier renvoye a l'eligibilite depuis l'evaluation : la fiche est gelee, le dossier
+// reste affiche dans « Mes evaluations » avec sa mention.
+async function estEnReexamen(strapi, candidatureDocumentId) {
+  const items = await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').findMany({
+    filters: { candidature: { documentId: candidatureDocumentId } }, limit: 1,
+  });
+  return Boolean(items[0]?.reexamen);
+}
+
 async function findMyFiche(strapi, candidatureDocumentId, userId) {
   const items = await strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
     filters: { candidature: { documentId: candidatureDocumentId }, evaluateur: { id: userId } },
@@ -139,7 +148,11 @@ module.exports = {
     const items = [];
     for (const a of assigns) {
       const c = a.candidature;
-      if (!c || c.statut?.phase !== 'evaluation') continue;
+      if (!c) continue;
+      // Dossier retire de l'evaluation (renvoye a l'eligibilite par l'UGP) : il reste visible,
+      // signale et non cliquable, pour que l'evaluateur ne cherche pas ce qui a disparu.
+      const retire = c.statut?.phase !== 'evaluation';
+      if (retire && !(await estEnReexamen(strapi, c.documentId))) continue;
       const fiche = await findMyFiche(strapi, c.documentId, user.id);
       items.push({
         documentId: c.documentId,
@@ -147,6 +160,7 @@ module.exports = {
         organisation: c.organisation ? { nom: c.organisation.nom, filiere: c.organisation.filierePrincipale?.nom || null } : null,
         rang: a.rang,
         ficheStatut: fiche?.statut || null,
+        retire,
       });
     }
     ctx.body = { data: items };
@@ -163,6 +177,7 @@ module.exports = {
     const mine = assigns.find((a) => a.evaluateur?.id === user.id && a.statut === 'assignee');
     if (!mine) return ctx.forbidden("Vous n'etes pas assigne a l'evaluation de ce dossier.");
 
+    const retire = candidature.statut?.phase !== 'evaluation';
     const fiche = await findMyFiche(strapi, candidature.documentId, user.id);
     const [bareme, params, cons] = await Promise.all([getBareme(strapi), getParams(strapi), findConsolidation(strapi, candidature.documentId)]);
     // Pieces du dossier : seulement apres la declaration d'absence de conflit d'interets. Un
@@ -177,6 +192,8 @@ module.exports = {
         organisation: candidature.organisation ? { nom: candidature.organisation.nom, filiere: candidature.organisation.filierePrincipale?.nom || null } : null,
         pdfPermanentUrl: candidature.pdfPermanent?.url || null,
         rang: mine.rang,
+        // Dossier sorti de l'evaluation : fiche en lecture seule, plus rien a saisir.
+        retire,
         // E3 : on ne renvoie QUE la fiche de l'appelant, jamais celle d'un autre evaluateur.
         fiche: fiche ? {
           coiDeclare: !!fiche.coiDeclare, esConforme: fiche.esConforme ?? null,
@@ -233,6 +250,7 @@ module.exports = {
     if (!user) return;
     const candidature = await findCandidature(strapi, ctx.params.documentId);
     if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.statut?.phase !== 'evaluation') return ctx.badRequest("Ce dossier n'est plus en evaluation : la fiche est en lecture seule.");
     const fiche = await findMyFiche(strapi, candidature.documentId, user.id);
     if (!fiche) return ctx.badRequest('Declarez d\'abord l\'absence de conflit d\'interets.');
     if (fiche.statut === 'soumise') return ctx.badRequest('Fiche deja soumise, non modifiable.');
@@ -256,6 +274,7 @@ module.exports = {
     if (!user) return;
     const candidature = await findCandidature(strapi, ctx.params.documentId);
     if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.statut?.phase !== 'evaluation') return ctx.badRequest("Ce dossier n'est plus en evaluation : la fiche est en lecture seule.");
     const fiche = await findMyFiche(strapi, candidature.documentId, user.id);
     if (!fiche) return ctx.badRequest('Aucune fiche a soumettre.');
     if (fiche.statut === 'soumise') return ctx.badRequest('Fiche deja soumise.');

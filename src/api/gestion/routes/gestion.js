@@ -20,6 +20,8 @@ module.exports = {
     { method: 'POST', path: '/gestion/dossiers/:documentId/eligibilite/valider', handler: 'gestion.validerEligibilite', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/eligibilite/renvoyer', handler: 'gestion.renvoyerEligibilite', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/eligibilite/rouvrir-completude', handler: 'gestion.rouvrirCompletude', config: { policies: [] } },
+    { method: 'POST', path: '/gestion/dossiers/:documentId/evaluation/renvoyer-eligibilite', handler: 'gestion.renvoyerVersEligibilite', config: { policies: [] } },
+    { method: 'POST', path: '/gestion/dossiers/:documentId/evaluation/annuler-renvoi', handler: 'gestion.annulerRenvoiEvaluation', config: { policies: [] } },
     { method: 'GET', path: '/gestion/appels', handler: 'gestion.appels', config: { policies: [] } },
     { method: 'POST', path: '/gestion/appels/:documentId/ouvrir', handler: 'gestion.ouvrirAppel', config: { policies: [] } },
     { method: 'POST', path: '/gestion/appels/:documentId/clore', handler: 'gestion.cloreAppel', config: { policies: [] } },

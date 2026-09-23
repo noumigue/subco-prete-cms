@@ -23,6 +23,7 @@
     "figeeLe": { "type": "datetime" },
     "arbitrageEs": { "type": "enumeration", "enum": ["conforme", "non_conforme"] },
     "arbitrageEsMotif": { "type": "text" },
-    "porteEsStatut": { "type": "enumeration", "enum": ["conforme", "non_conforme", "differee"] }
+    "porteEsStatut": { "type": "enumeration", "enum": ["conforme", "non_conforme", "differee"] },
+    "ecarteeEvaluation": { "type": "boolean", "default": false }
   }
 }

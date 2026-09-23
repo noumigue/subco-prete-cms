@@ -475,6 +475,8 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion.renvoyerEligibilite',
     // Reouverture de la completude depuis l'eligibilite (motivee, journalisee, sans notification).
     'api::gestion.gestion.rouvrirCompletude',
+    'api::gestion.gestion.renvoyerVersEligibilite',
+    'api::gestion.gestion.annulerRenvoiEvaluation',
     'api::gestion.gestion.ouvrirAppel',
     'api::gestion.gestion.cloreAppel',
     ...evaluationUgpActions,

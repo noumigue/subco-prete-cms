@@ -74,6 +74,9 @@ async function buildDossierList(strapi, appel, params) {
   for (const c of cons) {
     const cand = c.candidature;
     if (!cand) continue;
+    // Dossier renvoye a l'eligibilite : consolidation conservee en base, mais hors classement
+    // et hors rapport au Comite. Test en JS : un `$ne: true` en SQL ecarterait aussi les NULL.
+    if (c.ecarteeEvaluation === true) continue;
     const notesR = c.notesRetenues || {};
     const a5 = Number(notesR?.A5?.retenue ?? notesR?.A5 ?? 0);
     const hasHarmon = Object.values(notesR).some((v) => v && typeof v === 'object' && v.harmonisee);

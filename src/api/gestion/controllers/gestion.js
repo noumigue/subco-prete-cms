@@ -129,7 +129,7 @@ async function findCandidature(strapi, documentId) {
 async function findInstruction(strapi, uid, candidatureDocumentId) {
   const items = await strapi.documents(uid).findMany({
     filters: { candidature: { documentId: candidatureDocumentId } },
-    populate: { proposePar: { fields: ['id', 'orgName', 'username'] }, validePar: { fields: ['id', 'orgName', 'username'] } },
+    populate: { proposePar: { fields: ['id', 'orgName', 'username'] }, validePar: { fields: ['id', 'orgName', 'username'] }, reexamenPar: { fields: ['id', 'orgName', 'username'] } },
     limit: 1,
   });
   return items[0] || null;
@@ -484,6 +484,11 @@ module.exports = {
               workflow: instructionEligibilite.workflow || 'en_cours',
               proposePar: instructionEligibilite.proposePar ? displayName(instructionEligibilite.proposePar) : null,
               commentaireRenvoi: instructionEligibilite.commentaireRenvoi || null,
+              // Reexamen : dossier renvoye de l'evaluation, seul le rejet est proposable.
+              reexamen: Boolean(instructionEligibilite.reexamen),
+              reexamenMotif: instructionEligibilite.reexamenMotif || null,
+              reexamenPar: instructionEligibilite.reexamenPar ? displayName(instructionEligibilite.reexamenPar) : null,
+              reexamenLe: instructionEligibilite.reexamenLe || null,
             }
           : null,
         referentiels: {
@@ -957,9 +962,18 @@ module.exports = {
 
     const payload = ctx.request.body?.data || {};
     const { criteres } = await chargerReferentielsInstruction(strapi);
-    const verdictsCriteres = appliquerCriteresAcquis(payload.verdictsCriteres && typeof payload.verdictsCriteres === 'object' ? payload.verdictsCriteres : {}, criteres);
+    const existanteElig = await findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId);
+    const enReexamen = Boolean(existanteElig?.reexamen);
+    // Reexamen (renvoi depuis l'evaluation) : les constats critere par critere sont GELES et la
+    // seule issue proposable est le rejet, motive.
+    const verdictsCriteres = enReexamen
+      ? (existanteElig.verdictsCriteres || {})
+      : appliquerCriteresAcquis(payload.verdictsCriteres && typeof payload.verdictsCriteres === 'object' ? payload.verdictsCriteres : {}, criteres);
     const verdictGlobal = payload.verdictGlobal;
     if (!['eligible', 'rejet'].includes(verdictGlobal)) return ctx.badRequest('Verdict d’eligibilite invalide.');
+    if (enReexamen && verdictGlobal !== 'rejet') {
+      return ctx.badRequest("Dossier renvoye de l'evaluation : seule la non-eligibilite peut etre proposee.");
+    }
 
     // Garde serveur (C4) : justification obligatoire pour tout critere non conforme.
     for (const v of Object.values(verdictsCriteres)) {
@@ -984,7 +998,7 @@ module.exports = {
       commentaireRenvoi: null,
     };
 
-    const existing = await findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId);
+    const existing = existanteElig;
     if (existing?.documentId) {
       await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').update({ documentId: existing.documentId, data });
     } else {
@@ -1082,6 +1096,102 @@ module.exports = {
       });
     }
 
+    ctx.body = { ok: true };
+  },
+
+  // ===========================================================================
+  // Renvoi EVALUATION -> ELIGIBILITE (ugp) : un dossier decouvert non eligible apres coup.
+  // Les constats d'eligibilite sont conserves et geles ; les fiches de scoring et la
+  // consolidation restent en base mais sont ignorees (ecartees du rapport au Comite).
+  // ===========================================================================
+  async renvoyerVersEligibilite(ctx) {
+    const user = requireRole(ctx, ['ugp']);
+    if (!user) return;
+
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.statut?.phase !== 'evaluation') {
+      return ctx.badRequest("Le renvoi n'est possible que depuis l'etape d'evaluation.");
+    }
+    const motif = String(ctx.request.body?.data?.motif || '').trim();
+    if (!motif) return ctx.badRequest('Le renvoi doit etre motive : precisez ce qui rend ce dossier non eligible.');
+
+    const instruction = await findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId);
+    if (!instruction?.documentId) return ctx.badRequest("Aucune instruction d'eligibilite sur ce dossier.");
+
+    // Le rapport au Comite ne doit pas bouger une fois soumis ou valide.
+    const rapports = await strapi.documents('api::rapport-evaluation.rapport-evaluation').findMany({
+      filters: { appel: { documentId: candidature.appel?.documentId } }, limit: 1,
+    });
+    if (rapports[0] && rapports[0].statut !== 'brouillon') {
+      return ctx.badRequest('Le rapport d’evaluation est deja soumis ou valide : le classement ne peut plus changer.');
+    }
+    const evalDossiers = await strapi.documents('api::evaluation-dossier.evaluation-dossier').findMany({
+      filters: { candidature: { documentId: candidature.documentId } }, limit: 1,
+    });
+    if (evalDossiers[0]?.decisionComite) return ctx.badRequest('Le Comite a deja statue sur ce dossier.');
+
+    const eligibilite = await getStatutByCode(strapi, 'eligibilite');
+    await strapi.db.transaction(async () => {
+      await strapi.documents('api::candidature.candidature').update({
+        documentId: candidature.documentId, data: { statut: connectRelation(eligibilite) },
+      });
+      await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').update({
+        documentId: instruction.documentId,
+        data: {
+          workflow: 'en_cours', reexamen: true, reexamenMotif: motif,
+          reexamenPar: { connect: [user.id] }, reexamenLe: new Date().toISOString(),
+          verdictGlobal: null, motifRejet: null, observationsUgp: null, commentaireRenvoi: null,
+        },
+      });
+      // La consolidation figee reste en base mais sort du classement.
+      const cons = await strapi.documents('api::consolidation.consolidation').findMany({
+        filters: { candidature: { documentId: candidature.documentId } }, limit: 1,
+      });
+      if (cons[0]?.documentId) {
+        await strapi.documents('api::consolidation.consolidation').update({ documentId: cons[0].documentId, data: { ecarteeEvaluation: true } });
+      }
+      await journal(strapi, candidature.documentId, {
+        auteurUser: user,
+        type: 'renvoi_eligibilite_depuis_evaluation',
+        texte: `Renvoye a l'eligibilite depuis l'evaluation : « ${motif} » — constats d'eligibilite conserves, fiches de scoring conservees mais ignorees, candidat non notifie`,
+      });
+    });
+    ctx.body = { ok: true };
+  },
+
+  // Annulation du renvoi, tant qu'aucune proposition de rejet n'a ete faite (erreur de manip).
+  async annulerRenvoiEvaluation(ctx) {
+    const user = requireRole(ctx, ['ugp']);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    const instruction = await findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId);
+    if (!instruction?.reexamen) return ctx.badRequest("Ce dossier n'est pas en reexamen.");
+    if (instruction.workflow !== 'en_cours') {
+      return ctx.badRequest('Une proposition de non-eligibilite est en cours : traitez-la avant d’annuler le renvoi.');
+    }
+
+    const evaluation = await getStatutByCode(strapi, 'evaluation');
+    await strapi.db.transaction(async () => {
+      await strapi.documents('api::candidature.candidature').update({
+        documentId: candidature.documentId, data: { statut: connectRelation(evaluation) },
+      });
+      await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').update({
+        documentId: instruction.documentId,
+        data: { reexamen: false, reexamenMotif: null, reexamenPar: null, reexamenLe: null, workflow: 'valide' },
+      });
+      const cons = await strapi.documents('api::consolidation.consolidation').findMany({
+        filters: { candidature: { documentId: candidature.documentId } }, limit: 1,
+      });
+      if (cons[0]?.documentId) {
+        await strapi.documents('api::consolidation.consolidation').update({ documentId: cons[0].documentId, data: { ecarteeEvaluation: false } });
+      }
+      await journal(strapi, candidature.documentId, {
+        auteurUser: user, type: 'annulation_renvoi_eligibilite',
+        texte: "Renvoi a l'eligibilite annule — le dossier repart en evaluation avec ses fiches de scoring",
+      });
+    });
     ctx.body = { ok: true };
   },
 

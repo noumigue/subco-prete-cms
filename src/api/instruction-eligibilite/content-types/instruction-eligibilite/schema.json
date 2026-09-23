@@ -23,6 +23,10 @@
     "proposeLe": { "type": "datetime" },
     "validePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
     "valideLe": { "type": "datetime" },
-    "commentaireRenvoi": { "type": "text" }
+    "commentaireRenvoi": { "type": "text" },
+    "reexamen": { "type": "boolean", "default": false },
+    "reexamenMotif": { "type": "text" },
+    "reexamenPar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "reexamenLe": { "type": "datetime" }
   }
 }
