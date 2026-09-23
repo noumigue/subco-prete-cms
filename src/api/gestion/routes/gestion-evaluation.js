@@ -14,6 +14,7 @@ module.exports = {
     { method: 'POST', path: '/gestion/evaluations/:documentId/soumettre', handler: 'gestion-evaluation.soumettreFiche', config: { policies: [] } },
     // UGP — assignation, consolidation, figeage.
     { method: 'GET', path: '/gestion/dossiers/:documentId/evaluation', handler: 'gestion-evaluation.evaluationAssign', config: { policies: [] } },
+    { method: 'POST', path: '/gestion/dossiers/:documentId/evaluation/liberer-place', handler: 'gestion-evaluation.libererPlace', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/evaluation/assigner', handler: 'gestion-evaluation.assigner', config: { policies: [] } },
     { method: 'GET', path: '/gestion/dossiers/:documentId/consolidation', handler: 'gestion-evaluation.consolidationDetail', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/consolidation/harmoniser', handler: 'gestion-evaluation.harmoniser', config: { policies: [] } },

@@ -57,6 +57,17 @@ async function estEnReexamen(strapi, candidatureDocumentId) {
   return Boolean(items[0]?.reexamen);
 }
 
+// Fiches deja ouvertes sur un rang (brouillon ou soumise) : une place occupee ne peut plus
+// changer de titulaire sans passer par la recusation ou la liberation (sinon deux fiches
+// portent le meme rang et la consolidation peut retenir celle de l'evaluateur remplace).
+async function findFichesDuRang(strapi, candidatureDocumentId, rang) {
+  return strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
+    filters: { candidature: { documentId: candidatureDocumentId }, rang },
+    populate: { evaluateur: { fields: ['id', 'orgName', 'username'] } },
+    limit: 10,
+  });
+}
+
 async function findMyFiche(strapi, candidatureDocumentId, userId) {
   const items = await strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
     filters: { candidature: { documentId: candidatureDocumentId }, evaluateur: { id: userId } },
@@ -240,8 +251,13 @@ module.exports = {
     const assigns = await findAssignations(strapi, candidature.documentId);
     const mine = assigns.find((a) => a.evaluateur?.id === user.id && a.statut === 'assignee');
     if (!mine) return ctx.forbidden("Vous n'etes pas assigne a ce dossier.");
+    // Le brouillon part avec la recusation : sans cela, la place resterait verrouillee par une
+    // fiche sans titulaire et l'UGP ne pourrait designer personne.
+    const maFiche = await findMyFiche(strapi, candidature.documentId, user.id);
+    if (maFiche?.statut === 'soumise') return ctx.badRequest('Votre fiche est signee : la recusation n\'est plus possible, signalez-le a l\'UGP.');
     await strapi.documents('api::assignation-evaluation.assignation-evaluation').update({ documentId: mine.documentId, data: { statut: 'recusee' } });
-    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'recusation', texte: `Recusation (conflit d'interets) — dossier renvoye a l'UGP pour reassignation (evaluateur ${mine.rang})` });
+    if (maFiche?.documentId) await strapi.documents('api::fiche-scoring.fiche-scoring').delete({ documentId: maFiche.documentId });
+    await journal(strapi, candidature.documentId, { auteurUser: user, type: 'recusation', texte: `Recusation (conflit d'interets) — dossier renvoye a l'UGP pour reassignation (evaluateur ${mine.rang})${maFiche ? ' ; brouillon supprime' : ''}` });
     ctx.body = { ok: true };
   },
 
@@ -393,6 +409,15 @@ module.exports = {
     if (assigns.some((a) => a.statut === 'assignee' && a.rang !== rang && a.evaluateur?.id === evaluateurId)) {
       return ctx.badRequest('Cet evaluateur est deja assigne a un autre rang sur ce dossier.');
     }
+    // Verrou (E2) : des que l'evaluateur a ouvert sa fiche, la place lui appartient.
+    const fichesRang = await findFichesDuRang(strapi, candidature.documentId, rang);
+    const occupee = fichesRang.find((f) => f.evaluateur?.id !== evaluateurId);
+    if (occupee) {
+      return ctx.badRequest(occupee.statut === 'soumise'
+        ? `La fiche de l'evaluateur ${rang} est signee : cette place ne peut plus changer de titulaire.`
+        : `L'evaluateur ${rang} a commence sa fiche : liberez d'abord la place (ou attendez sa recusation) avant de designer quelqu'un d'autre.`);
+    }
+
     const existing = assigns.find((a) => a.rang === rang);
     if (existing) {
       await strapi.documents('api::assignation-evaluation.assignation-evaluation').update({
@@ -405,6 +430,41 @@ module.exports = {
     }
     const evalUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: evaluateurId } });
     await journal(strapi, candidature.documentId, { auteurUser: user, type: 'assignation', texte: `Assignation evaluateur ${rang} : ${displayName(evalUser)} (E2)` });
+    ctx.body = { ok: true };
+  },
+
+  // L'UGP libere la place d'un evaluateur qui a commence mais ne finira pas (absent,
+  // injoignable, conflit d'interets constate). Motif obligatoire, brouillon supprime.
+  // Une fiche SIGNEE n'est jamais liberee : la notation est acquise.
+  async libererPlace(ctx) {
+    const user = requireRole(ctx, ['ugp']);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    const rang = Number(ctx.request.body?.data?.rang);
+    const motif = String(ctx.request.body?.data?.motif || '').trim();
+    if (![1, 2, 3].includes(rang)) return ctx.badRequest('Rang (1|2|3) requis.');
+    if (!motif) return ctx.badRequest('La liberation doit etre motivee : precisez pourquoi cet evaluateur est remplace.');
+
+    const fiches = await findFichesDuRang(strapi, candidature.documentId, rang);
+    if (fiches.some((f) => f.statut === 'soumise')) {
+      return ctx.badRequest(`La fiche de l'evaluateur ${rang} est signee : la notation est acquise, la place ne peut pas etre liberee.`);
+    }
+    const assigns = await findAssignations(strapi, candidature.documentId);
+    const assignation = assigns.find((a) => a.rang === rang && a.statut === 'assignee');
+    const nom = displayName(assignation?.evaluateur) || fiches.map((f) => displayName(f.evaluateur)).join(', ') || 'evaluateur';
+
+    if (assignation?.documentId) {
+      await strapi.documents('api::assignation-evaluation.assignation-evaluation').update({ documentId: assignation.documentId, data: { statut: 'recusee' } });
+    }
+    for (const f of fiches) {
+      await strapi.documents('api::fiche-scoring.fiche-scoring').delete({ documentId: f.documentId });
+    }
+    await journal(strapi, candidature.documentId, {
+      auteurUser: user,
+      type: 'liberation_place',
+      texte: `Place de l'evaluateur ${rang} liberee (${nom})${fiches.length ? ' — brouillon supprime' : ''} : « ${motif} » — un nouvel evaluateur peut etre designe`,
+    });
     ctx.body = { ok: true };
   },
 
