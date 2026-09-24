@@ -31,7 +31,12 @@ function requireRole(ctx, roles) {
 const DEMANDE_POPULATE = {
   owner: { fields: ['id', 'email', 'phone', 'orgName', 'username'] },
   categorie: { fields: ['code', 'libelle'] },
-  concerneCandidature: { fields: ['documentId', 'numeroDossier', 'titreProjet'] },
+  // `prisEnChargePar` du DOSSIER (et non de la demande) : c'est lui qui permet a un
+  // instructeur de ne voir que les demandes des candidats dont il instruit le dossier.
+  concerneCandidature: {
+    fields: ['documentId', 'numeroDossier', 'titreProjet'],
+    populate: { prisEnChargePar: { fields: ['id', 'orgName', 'username'] } },
+  },
   concerneSubvention: { fields: ['documentId', 'numeroConvention', 'statut'] },
   priseEnChargePar: { fields: ['id', 'orgName', 'username', 'email'] },
 };
@@ -57,6 +62,9 @@ function serializeRow(d) {
     categorie: d.categorie ? { code: d.categorie.code, libelle: d.categorie.libelle } : null,
     concerneCandidature: d.concerneCandidature
       ? { documentId: d.concerneCandidature.documentId, numeroDossier: d.concerneCandidature.numeroDossier || null, titreProjet: d.concerneCandidature.titreProjet || null }
+      : null,
+    dossierInstructeur: d.concerneCandidature?.prisEnChargePar
+      ? { id: d.concerneCandidature.prisEnChargePar.id, nom: displayName(d.concerneCandidature.prisEnChargePar) }
       : null,
     concerneSubvention: d.concerneSubvention
       ? { documentId: d.concerneSubvention.documentId, numeroConvention: d.concerneSubvention.numeroConvention || null }
