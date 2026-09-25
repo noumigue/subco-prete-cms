@@ -15,7 +15,7 @@
 
 const { connectRelation, displayName, getStatutByCode, journal } = require('../../../utils/portal-instruction');
 const { sendPortalNotification } = require('../../../utils/portal-notify');
-const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
+const { resolvePiecesFichiers, chargerPiecesAssistance } = require('../../../utils/portal-pieces');
 const { archiverModificationsNonDeposees } = require('../../../utils/portal-depot');
 const { detecterContradictionsCompletude, detecterContradictionsEligibilite } = require('../../../utils/portal-contradictions');
 const { aujourdHui, ajouterJoursOuvres, compterJoursOuvres, normaliserDelai } = require('../../../utils/portal-delais');
@@ -443,6 +443,7 @@ module.exports = {
 
     // Fichiers reellement deposes, resolus depuis les `fileId` de donneesProjet.
     const piecesFichiers = await resolvePiecesFichiers(strapi, candidature.donneesProjet);
+    const piecesAssistance = await chargerPiecesAssistance(strapi, candidature, complements);
 
     const contradictionsCompletude = instructionCompletude
       ? detecterContradictionsCompletude({ instruction: instructionCompletude, candidature, typePieces, complementsFournis: complements, dejaDemandees: instructionCompletude.complementsProposes?.dejaDemandees || (enCours.active ? enCours.libelles : []) })
@@ -459,6 +460,7 @@ module.exports = {
         ...serializeCandidature(candidature, {}, orgFallback),
         donneesProjet: candidature.donneesProjet || null,
         piecesFichiers,
+        piecesAssistance,
         motifDecisionCourt: candidature.motifDecisionCourt || null,
         pdfPermanentUrl: candidature.pdfPermanent?.url || null,
         notificationDecisionUrl: candidature.notificationDecision?.url || null,
@@ -534,6 +536,8 @@ module.exports = {
           origine: x.origine || 'ugp',
           fichierUrl: x.fichier?.url || null,
           fourniLe: x.statut === 'fourni' ? x.updatedAt || null : null,
+          precision: x.precision || null,
+          sourceAssistance: x.sourceAssistance || null,
         })),
       },
     };
@@ -1197,6 +1201,102 @@ module.exports = {
         auteurUser: user, type: 'annulation_renvoi_eligibilite',
         texte: "Renvoi a l'eligibilite annule — le dossier repart en evaluation avec ses fiches de scoring",
       });
+    });
+    ctx.body = { ok: true };
+  },
+
+  // ===========================================================================
+  // PIECES DE L'ASSISTANCE — verser au dossier / annuler (instructeur + ugp).
+  // Un meme fichier peut justifier PLUSIEURS pieces attendues : le candidat scanne souvent
+  // tout d'un coup, on ne lui redemande pas de redecouper son PDF.
+  // ===========================================================================
+  async verserPieceAssistance(ctx) {
+    const user = requireRole(ctx, INTERNAL_ROLES);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+
+    const body = ctx.request.body?.data || {};
+    const fileId = Number(body.fileId);
+    const complementIds = Array.isArray(body.complementIds) ? body.complementIds.map(String) : [];
+    const typePieceIds = Array.isArray(body.typePieceIds) ? body.typePieceIds.map(String) : [];
+    const precision = String(body.precision || '').trim() || null;
+    const demandeDocumentId = body.demandeDocumentId ? String(body.demandeDocumentId) : null;
+    if (!Number.isInteger(fileId)) return ctx.badRequest('Fichier requis.');
+    if (!complementIds.length && !typePieceIds.length) return ctx.badRequest('Indiquez au moins une piece justifiee par ce fichier.');
+
+    // Le fichier doit bien etre une piece d'assistance de CE dossier (pas un id au hasard).
+    const dispo = await chargerPiecesAssistance(strapi, candidature, []);
+    const source = dispo.find((p) => p.fileId === fileId);
+    if (!source) return ctx.badRequest('Ce fichier ne provient pas des demandes d\'assistance de ce dossier.');
+    // La provenance est toujours tracee, meme si l'ecran n'a pas transmis la demande d'origine :
+    // sans elle, la piece versee ne pourrait plus etre annulee.
+    const provenance = demandeDocumentId || source.demandeDocumentId || 'assistance';
+
+    const verses = [];
+    for (const documentId of complementIds) {
+      const items = await strapi.documents('api::complement.complement').findMany({
+        filters: { documentId, candidature: { documentId: candidature.documentId } }, limit: 1,
+      });
+      const c = items[0];
+      if (!c) continue;
+      if (c.statut === 'fourni') continue; // deja fournie : jamais de double versement
+      await strapi.documents('api::complement.complement').update({
+        documentId: c.documentId,
+        data: { statut: 'fourni', fichier: fileId, precision, sourceAssistance: provenance },
+      });
+      verses.push(c.pieceDemandee || 'Piece');
+    }
+    for (const typePieceId of typePieceIds) {
+      const piece = await strapi.documents('api::type-piece.type-piece').findOne({ documentId: typePieceId });
+      if (!piece) continue;
+      await strapi.documents('api::complement.complement').create({
+        data: {
+          candidature: connectRelation(candidature), pieceDemandee: piece.libelle || 'Piece complementaire',
+          statut: 'fourni', origine: 'candidat', fichier: fileId, precision,
+          sourceAssistance: provenance, creeParVersement: true,
+        },
+      });
+      verses.push(piece.libelle || 'Piece complementaire');
+    }
+    if (!verses.length) return ctx.badRequest('Rien a verser : ces pieces sont deja fournies.');
+
+    await journal(strapi, candidature.documentId, {
+      auteurUser: user,
+      type: 'versement_piece_assistance',
+      texte: `Piece(s) versee(s) depuis l'assistance : ${verses.join(', ')}${precision ? ` — « ${precision} »` : ''}`,
+    });
+    ctx.body = { ok: true, verses };
+  },
+
+  async annulerVersementAssistance(ctx) {
+    const user = requireRole(ctx, INTERNAL_ROLES);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    const documentId = String(ctx.request.body?.data?.complementId || '');
+    if (!documentId) return ctx.badRequest('Piece requise.');
+
+    const items = await strapi.documents('api::complement.complement').findMany({
+      filters: { documentId, candidature: { documentId: candidature.documentId } }, limit: 1,
+    });
+    const c = items[0];
+    if (!c) return ctx.badRequest('Piece introuvable sur ce dossier.');
+    if (!c.sourceAssistance && !c.creeParVersement) return ctx.badRequest('Cette piece n\'a pas ete versee depuis l\'assistance.');
+
+    if (c.creeParVersement) {
+      // Piece qui n'existait que par le versement : elle disparait.
+      await strapi.documents('api::complement.complement').delete({ documentId: c.documentId });
+    } else {
+      // Piece reclamee au candidat : elle redevient attendue, l'echeance reprend son cours.
+      await strapi.documents('api::complement.complement').update({
+        documentId: c.documentId,
+        data: { statut: 'demande', fichier: null, precision: null, sourceAssistance: null },
+      });
+    }
+    await journal(strapi, candidature.documentId, {
+      auteurUser: user, type: 'annulation_versement_assistance',
+      texte: `Versement annule pour « ${c.pieceDemandee || 'Piece'} »${c.creeParVersement ? ' (ligne supprimee)' : ' — la piece redevient attendue'}`,
     });
     ctx.body = { ok: true };
   },

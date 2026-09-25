@@ -76,4 +76,48 @@ async function construirePiecesDossier(strapi, candidature) {
   return { pieces, autres };
 }
 
-module.exports = { resolvePiecesFichiers, construirePiecesDossier };
+// Pieces envoyees par le CANDIDAT dans le module Assistance. Elles ne vivaient que dans le fil
+// de la demande : l'instructeur, l'UGP et l'evaluateur ne les voyaient pas la ou ils travaillent.
+// Rattachement en deux temps : par le dossier lie a la demande, et a defaut par le compte du
+// candidat (des demandes sont ouvertes sans preciser le dossier).
+async function chargerPiecesAssistance(strapi, candidature, complements = []) {
+  const ownerId = candidature.owner?.id || null;
+  const ou = [{ concerneCandidature: { documentId: candidature.documentId } }];
+  if (ownerId) ou.push({ owner: { id: ownerId }, concerneCandidature: { documentId: { $null: true } } });
+  const demandes = await strapi.documents('api::demande-assistance.demande-assistance').findMany({
+    filters: { $or: ou },
+    populate: { messages: { populate: { pieces: { fields: ['id', 'url', 'name', 'mime', 'size'] } }, sort: 'envoyeLe:asc' } },
+    limit: 200,
+  });
+  // Ce qui a deja ete verse au dossier, par fichier : l'ecran doit dire « versee comme X ».
+  const versees = new Map();
+  for (const c of complements) {
+    const fid = c.fichier?.id;
+    if (!fid || c.statut !== 'fourni') continue;
+    if (!versees.has(fid)) versees.set(fid, []);
+    versees.get(fid).push(c.pieceDemandee || 'Piece');
+  }
+  const out = [];
+  for (const d of demandes) {
+    for (const m of d.messages || []) {
+      if (m.auteur !== 'operateur') continue; // jamais les pieces de l'equipe
+      for (const f of m.pieces || []) {
+        if (!f?.id) continue;
+        out.push({
+          fileId: f.id,
+          nom: f.name || 'Piece',
+          url: f.url || null,
+          envoyeLe: m.envoyeLe || null,
+          demandeDocumentId: d.documentId,
+          demandeObjet: d.objet || 'Demande d\'assistance',
+          rattachementDossier: Boolean(d.concerneCandidature),
+          verseeComme: versees.get(f.id) || [],
+        });
+      }
+    }
+  }
+  out.sort((a, b) => String(b.envoyeLe || '').localeCompare(String(a.envoyeLe || '')));
+  return out;
+}
+
+module.exports = { resolvePiecesFichiers, construirePiecesDossier, chargerPiecesAssistance };

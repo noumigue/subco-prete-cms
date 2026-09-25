@@ -11,7 +11,7 @@
 
 const { connectRelation, displayName, journal } = require('../../../utils/portal-instruction');
 const { getBareme, getParams, computeTotals, noteOf, bonusOf, detectEcarts } = require('../../../utils/portal-evaluation');
-const { construirePiecesDossier } = require('../../../utils/portal-pieces');
+const { construirePiecesDossier, chargerPiecesAssistance } = require('../../../utils/portal-pieces');
 
 const INTERNAL_ROLES = ['instructeur', 'ugp'];
 
@@ -192,6 +192,12 @@ module.exports = {
 
     const retire = candidature.statut?.phase !== 'evaluation';
     const fiche = await findMyFiche(strapi, candidature.documentId, user.id);
+    // Pieces envoyees par le candidat via l'assistance : l'evaluateur les voit, sans pouvoir
+    // les verser au dossier (le versement releve de l'instruction).
+    const complementsFiche = await strapi.documents('api::complement.complement').findMany({
+      filters: { candidature: { documentId: candidature.documentId } }, populate: { fichier: true }, limit: 100,
+    });
+    const piecesAssistance = await chargerPiecesAssistance(strapi, candidature, complementsFiche);
     const [bareme, params, cons] = await Promise.all([getBareme(strapi), getParams(strapi), findConsolidation(strapi, candidature.documentId)]);
     // Pieces du dossier : seulement apres la declaration d'absence de conflit d'interets. Un
     // evaluateur qui ne l'a pas faite (ou qui se recuse — il n'est alors plus « assignee ») n'y
@@ -207,6 +213,7 @@ module.exports = {
         rang: mine.rang,
         // Dossier sorti de l'evaluation : fiche en lecture seule, plus rien a saisir.
         retire,
+        piecesAssistance,
         // E3 : on ne renvoie QUE la fiche de l'appelant, jamais celle d'un autre evaluateur.
         fiche: fiche ? {
           coiDeclare: !!fiche.coiDeclare, esConforme: fiche.esConforme ?? null,

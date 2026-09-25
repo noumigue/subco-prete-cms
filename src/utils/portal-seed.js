@@ -445,6 +445,9 @@ async function ensurePortalRolesAndSettings(strapi) {
     // Verification « a blanc » des contradictions avant proposition (aucune ecriture).
     'api::gestion.gestion.verifierCompletude',
     'api::gestion.gestion.verifierEligibilite',
+    // Pieces envoyees via l'assistance : consultation dans l'instruction + versement au dossier.
+    'api::gestion.gestion.verserPieceAssistance',
+    'api::gestion.gestion.annulerVersementAssistance',
     ...evaluationInstructeurActions,
     ...comiteInstructeurActions,
     ...subventionInstructeurActions,
