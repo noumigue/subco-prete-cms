@@ -51,6 +51,20 @@ function sumBloc(bareme, blocKey, byCode) {
   }, 0);
 }
 
+// Règle de classement arbitrée par la Coordination (25/09) : le bonus ne profite QU'AUX
+// projets qui atteignent le seuil de base sans lui. Sous 60 hors bonus, le projet est non
+// retenu et le bonus est ignoré (Manuel 6.2.3) ; à partir de 60, la bande se lit sur le
+// total bonus inclus (Manuel 6.2.1.1 « score final » et 6.4.2 « après application des bonus »).
+function bandeSelonRegle(totalHorsBonus, totalFinal, params) {
+  const seuil = params?.seuilBase ?? 60;
+  const bandes = params?.bandes || DEFAULT_BANDES;
+  if (totalHorsBonus < seuil) {
+    const basse = [...bandes].sort((a, b) => a.min - b.min)[0];
+    return basse?.label || 'Non retenu';
+  }
+  return bandeFor(totalFinal, bandes);
+}
+
 // Totaux + bande à partir des notes retenues (bloc A/B) et du bonus (plafonné à 10).
 function computeTotals(bareme, params, notesByCode, bonusByCode) {
   const totalA = sumBloc(bareme, 'blocA', notesByCode);
@@ -58,9 +72,9 @@ function computeTotals(bareme, params, notesByCode, bonusByCode) {
   const bonusRaw = sumBloc(bareme, 'bonus', bonusByCode);
   const bonus = Math.min(10, bonusRaw);
   const totalHorsBonus = totalA + totalB;
-  // Le bonus ne rattrape jamais le seuil de base : la bande se calcule sur le total HORS bonus.
   const totalFinal = Math.min(100, totalHorsBonus) + bonus;
-  const bande = bandeFor(totalHorsBonus, params.bandes);
+  // Le bonus ne rattrape jamais le seuil de base, mais il compte pour tout projet qui l'atteint.
+  const bande = bandeSelonRegle(totalHorsBonus, totalFinal, params);
   return { totalA, totalB, bonus, totalHorsBonus, totalFinal, bande };
 }
 
@@ -93,14 +107,16 @@ function detectEcarts(bareme, params, fiches) {
   return ecarts;
 }
 
-// Recommandation pré-remplie depuis la bande (6.4 — sur le total HORS bonus).
-// >=80 sélection · 70-79 conditionnelle · 60-69 liste d'attente · <60 rejet.
-function recoFromScore(totalHorsBonus, params) {
+// Recommandation pré-remplie depuis la bande (6.4). Seuil d'entrée sur le total HORS bonus ;
+// au-delà, le classement se fait bonus inclus (arbitrage Coordination du 25/09).
+// <60 hors bonus : rejet · puis, sur le total final : >=80 sélection · 70-79 conditionnelle · sinon attente.
+function recoFromScore(totalHorsBonus, params, totalFinal = null) {
   const seuil = params?.seuilBase ?? 60;
-  if (totalHorsBonus >= 80) return 'selection';
-  if (totalHorsBonus >= 70) return 'conditionnelle';
-  if (totalHorsBonus >= seuil) return 'attente';
-  return 'rejet';
+  if (totalHorsBonus < seuil) return 'rejet';
+  const total = totalFinal == null ? totalHorsBonus : totalFinal;
+  if (total >= 80) return 'selection';
+  if (total >= 70) return 'conditionnelle';
+  return 'attente';
 }
 
 module.exports = {
@@ -108,6 +124,7 @@ module.exports = {
   getBareme,
   getParams,
   bandeFor,
+  bandeSelonRegle,
   computeTotals,
   noteOf,
   bonusOf,

@@ -124,7 +124,7 @@ async function ensureAndJoin(strapi, appel, params) {
     if (!ed) {
       const ff = await forcesFaiblessesDesFiches(strapi, it.candidatureDocumentId);
       ed = await strapi.documents('api::evaluation-dossier.evaluation-dossier').create({
-        data: { candidature: { connect: [it.candidatureDocumentId] }, rang: it.rang, reco: recoFromScore(it.totalHorsBonus, params), conditions: [], forces: ff.forces, faiblesses: ff.faiblesses },
+        data: { candidature: { connect: [it.candidatureDocumentId] }, rang: it.rang, reco: recoFromScore(it.totalHorsBonus, params, it.totalFinal), conditions: [], forces: ff.forces, faiblesses: ff.faiblesses },
       });
     } else if (ed.rang !== it.rang) {
       ed = await strapi.documents('api::evaluation-dossier.evaluation-dossier').update({ documentId: ed.documentId, data: { rang: it.rang } });
