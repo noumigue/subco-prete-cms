@@ -481,6 +481,8 @@ async function ensurePortalRolesAndSettings(strapi) {
     // Reouverture de la completude depuis l'eligibilite (motivee, journalisee, sans notification).
     'api::gestion.gestion.rouvrirCompletude',
     'api::gestion.gestion.renvoyerVersEligibilite',
+    // Reouverture d'un dossier clos sur rejet (motivee, journalisee, candidat prevenu).
+    'api::gestion.gestion.rouvrirDossierClos',
     'api::gestion.gestion.annulerRenvoiEvaluation',
     'api::gestion.gestion.ouvrirAppel',
     'api::gestion.gestion.cloreAppel',

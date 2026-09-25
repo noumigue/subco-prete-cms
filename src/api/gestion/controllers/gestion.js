@@ -1206,6 +1206,75 @@ module.exports = {
   },
 
   // ===========================================================================
+  // REOUVERTURE D'UN DOSSIER CLOS SUR REJET (ugp). Un rejet notifie reste une decision :
+  // la reouverture est motivee, journalisee, nominative, et ramene le dossier a l'etape ou le
+  // rejet a ete prononce. Rien n'est efface : constats, pieces et journal restent en place.
+  // ===========================================================================
+  async rouvrirDossierClos(ctx) {
+    const user = requireRole(ctx, ['ugp']);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.statut?.groupe !== 'non_retenu') {
+      return ctx.badRequest("Seul un dossier clos sur rejet peut etre rouvert.");
+    }
+    const motif = String(ctx.request.body?.data?.motif || '').trim();
+    const prevenirCandidat = ctx.request.body?.data?.prevenirCandidat !== false;
+    if (!motif) return ctx.badRequest('La reouverture doit etre motivee : precisez ce qui justifie le reexamen.');
+
+    // Apres le Comite, le classement et les decisions sont acquis : la reouverture n'a plus lieu d'etre.
+    const evalDossiers = await strapi.documents('api::evaluation-dossier.evaluation-dossier').findMany({
+      filters: { candidature: { documentId: candidature.documentId } }, limit: 1,
+    });
+    if (evalDossiers[0]?.decisionComite) return ctx.badRequest('Le Comite a statue sur ce dossier : sa decision ne se rouvre pas ici.');
+
+    const [instrCompletude, instrEligibilite] = await Promise.all([
+      findInstruction(strapi, 'api::instruction-completude.instruction-completude', candidature.documentId),
+      findInstruction(strapi, 'api::instruction-eligibilite.instruction-eligibilite', candidature.documentId),
+    ]);
+    // L'etape de retour est celle qui porte le rejet valide : eligibilite si c'est la, sinon completude.
+    const parEligibilite = instrEligibilite?.workflow === 'valide' && instrEligibilite?.verdictGlobal === 'rejet';
+    const instruction = parEligibilite ? instrEligibilite : instrCompletude;
+    const uid = parEligibilite
+      ? 'api::instruction-eligibilite.instruction-eligibilite'
+      : 'api::instruction-completude.instruction-completude';
+    const etape = parEligibilite ? 'eligibilite' : 'completude';
+    if (!instruction?.documentId) return ctx.badRequest('Aucune instruction a rouvrir sur ce dossier.');
+
+    const statut = await getStatutByCode(strapi, etape);
+    await strapi.db.transaction(async () => {
+      await strapi.documents('api::candidature.candidature').update({
+        documentId: candidature.documentId,
+        // La notification de rejet ne vaut plus : on retire le motif affiche au candidat.
+        data: { statut: connectRelation(statut), motifDecisionCourt: null, notificationDecision: null },
+      });
+      await strapi.documents(uid).update({
+        documentId: instruction.documentId,
+        // Etat « a reprendre » : les constats piece par piece (ou critere par critere) sont
+        // conserves, seul le verdict tombe — l'instructeur doit se prononcer a nouveau.
+        data: { workflow: 'renvoye', verdictGlobal: null, motifRejet: null, commentaireRenvoi: motif },
+      });
+      await journal(strapi, candidature.documentId, {
+        auteurUser: user,
+        type: 'reouverture_dossier',
+        texte: `Dossier clos rouvert et ramene a l'etape ${etape} : « ${motif} » — constats conserves, verdict a reprendre${prevenirCandidat ? ', candidat prevenu' : ', candidat non prevenu'}`,
+      });
+    });
+
+    if (prevenirCandidat) {
+      await sendPortalNotification(strapi, {
+        userId: candidature.owner?.id,
+        email: candidature.owner?.email,
+        telephone: candidature.owner?.phone || candidature.organisation?.telephone,
+        candidature,
+        sujet: 'Votre dossier est reexamine',
+        corps: `Votre dossier ${candidature.numeroDossier} avait ete declare non retenu. Cette decision est annulee : votre dossier est a nouveau en cours d'examen. Vous n'avez rien a faire pour l'instant ; vous serez informe de la suite.`,
+      });
+    }
+    ctx.body = { ok: true, etape };
+  },
+
+  // ===========================================================================
   // PIECES DE L'ASSISTANCE — verser au dossier / annuler (instructeur + ugp).
   // Un meme fichier peut justifier PLUSIEURS pieces attendues : le candidat scanne souvent
   // tout d'un coup, on ne lui redemande pas de redecouper son PDF.
