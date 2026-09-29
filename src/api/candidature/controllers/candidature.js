@@ -124,6 +124,37 @@ function verifierModifiable(candidature) {
   return null;
 }
 
+// A quelle ETAPE le parcours du dossier s'est arrete, pour la frise du suivi candidat.
+// Sans cela, la page marquait « etape franchie » toutes les etapes precedant la phase du
+// statut : un dossier rejete a l'eligibilite s'affichait comme ayant passe l'eligibilite ET
+// l'evaluation, et « en attente de decision » (signale le 29/09 sur le dossier 00287).
+// Le rejet peut tomber a n'importe quelle etape : on lit le verdict reellement enregistre.
+async function etapeDecision(strapi, candidature) {
+  const groupe = candidature?.statut?.groupe;
+  if (groupe !== 'non_retenu' && groupe !== 'selectionne') return null;
+  const issue = groupe === 'selectionne' ? 'selectionne' : 'non_retenu';
+  if (issue === 'selectionne') return { etape: 'decision', issue };
+
+  const documentId = candidature.documentId;
+  const [completude, eligibilite, evaluations] = await Promise.all([
+    strapi.documents('api::instruction-completude.instruction-completude').findMany({
+      filters: { candidature: { documentId }, workflow: 'valide' }, fields: ['verdictGlobal'], limit: 1,
+    }),
+    strapi.documents('api::instruction-eligibilite.instruction-eligibilite').findMany({
+      filters: { candidature: { documentId }, workflow: 'valide' }, fields: ['verdictGlobal'], limit: 1,
+    }),
+    strapi.documents('api::evaluation-dossier.evaluation-dossier').findMany({
+      filters: { candidature: { documentId } }, fields: ['reco', 'decisionComite'], limit: 1,
+    }),
+  ]);
+  if (completude[0]?.verdictGlobal === 'rejet') return { etape: 'completude', issue };
+  if (eligibilite[0]?.verdictGlobal === 'rejet') return { etape: 'eligibilite', issue };
+  if (evaluations[0]?.decisionComite) return { etape: 'decision', issue };
+  if (evaluations[0]) return { etape: 'evaluation', issue };
+  // Rejet sans verdict enregistre (cas anciens) : on ne prejuge pas de l'etape.
+  return { etape: null, issue };
+}
+
 // Populate minimal pour evaluer `verifierModifiable`.
 const MODIFIABLE_POPULATE = {
   statut: true,
@@ -181,8 +212,10 @@ module.exports = createCoreController('api::candidature.candidature', ({ strapi 
     // Le candidat doit pouvoir relire les pieces qu'il a deposees (elles ne vivent que
     // sous forme de `fileId` dans donneesProjet) — resolues ici, en lecture seule.
     const piecesFichiers = await resolvePiecesFichiers(strapi, entity.donneesProjet);
+    // Etape d'arret du parcours (rejet ou selection), pour une frise honnete cote candidat.
+    const decision = await etapeDecision(strapi, entity);
 
-    return this.transformResponse({ ...entity, piecesFichiers });
+    return this.transformResponse({ ...entity, piecesFichiers, decision });
   },
 
   async create(ctx) {
