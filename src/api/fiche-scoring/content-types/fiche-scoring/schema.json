@@ -22,6 +22,9 @@
     "annuleePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
     "annuleeLe": { "type": "datetime" },
     "annulationMotif": { "type": "text" },
+    "renvoyeeMotif": { "type": "text" },
+    "renvoyeePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" },
+    "renvoyeeLe": { "type": "datetime" },
     "signeLe": { "type": "datetime" },
     "signePar": { "type": "relation", "relation": "manyToOne", "target": "plugin::users-permissions.user" }
   }

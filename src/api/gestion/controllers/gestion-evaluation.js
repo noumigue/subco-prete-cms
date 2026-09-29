@@ -218,6 +218,9 @@ module.exports = {
         fiche: fiche ? {
           coiDeclare: !!fiche.coiDeclare, esConforme: fiche.esConforme ?? null,
           notes: fiche.notes || {}, bonus: fiche.bonus || {}, statut: fiche.statut, signeLe: fiche.signeLe || null,
+          // Renvoyee par l'UGP : le motif s'affiche en bandeau tant que la fiche n'est pas resignee.
+          renvoyeeMotif: fiche.statut === 'brouillon' ? fiche.renvoyeeMotif || null : null,
+          renvoyeeLe: fiche.statut === 'brouillon' ? fiche.renvoyeeLe || null : null,
           forces: cleanLignes(fiche.forces), faiblesses: cleanLignes(fiche.faiblesses),
         } : null,
         bareme: { blocA: bareme.blocA, blocB: bareme.blocB, bonus: bareme.bonus, porteEs: bareme.all.find((c) => c.type === 'eliminatoire') || null },
@@ -349,7 +352,7 @@ module.exports = {
 
     await strapi.documents('api::fiche-scoring.fiche-scoring').update({
       documentId: fiche.documentId,
-      data: { esConforme, notes, bonus, forces, faiblesses, statut: 'soumise', signeLe: new Date().toISOString(), signePar: { connect: [user.id] } },
+      data: { esConforme, notes, bonus, forces, faiblesses, statut: 'soumise', signeLe: new Date().toISOString(), signePar: { connect: [user.id] }, renvoyeeMotif: null, renvoyeeLe: null },
     });
     await journal(strapi, candidature.documentId, { auteurUser: user, type: 'fiche_soumise', texte: `Fiche de scoring soumise & signee (evaluateur ${fiche.rang})${esConforme === false ? ' — projet ecarte a la porte E&S' : porteDifferee ? ' — E&S non evaluee (porte differee, a verifier avant le comite)' : ''}` });
 
@@ -385,7 +388,13 @@ module.exports = {
     const rangInfo = (rang) => {
       const a = assigns.find((x) => x.rang === rang && x.statut === 'assignee');
       const f = fiches.find((x) => x.rang === rang && x.statut !== 'annulee');
-      return a ? { evaluateurId: a.evaluateur?.id || null, nom: a.evaluateur ? displayName(a.evaluateur) : null, ficheStatut: f?.statut || null } : null;
+      return a ? {
+        evaluateurId: a.evaluateur?.id || null,
+        nom: a.evaluateur ? displayName(a.evaluateur) : null,
+        ficheStatut: f?.statut || null,
+        renvoyee: Boolean(f && f.statut === 'brouillon' && f.renvoyeeMotif),
+        renvoyeeMotif: f && f.statut === 'brouillon' ? f.renvoyeeMotif || null : null,
+      } : null;
     };
     const r1 = rangInfo(1);
     const r2 = rangInfo(2);
@@ -439,6 +448,71 @@ module.exports = {
     }
     const evalUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: evaluateurId } });
     await journal(strapi, candidature.documentId, { auteurUser: user, type: 'assignation', texte: `Assignation evaluateur ${rang} : ${displayName(evalUser)} (E2)` });
+    ctx.body = { ok: true };
+  },
+
+  // Renvoi d'une fiche SIGNEE a son evaluateur (UGP), par rang : l'UGP peut renvoyer a l'un,
+  // a l'autre, ou aux deux (deux fois, avec un motif propre a chacun). La fiche repasse en
+  // brouillon AVEC ses notes et ses commentaires : l'evaluateur corrige et resigne, sans tout
+  // ressaisir. C'est l'alternative au 3e evaluateur quand l'equipe est deja bousculee.
+  async renvoyerFiche(ctx) {
+    const user = requireRole(ctx, ['ugp']);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+    if (candidature.statut?.phase !== 'evaluation') return ctx.badRequest("Ce dossier n'est plus en evaluation.");
+    const rang = Number(ctx.request.body?.data?.rang);
+    const motif = String(ctx.request.body?.data?.motif || '').trim();
+    if (![1, 2, 3].includes(rang)) return ctx.badRequest('Rang (1|2|3) requis.');
+    if (!motif) return ctx.badRequest("Le renvoi doit etre motive : l'evaluateur lira ce texte dans sa fiche.");
+
+    const fiches = await findFichesDuRang(strapi, candidature.documentId, rang);
+    const fiche = fiches.find((f) => f.statut === 'soumise');
+    if (!fiche) return ctx.badRequest(`Aucune fiche signee a renvoyer pour l'evaluateur ${rang}.`);
+
+    const rapports = await strapi.documents('api::rapport-evaluation.rapport-evaluation').findMany({
+      filters: { appel: { documentId: candidature.appel?.documentId } }, limit: 1,
+    });
+    if (rapports[0] && rapports[0].statut !== 'brouillon') {
+      return ctx.badRequest('Le rapport d’evaluation est deja soumis ou valide : renvoyez-le avant de renvoyer une fiche.');
+    }
+    const evalDossiers = await strapi.documents('api::evaluation-dossier.evaluation-dossier').findMany({
+      filters: { candidature: { documentId: candidature.documentId } }, limit: 1,
+    });
+    if (evalDossiers[0]?.decisionComite) return ctx.badRequest('Le Comite a deja statue sur ce dossier.');
+
+    const cons = await findConsolidation(strapi, candidature.documentId);
+    const etaitFigee = cons?.statut === 'figee';
+    const nom = displayName(fiche.evaluateur) || 'evaluateur';
+
+    await strapi.db.transaction(async () => {
+      await strapi.documents('api::fiche-scoring.fiche-scoring').update({
+        documentId: fiche.documentId,
+        // Notes, commentaires, forces/faiblesses et porte E&S sont CONSERVES : seule la
+        // signature tombe. L'evaluateur reprend la ou il s'etait arrete.
+        data: {
+          statut: 'brouillon', signeLe: null,
+          renvoyeeMotif: motif, renvoyeePar: { connect: [user.id] }, renvoyeeLe: new Date().toISOString(),
+        },
+      });
+      if (cons?.documentId) {
+        // Plus deux fiches signees : la consolidation se referme, et les harmonisations
+        // tombent — elles arbitraient entre des notes qui vont changer.
+        await strapi.documents('api::consolidation.consolidation').update({
+          documentId: cons.documentId,
+          data: {
+            statut: 'en_cours', notesRetenues: {}, ecarts: [],
+            totalA: null, totalB: null, bonus: null, totalHorsBonus: null, totalFinal: null, bande: null,
+            figeePar: null, figeeLe: null, porteEsStatut: null,
+          },
+        });
+      }
+      await journal(strapi, candidature.documentId, {
+        auteurUser: user,
+        type: 'renvoi_fiche',
+        texte: `Fiche de l'evaluateur ${rang} (${nom}) renvoyee pour correction : « ${motif} » — notes conservees, signature a reprendre${etaitFigee ? ', consolidation figee annulee' : ''}${cons ? ', harmonisations effacees' : ''}`,
+      });
+    });
     ctx.body = { ok: true };
   },
 
