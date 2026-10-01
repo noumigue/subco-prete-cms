@@ -98,14 +98,28 @@ async function trace(strapi, demande, user, type, texte) {
 
 module.exports = {
   // GET /gestion/assistance — file complete (toutes origines), role-gated.
+  // Liste paginee : 223 demandes et leurs 418 messages chargees d'un bloc saturaient le pool
+  // de connexions (incident du 01/10). On renvoie les 50 plus recentes par defaut, et les
+  // compteurs par statut sont comptes en base — ils restent donc exacts quoi qu'on affiche.
   async demandes(ctx) {
     if (!requireRole(ctx, EQUIPE_ROLES)) return;
-    const rows = await strapi.documents(UID_DEMANDE).findMany({
-      populate: { ...DEMANDE_POPULATE, messages: { fields: ['auteur', 'envoyeLe'], sort: 'envoyeLe:asc' } },
-      sort: 'updatedAt:desc',
-      limit: 500,
-    });
-    ctx.body = { data: rows.map(serializeRow) };
+    const demande = Number(ctx.query?.limit);
+    const limit = Math.min(Number.isFinite(demande) && demande > 0 ? demande : 50, 300);
+    const [rows, total, ouvertes, enCours, resolues] = await Promise.all([
+      strapi.documents(UID_DEMANDE).findMany({
+        populate: { ...DEMANDE_POPULATE, messages: { fields: ['auteur', 'envoyeLe'], sort: 'envoyeLe:asc' } },
+        sort: 'updatedAt:desc',
+        limit,
+      }),
+      strapi.documents(UID_DEMANDE).count(),
+      strapi.documents(UID_DEMANDE).count({ filters: { statut: 'ouverte' } }),
+      strapi.documents(UID_DEMANDE).count({ filters: { statut: 'en_cours' } }),
+      strapi.documents(UID_DEMANDE).count({ filters: { statut: 'resolue' } }),
+    ]);
+    ctx.body = {
+      data: rows.map(serializeRow),
+      meta: { affichees: rows.length, limit, total, parStatut: { ouverte: ouvertes, en_cours: enCours, resolue: resolues } },
+    };
   },
 
   // GET /gestion/assistance/:documentId — fil complet.

@@ -84,10 +84,14 @@ async function chargerPiecesAssistance(strapi, candidature, complements = []) {
   const ownerId = candidature.owner?.id || null;
   const ou = [{ concerneCandidature: { documentId: candidature.documentId } }];
   if (ownerId) ou.push({ owner: { id: ownerId }, concerneCandidature: { documentId: { $null: true } } });
+  // Allege (01/10) : on ne demande ni les corps de messages ni le reste de la demande —
+  // seulement l'objet, l'auteur du message, sa date et ses fichiers. Ce chemin est emprunte
+  // a CHAQUE ouverture de dossier et de fiche : il doit rester leger.
   const demandes = await strapi.documents('api::demande-assistance.demande-assistance').findMany({
     filters: { $or: ou },
-    populate: { messages: { populate: { pieces: { fields: ['id', 'url', 'name', 'mime', 'size'] } }, sort: 'envoyeLe:asc' } },
-    limit: 200,
+    fields: ['documentId', 'objet'],
+    populate: { messages: { fields: ['auteur', 'envoyeLe'], populate: { pieces: { fields: ['id', 'url', 'name'] } }, sort: 'envoyeLe:asc' } },
+    limit: 50,
   });
   // Ce qui a deja ete verse au dossier, par fichier : l'ecran doit dire « versee comme X ».
   const versees = new Map();
@@ -110,7 +114,7 @@ async function chargerPiecesAssistance(strapi, candidature, complements = []) {
           envoyeLe: m.envoyeLe || null,
           demandeDocumentId: d.documentId,
           demandeObjet: d.objet || 'Demande d\'assistance',
-          rattachementDossier: Boolean(d.concerneCandidature),
+          rattachementDossier: true,
           verseeComme: versees.get(f.id) || [],
         });
       }

@@ -20,7 +20,7 @@ module.exports = ({ env }) => {
           rejectUnauthorized: env.bool('DATABASE_SSL_REJECT_UNAUTHORIZED', true),
         },
       },
-      pool: { min: env.int('DATABASE_POOL_MIN', 2), max: env.int('DATABASE_POOL_MAX', 10) },
+      pool: { min: env.int('DATABASE_POOL_MIN', 2), max: env.int('DATABASE_POOL_MAX', 15) },
     },
     postgres: {
       connection: {
@@ -40,7 +40,7 @@ module.exports = ({ env }) => {
         },
         schema: env('DATABASE_SCHEMA', 'public'),
       },
-      pool: { min: env.int('DATABASE_POOL_MIN', 2), max: env.int('DATABASE_POOL_MAX', 10) },
+      pool: { min: env.int('DATABASE_POOL_MIN', 2), max: env.int('DATABASE_POOL_MAX', 15) },
     },
     sqlite: {
       connection: {
@@ -54,7 +54,10 @@ module.exports = ({ env }) => {
     connection: {
       client,
       ...connections[client],
-      acquireConnectionTimeout: env.int('DATABASE_CONNECTION_TIMEOUT', 60000),
+      // 60 s transformaient une lenteur en panne : chaque requete bloquee gardait sa place
+      // dans la file une minute entiere (incident du 01/10, 7 minutes d'indisponibilite).
+      // A 10 s, une requete coincee echoue vite et libere la connexion.
+      acquireConnectionTimeout: env.int('DATABASE_CONNECTION_TIMEOUT', 10000),
     },
   };
 };
