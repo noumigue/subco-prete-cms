@@ -19,7 +19,7 @@ const { resolvePiecesFichiers, chargerPiecesAssistance } = require('../../../uti
 const { archiverModificationsNonDeposees } = require('../../../utils/portal-depot');
 const { detecterContradictionsCompletude, detecterContradictionsEligibilite } = require('../../../utils/portal-contradictions');
 const { aujourdHui, ajouterJoursOuvres, compterJoursOuvres, normaliserDelai } = require('../../../utils/portal-delais');
-const { getBareme, getParams: getParamsEvaluation, detectEcarts } = require('../../../utils/portal-evaluation');
+const { getBareme, getParams: getParamsEvaluation, detectEcarts, computeTotals, noteOf, bonusOf } = require('../../../utils/portal-evaluation');
 
 const OBSERVATIONS_REQUISES = "Les observations a l'attention de l'UGP sont obligatoires (ecrivez « RAS » s'il n'y a rien a signaler).";
 
@@ -263,8 +263,36 @@ async function etatsEvaluation(strapi, dossiersEnEvaluation) {
     const attente = (etat === 'notation' || etat === 'un_evaluateur') && soumises.length < actifs.length && derniereDesignation
       ? Math.floor((Date.now() - new Date(derniereDesignation).getTime()) / MS_JOUR_EVAL) : null;
 
+    // Tranche PREVISIONNELLE : la ou se situerait le dossier d'apres la moyenne des fiches
+    // signees, harmonisations comprises. Elle n'engage rien tant que la consolidation n'est pas
+    // figee ; pour un dossier figé, on renvoie la tranche reelle, pas un recalcul.
+    let previsionnel = null;
+    if (etat === 'figee' && cons?.bande) {
+      previsionnel = {
+        totalHorsBonus: Number(cons.totalHorsBonus) || 0,
+        totalFinal: Number(cons.totalFinal) || 0,
+        bande: cons.bande,
+        figee: true,
+      };
+    } else if (r1 && r2) {
+      const notees = soumises.filter((f) => f.esConforme !== false);
+      const moyenne = (lire, code) => {
+        const vals = notees.map((f) => lire(f, code)).filter((v) => v != null);
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+      };
+      const retenues = {};
+      for (const c of bareme.notes) {
+        retenues[c.code] = harmon[c.code]?.retenue != null ? Number(harmon[c.code].retenue) : moyenne(noteOf, c.code);
+      }
+      const bonusRetenu = {};
+      for (const c of bareme.bonus) bonusRetenu[c.code] = moyenne(bonusOf, c.code);
+      const t = computeTotals(bareme, params, retenues, bonusRetenu);
+      previsionnel = { totalHorsBonus: t.totalHorsBonus, totalFinal: t.totalFinal, bande: t.bande, figee: false };
+    }
+
     out.set(docId, {
       etat,
+      previsionnel,
       evaluateurs: actifs.sort((a, b) => (a.rang || 0) - (b.rang || 0)).map((a) => ({ id: a.evaluateur?.id || null, nom: displayName(a.evaluateur) })),
       assignes: actifs.length,
       fichesSoumises: soumises.length,

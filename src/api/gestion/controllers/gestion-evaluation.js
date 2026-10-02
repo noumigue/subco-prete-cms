@@ -648,7 +648,14 @@ module.exports = {
       const gap = c.type === 'note' && ecart >= seuil && ecart > 0;
       const traite = harmon[c.code]?.harmonisee === true || !!r3;
       const retenue = consolidatedNote(c.code, notees, harmon).note;
-      return { code: c.code, libelle: c.libelle, points: c.points, n1, n2, n3, seuil, ecart, gap, traite, harmonisee: harmon[c.code]?.harmonisee === true, retenue };
+      // Justifications : le consolidateur doit pouvoir lire POURQUOI chacun a mis cette note,
+      // sans ouvrir les fiches (demande UGP du 02/10).
+      const motif = (f) => (f?.notes?.[c.code] && typeof f.notes[c.code] === 'object' ? String(f.notes[c.code].commentaire || '') : '');
+      return {
+        code: c.code, libelle: c.libelle, points: c.points, n1, n2, n3, seuil, ecart, gap, traite,
+        harmonisee: harmon[c.code]?.harmonisee === true, retenue,
+        c1: motif(r1), c2: motif(r2), c3: r3 ? motif(r3) : '',
+      };
     };
     // La porte E&S (A6, eliminatoire) n'apparait pas dans le tableau de notation.
     const rows = { blocA: bareme.blocA.filter((c) => c.type === 'note').map(rowFor), blocB: bareme.blocB.map(rowFor) };
