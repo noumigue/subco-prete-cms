@@ -314,12 +314,15 @@ module.exports = {
   async dossiers(ctx) {
     if (!requireRole(ctx, INTERNAL_ROLES)) return;
 
+    // Borne de securite : 333 dossiers deposes aujourd'hui, mais l'ancienne limite de 500
+    // aurait tronque la file EN SILENCE des l'ouverture d'une 2e cohorte. `tronque` previent.
+    const PLAFOND_FILE = 3000;
     const list = await strapi.documents('api::candidature.candidature').findMany({
       // On exclut les brouillons (non soumis) : la file ne montre que le registre des depots (8.5).
       filters: { statut: { code: { $ne: 'brouillon' } }, numeroDossier: { $notNull: true } },
       sort: ['dateDepot:desc', 'updatedAt:desc'],
       populate: CANDIDATURE_POPULATE,
-      limit: 500,
+      limit: PLAFOND_FILE,
     });
 
     // Toutes les instructions, en un lot : `propose` dit « a valider » (UGP) ; `renvoye` et
@@ -441,7 +444,7 @@ module.exports = {
       }, orgByOwner[c.owner?.id]),
     );
 
-    ctx.body = { data: items };
+    ctx.body = { data: items, meta: { total: items.length, tronque: list.length >= PLAFOND_FILE } };
   },
 
   // ===========================================================================

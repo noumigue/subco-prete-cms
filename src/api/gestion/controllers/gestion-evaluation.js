@@ -152,21 +152,46 @@ module.exports = {
     const user = requireRole(ctx, INTERNAL_ROLES);
     if (!user) return;
 
+    // Borne de securite, pas de pagination : un evaluateur ne peut pas avoir plus
+    // d'assignations qu'il n'y a de dossiers. L'ancienne limite de 100 masquait en silence
+    // les dossiers au-dela — Soko Eyango Jean Bruno en avait 118, ses deux derniers
+    // n'apparaissaient pas (signale le 08/10). `tronque` dit la verite si la borne est atteinte.
+    const PLAFOND = 1000;
     const assigns = await strapi.documents('api::assignation-evaluation.assignation-evaluation').findMany({
       filters: { evaluateur: { id: user.id }, statut: 'assignee' },
       populate: { candidature: { populate: { statut: true, organisation: { populate: ['filierePrincipale'] } } } },
-      limit: 100,
+      limit: PLAFOND,
     });
+
+    // Mes fiches en UNE requete : l'ancienne version en faisait une par dossier (118 allers-retours
+    // pour une seule page), ce qui pesait lourd sur la base.
+    const mesFiches = await strapi.documents('api::fiche-scoring.fiche-scoring').findMany({
+      filters: { evaluateur: { id: user.id }, statut: { $ne: 'annulee' } },
+      populate: { candidature: { fields: ['documentId'] } },
+      limit: PLAFOND,
+    });
+    const ficheParDossier = new Map();
+    for (const f of mesFiches) if (f.candidature?.documentId) ficheParDossier.set(f.candidature.documentId, f);
+
+    // Dossiers sortis de l'evaluation : seuls ceux en reexamen restent affiches (signales).
+    const sortis = assigns.map((a) => a.candidature).filter((c) => c && c.statut?.phase !== 'evaluation');
+    const enReexamen = new Set();
+    if (sortis.length) {
+      const instructions = await strapi.documents('api::instruction-eligibilite.instruction-eligibilite').findMany({
+        filters: { reexamen: true, candidature: { documentId: { $in: sortis.map((c) => c.documentId) } } },
+        populate: { candidature: { fields: ['documentId'] } },
+        limit: PLAFOND,
+      });
+      for (const i of instructions) if (i.candidature?.documentId) enReexamen.add(i.candidature.documentId);
+    }
 
     const items = [];
     for (const a of assigns) {
       const c = a.candidature;
       if (!c) continue;
-      // Dossier retire de l'evaluation (renvoye a l'eligibilite par l'UGP) : il reste visible,
-      // signale et non cliquable, pour que l'evaluateur ne cherche pas ce qui a disparu.
       const retire = c.statut?.phase !== 'evaluation';
-      if (retire && !(await estEnReexamen(strapi, c.documentId))) continue;
-      const fiche = await findMyFiche(strapi, c.documentId, user.id);
+      if (retire && !enReexamen.has(c.documentId)) continue;
+      const fiche = ficheParDossier.get(c.documentId) || null;
       items.push({
         documentId: c.documentId,
         numeroDossier: c.numeroDossier || null,
@@ -176,7 +201,18 @@ module.exports = {
         retire,
       });
     }
-    ctx.body = { data: items };
+    // Tri par numero de dossier : avec plus de cent lignes, l'ordre d'assignation est illisible.
+    items.sort((x, y) => String(x.numeroDossier || '').localeCompare(String(y.numeroDossier || '')));
+    ctx.body = {
+      data: items,
+      meta: {
+        total: items.length,
+        aRemplir: items.filter((i) => !i.retire && i.ficheStatut !== 'soumise').length,
+        soumises: items.filter((i) => i.ficheStatut === 'soumise').length,
+        retires: items.filter((i) => i.retire).length,
+        tronque: assigns.length >= PLAFOND,
+      },
+    };
   },
 
   async fiche(ctx) {
