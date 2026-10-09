@@ -8,6 +8,8 @@ module.exports = {
   routes: [
     { method: 'GET', path: '/gestion/dossiers', handler: 'gestion.dossiers', config: { policies: [] } },
     { method: 'GET', path: '/gestion/dossiers/:documentId', handler: 'gestion.dossier', config: { policies: [] } },
+    // Consultation des seules pieces, ouverte a toute l'equipe (evaluation et dossiers clos).
+    { method: 'GET', path: '/gestion/dossiers/:documentId/pieces', handler: 'gestion.piecesDossier', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/prise-en-charge', handler: 'gestion.priseEnCharge', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/reassigner', handler: 'gestion.reassigner', config: { policies: [] } },
     { method: 'POST', path: '/gestion/dossiers/:documentId/completude/proposer', handler: 'gestion.proposerCompletude', config: { policies: [] } },

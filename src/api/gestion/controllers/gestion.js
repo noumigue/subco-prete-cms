@@ -15,7 +15,7 @@
 
 const { connectRelation, displayName, getStatutByCode, journal } = require('../../../utils/portal-instruction');
 const { sendPortalNotification } = require('../../../utils/portal-notify');
-const { resolvePiecesFichiers, chargerPiecesAssistance } = require('../../../utils/portal-pieces');
+const { resolvePiecesFichiers, construirePiecesDossier, chargerPiecesAssistance } = require('../../../utils/portal-pieces');
 const { archiverModificationsNonDeposees } = require('../../../utils/portal-depot');
 const { detecterContradictionsCompletude, detecterContradictionsEligibilite } = require('../../../utils/portal-contradictions');
 const { aujourdHui, ajouterJoursOuvres, compterJoursOuvres, normaliserDelai } = require('../../../utils/portal-delais');
@@ -450,6 +450,68 @@ module.exports = {
   // ===========================================================================
   // DETAIL D'UN DOSSIER — candidature + instructions + referentiels + journal.
   // ===========================================================================
+  // Consultation des SEULES pieces d'un dossier par un membre de l'equipe qui n'en est pas
+  // detenteur (demande du 09/10/2026 : un evaluateur doit pouvoir consulter les pieces d'un
+  // dossier qui n'est pas le sien). La confidentialite de la NOTATION reste entiere : cette
+  // route ne renvoie ni note, ni commentaire, ni verdict, ni nom d'evaluateur, ni journal.
+  // Meme appelee directement, elle ne peut rien divulguer d'autre que des pieces.
+  async piecesDossier(ctx) {
+    const user = requireRole(ctx, INTERNAL_ROLES);
+    if (!user) return;
+    const candidature = await findCandidature(strapi, ctx.params.documentId);
+    if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
+
+    // Hors evaluation et dossiers clos, l'acces reste celui des regles d'instruction du
+    // 16/09 : l'instructeur en charge et l'UGP. La consultation large ne s'y applique pas.
+    const phase = candidature.statut?.phase || null;
+    if (!['evaluation', 'decision'].includes(phase)) {
+      return ctx.badRequest("Les pieces ne se consultent ainsi qu'a l'evaluation et sur les dossiers clos.");
+    }
+
+    // Un evaluateur recuse s'est declare en conflit d'interets sur ce dossier : la recusation
+    // vaut pour la lecture des pieces comme pour la notation.
+    if (user.role?.type !== 'ugp') {
+      const recusations = await strapi.documents('api::assignation-evaluation.assignation-evaluation').findMany({
+        filters: {
+          candidature: { documentId: candidature.documentId },
+          evaluateur: { id: user.id },
+          statut: 'recusee',
+        },
+        limit: 1,
+      });
+      if (recusations.length) {
+        return ctx.forbidden("Vous vous etes recuse sur ce dossier : ses pieces ne vous sont pas accessibles.");
+      }
+    }
+
+    const complements = await strapi.documents('api::complement.complement').findMany({
+      filters: { candidature: { documentId: candidature.documentId } },
+      populate: { fichier: true },
+      limit: 200,
+    });
+    const [dossierPieces, assistance] = await Promise.all([
+      construirePiecesDossier(strapi, candidature),
+      chargerPiecesAssistance(strapi, candidature, complements),
+    ]);
+
+    const org = candidature.organisation;
+    ctx.body = {
+      data: {
+        documentId: candidature.documentId,
+        numeroDossier: candidature.numeroDossier || null,
+        titreProjet: candidature.titreProjet || '',
+        organisation: org
+          ? { nom: org.nom || '', filiere: org.filierePrincipale?.nom || null, province: org.province?.nom || null }
+          : null,
+        phase,
+        statutLibelle: candidature.statut?.libelleCandidat || null,
+        pieces: dossierPieces.pieces,
+        autres: dossierPieces.autres,
+        assistance,
+      },
+    };
+  },
+
   async dossier(ctx) {
     if (!requireRole(ctx, INTERNAL_ROLES)) return;
 

@@ -331,6 +331,9 @@ async function ensurePortalRolesAndSettings(strapi) {
   const gestionBaseActions = [
     'api::gestion.gestion.dossiers',
     'api::gestion.gestion.dossier',
+    // Consultation des seules pieces d'un dossier dont on n'est pas detenteur
+    // (evaluation et dossiers clos) : aucune note ni verdict n'y transite.
+    'api::gestion.gestion.piecesDossier',
     'api::gestion.gestion.appels',
     'api::portal-compte.portal-compte.moi',
   ];
