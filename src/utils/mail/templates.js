@@ -585,6 +585,103 @@ const TEMPLATES = {
       </p>
     `),
   },
+
+  // === NOTIFICATION DU RESULTAT DE L'EVALUATION (Cohorte 1) ===========================
+  //
+  // Les deux messages arretes par la cheffe de mission le 14 octobre 2026, notifies apres
+  // validation des listes par le Comite de selection du 20 octobre.
+  //
+  // LA PHRASE CENTRALE EST REPRISE MOT POUR MOT. C'est elle qui a ete validee ; tout ce
+  // qui l'entoure n'est la que pour que le destinataire sache DE QUEL dossier on parle et
+  // ce qu'il doit faire ensuite. Ne pas la reecrire sans un nouvel arbitrage.
+  //
+  // CE QUI N'Y FIGURE PAS, ET POURQUOI. La note obtenue n'est pas donnee : les textes
+  // valides ne la donnent pas, et l'annoncer ouvrirait une contestation dossier par
+  // dossier sur des ecarts de quelques dixiemes. Le palier non plus : les 119 recommandes
+  // et les 29 de la liste d'attente recoivent le meme message positif (arbitrage du
+  // 23 octobre), et nommer le palier reviendrait a defaire cet arbitrage.
+  'campagne.evaluation_retenu': {
+    category: 'campagne',
+    description: "Resultat d'evaluation — sous-projet retenu pour poursuivre le processus (note >= 60).",
+    requiredVars: ['numeroDossier', 'nomProjet'],
+    subject: `${BRAND_NAME} — Résultat de l'évaluation technique de votre sous-projet`,
+    text: [
+      'Bonjour{{#if orgName}} {{orgName}}{{/if}},',
+      '',
+      'Dossier n° {{numeroDossier}} — {{nomProjet}}',
+      '',
+      'Après analyse technique de pré-sélection de votre sous-projet, celui-ci a obtenu une note',
+      'supérieure ou égale à 60%. Par conséquent, nous avons le plaisir de vous informer qu\'il est',
+      'retenu pour poursuivre les autres étapes du processus de sélection.',
+      '',
+      'Aucune démarche n\'est attendue de votre part à ce stade : vous serez contacté pour la suite',
+      'du processus.',
+      '',
+      'Pour toute question, vous pouvez nous écrire à candidature@subco-prete.bi ou passer par la',
+      'rubrique Assistance de votre espace opérateur, où votre demande est suivie et tracée.',
+      '',
+      'Nous vous remercions de votre participation à l\'appel à propositions.',
+      '',
+      'L\'équipe SUBCO-PRETE',
+    ].join('\n'),
+    html: layout(`
+      <p>Bonjour{{#if orgName}} <strong>{{orgName}}</strong>{{/if}},</p>
+      <p style="margin:0 0 18px;padding:12px 16px;background:#f4f6f5;border-radius:8px;font-size:14px;">
+        <strong>Dossier n° {{numeroDossier}}</strong><br/>{{nomProjet}}
+      </p>
+      <p style="margin:22px 0;padding:16px 18px;background:#eef7f4;border-left:4px solid #0fa37f;border-radius:6px;">
+        Après analyse technique de pré-sélection de votre sous-projet, celui-ci a obtenu une note
+        <strong>supérieure ou égale à 60%</strong>. Par conséquent, nous avons le plaisir de vous informer
+        qu'il est <strong>retenu pour poursuivre les autres étapes du processus de sélection</strong>.
+      </p>
+      <p>Aucune démarche n'est attendue de votre part à ce stade : vous serez contacté pour la suite du
+         processus.</p>
+      <p style="font-size:13px;color:#6b7280;">Pour toute question, écrivez à
+         <a href="mailto:candidature@subco-prete.bi" style="color:#0fa37f;">candidature@subco-prete.bi</a>
+         ou passez par la rubrique <em>Assistance</em> de votre espace opérateur, où votre demande est
+         suivie et tracée.</p>
+      <p>Nous vous remercions de votre participation à l'appel à propositions.</p>
+    `),
+  },
+
+  // Le message le plus delicat de la campagne : il clot une demarche de plusieurs mois.
+  // Il ne promet rien sur une cohorte suivante — son lancement n'est pas decide — et
+  // n'invite pas a contester une note qu'il ne donne pas. Le rappel de la methode et le
+  // renvoi a l'assistance ont ete retires a la relecture du 23 octobre : le message dit la
+  // decision, rien de plus.
+  'campagne.evaluation_non_retenu': {
+    category: 'campagne',
+    description: "Resultat d'evaluation — sous-projet non retenu (note < 60).",
+    requiredVars: ['numeroDossier', 'nomProjet'],
+    subject: `${BRAND_NAME} — Résultat de l'évaluation technique de votre sous-projet`,
+    text: [
+      'Bonjour{{#if orgName}} {{orgName}}{{/if}},',
+      '',
+      'Dossier n° {{numeroDossier}} — {{nomProjet}}',
+      '',
+      'Après analyse technique de pré-sélection de votre sous-projet, celui-ci a obtenu une note',
+      'inférieure à 60%. Par conséquent, nous avons le regret de vous informer qu\'il n\'a pas été',
+      'retenu pour poursuivre les autres étapes du processus de sélection.',
+      '',
+      'Nous vous remercions du temps consacré à la préparation de votre dossier et de l\'intérêt',
+      'porté à l\'appel à propositions.',
+      '',
+      'L\'équipe SUBCO-PRETE',
+    ].join('\n'),
+    html: layout(`
+      <p>Bonjour{{#if orgName}} <strong>{{orgName}}</strong>{{/if}},</p>
+      <p style="margin:0 0 18px;padding:12px 16px;background:#f4f6f5;border-radius:8px;font-size:14px;">
+        <strong>Dossier n° {{numeroDossier}}</strong><br/>{{nomProjet}}
+      </p>
+      <p style="margin:22px 0;padding:16px 18px;background:#f4f6f5;border-left:4px solid #9ca3af;border-radius:6px;">
+        Après analyse technique de pré-sélection de votre sous-projet, celui-ci a obtenu une note
+        <strong>inférieure à 60%</strong>. Par conséquent, nous avons le regret de vous informer qu'il
+        <strong>n'a pas été retenu</strong> pour poursuivre les autres étapes du processus de sélection.
+      </p>
+      <p>Nous vous remercions du temps consacré à la préparation de votre dossier et de l'intérêt porté à
+         l'appel à propositions.</p>
+    `),
+  },
 };
 
 function getCodeTemplate(key) {
