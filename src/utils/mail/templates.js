@@ -682,6 +682,54 @@ const TEMPLATES = {
          l'appel à propositions.</p>
     `),
   },
+
+  // Convocation aux seances de maturation, premier lot (83 dossiers, 3 seances).
+  //
+  // Le corps reprend MOT POUR MOT le message type arrete par la cheffe de mission le
+  // 25 octobre, y compris la recommandation de venir accompagne de son consultant en
+  // elaboration de plan d'affaires — c'est elle qui connait le besoin de ces seances.
+  // Seule la graphie « plan d'affaires » a ete retablie.
+  //
+  // Trois choses ont ete ajoutees, parce qu'un courriel individuel n'est pas une
+  // diffusion WhatsApp : le numero du dossier et l'intitule du projet, puisqu'un meme
+  // operateur a pu en deposer plusieurs ; la date et l'heure en variables, puisque les
+  // trois seances different ; et une adresse pour les renseignements, sans quoi les
+  // questions reviendraient par tous les canaux a la fois.
+  'campagne.maturation_invitation': {
+    category: 'campagne',
+    description: "Convocation d'un operateur a une seance de travail sur son plan d'affaires.",
+    requiredVars: ['numeroDossier', 'nomProjet', 'dateSeance', 'heureSeance'],
+    subject: `${BRAND_NAME} — Séance de travail au Projet PRETE, {{dateSeance}}`,
+    text: [
+      'Bonjour{{#if orgName}} {{orgName}}{{/if}},',
+      '',
+      'Dossier n° {{numeroDossier}} — {{nomProjet}}',
+      '',
+      'Juste ce message pour vous inviter à une séance de travail au Projet PRETE le',
+      '{{dateSeance}} à {{heureSeance}}.',
+      '',
+      'Pour la séance de travail prévue au PRETE, il est recommandé d\'être accompagné de vos',
+      'consultants respectifs en élaboration de plan d\'affaires.',
+      '',
+      'Si vous avez besoin de renseignements, écrivez-nous à candidature@subco-prete.bi.',
+      '',
+      'L\'équipe SUBCO-PRETE',
+    ].join('\n'),
+    html: layout(`
+      <p>Bonjour{{#if orgName}} <strong>{{orgName}}</strong>{{/if}},</p>
+      <p style="margin:0 0 18px;padding:12px 16px;background:#f4f6f5;border-radius:8px;font-size:14px;">
+        <strong>Dossier n° {{numeroDossier}}</strong><br/>{{nomProjet}}
+      </p>
+      <p>Juste ce message pour vous inviter à une séance de travail au Projet PRETE le
+         <strong>{{dateSeance}} à {{heureSeance}}</strong>.</p>
+      <p style="margin:22px 0;padding:16px 18px;background:#eef7f4;border-left:4px solid #0fa37f;border-radius:6px;">
+        Pour la séance de travail prévue au PRETE, il est recommandé d'être accompagné de vos
+        <strong>consultants respectifs en élaboration de plan d'affaires</strong>.
+      </p>
+      <p style="font-size:13px;color:#6b7280;">Si vous avez besoin de renseignements, écrivez-nous à
+         <a href="mailto:candidature@subco-prete.bi" style="color:#0fa37f;">candidature@subco-prete.bi</a>.</p>
+    `),
+  },
 };
 
 function getCodeTemplate(key) {
