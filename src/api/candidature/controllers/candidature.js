@@ -1,9 +1,5 @@
 'use strict';
 
-const os = require('os');
-const path = require('path');
-const crypto = require('crypto');
-const fs = require('fs/promises');
 
 const { createCoreController } = require('@strapi/strapi').factories;
 const { getUserId, withOwnerFilter, fetchOwned } = require('../../../utils/portal-owner');
@@ -13,6 +9,7 @@ const { resolvePiecesFichiers } = require('../../../utils/portal-pieces');
 const { sendPortalNotification } = require('../../../utils/portal-notify');
 const { journal } = require('../../../utils/portal-instruction');
 const { archiverVersionCourante } = require('../../../utils/portal-depot');
+const { uploadPdfBuffer } = require('../../../utils/portal-pdf-upload');
 
 async function getStatusByCode(code) {
   return strapi.documents('api::statut-candidature.statut-candidature').findFirst({
@@ -164,26 +161,6 @@ const MODIFIABLE_POPULATE = {
 };
 
 // Upload programmatique d'un buffer PDF dans la mediatheque Strapi.
-async function uploadPdfBuffer(buffer, filename) {
-  const tmpPath = path.join(os.tmpdir(), `subco-${crypto.randomUUID()}.pdf`);
-  await fs.writeFile(tmpPath, buffer);
-
-  try {
-    const [uploaded] = await strapi.plugin('upload').service('upload').upload({
-      data: { fileInfo: { name: filename, caption: filename, alternativeText: filename } },
-      files: {
-        filepath: tmpPath,
-        originalFilename: filename,
-        mimetype: 'application/pdf',
-        size: buffer.length,
-      },
-    });
-    return uploaded;
-  } finally {
-    await fs.unlink(tmpPath).catch(() => undefined);
-  }
-}
-
 module.exports = createCoreController('api::candidature.candidature', ({ strapi }) => ({
   async find(ctx) {
     const userId = getUserId(ctx);

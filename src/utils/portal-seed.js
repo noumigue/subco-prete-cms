@@ -268,6 +268,11 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::candidature.candidature.rouvrir',
     'api::candidature.candidature.redeposer',
     'api::candidature.candidature.annulerModification',
+    // Demandes de mise a jour apres depot : l'operateur voit et sert les siennes.
+    // Trois routes owner-scopees ; le router core de `demande-maj` reste ferme.
+    'api::demande-maj.demande-maj.mesDemandes',
+    'api::demande-maj.demande-maj.detail',
+    'api::demande-maj.demande-maj.soumettre',
     'api::portal-compte.portal-compte.moi',
     'api::portal-compte.portal-compte.updateTelephone',
     'api::portal-compte.portal-compte.requestEmailChange',
@@ -441,6 +446,22 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-comite.publier',
   ];
 
+  // Demandes de mise a jour (maturation). « Le Cabinet OU l'UGP valide » : les deux roles
+  // partagent les memes actions, sans condition d'attribution. Seule la creation d'une
+  // campagne reste a l'UGP, qui tient le calendrier du Comite dont depend l'echeance.
+  const maturationEquipeActions = [
+    'api::gestion.gestion-maturation.types',
+    'api::gestion.gestion-maturation.file',
+    'api::gestion.gestion-maturation.demande',
+    'api::gestion.gestion-maturation.valider',
+    'api::gestion.gestion-maturation.renvoyer',
+    'api::gestion.gestion-maturation.rouvrir',
+  ];
+  const maturationUgpActions = [
+    'api::gestion.gestion-maturation.simulation',
+    'api::gestion.gestion-maturation.campagne',
+  ];
+
   const instructeurActions = [
     ...gestionBaseActions,
     'api::gestion.gestion.priseEnCharge',
@@ -458,6 +479,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...assistanceEquipeActions,
     ...nonObjectionInstructeurActions,
     ...seInstructeurActions,
+    ...maturationEquipeActions,
   ];
   // M7 (administration, §3.9/§9.5/§14.10 L1-L5) — l'UGP est gardienne des acces et des
   // archives. Les endpoints « comptes » sont EN OUTRE gates par le drapeau `adminComptes`
@@ -496,6 +518,7 @@ async function ensurePortalRolesAndSettings(strapi) {
     ...nonObjectionUgpActions,
     ...seUgpActions,
     ...adminUgpActions,
+    ...maturationUgpActions,
     // Upload : notification signée (rejet) + PV signé + document non-objection + convention/ACD (phase 3).
     'plugin::upload.content-api.upload',
   ];
@@ -680,6 +703,31 @@ async function ensureReferentials(strapi) {
   for (const row of CANONICAL_STATUS_ORDER) {
     await upsertDocument(strapi, 'api::statut-candidature.statut-candidature', { code: row.code }, row);
   }
+
+  // Types de demande de mise a jour (maturation). Le referentiel est administrable : ce
+  // seed ne pose que le type qui a motive le dispositif, pour que la premiere campagne
+  // parte sans passer par l'admin. Les suivants se creent a la main, sans deploiement.
+  const piecePlanAffaires = await findOneBy(strapi, 'api::type-piece.type-piece', {
+    libelle: "Plan d'affaires / budget detaille",
+  });
+  await upsertDocument(strapi, 'api::type-demande-maj.type-demande-maj', { code: 'plan-financement-revise' }, {
+    code: 'plan-financement-revise',
+    libelle: 'Plan de financement revise',
+    phase: 'maturation',
+    texteDemande: "A la suite de la seance de travail avec le Cabinet et l'Unite de gestion du projet, "
+      + "nous vous demandons de deposer votre plan de financement revise et d'actualiser le budget "
+      + "de votre projet sur la plateforme.",
+    montantsOuverts: true,
+    champsOuverts: ['financement.budgetTotal', 'financement.contrepartie', 'financement.typeContrepartie'],
+    delaiJoursDefaut: 5,
+    relances: ['J-3', 'J-1'],
+    validationRequise: true,
+    ordre: 10,
+    actif: true,
+    ...(piecePlanAffaires?.documentId
+      ? { piecesAttendues: { connect: [piecePlanAffaires.documentId] } }
+      : {}),
+  });
 
   // Exemples de types d'infrastructure (3.1.3) : contenu editorial, JAMAIS une liste imposee.
   // Un item de liste = une ligne du panneau « (i) exemples » du formulaire.

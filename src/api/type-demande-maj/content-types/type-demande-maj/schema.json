@@ -1,0 +1,35 @@
+{
+  "kind": "collectionType",
+  "collectionName": "types_demande_maj",
+  "info": {
+    "singularName": "type-demande-maj",
+    "pluralName": "types-demande-maj",
+    "displayName": "Type de demande de mise a jour",
+    "description": "Referentiel des demandes de mise a jour adressees a un operateur apres le depot : plan de financement revise, piece complementaire, correction de donnees. Un nouveau type se cree ici, sans mise en production."
+  },
+  "options": { "draftAndPublish": true },
+  "pluginOptions": {},
+  "attributes": {
+    "code": { "type": "uid", "targetField": "libelle", "required": true },
+    "libelle": { "type": "string", "required": true },
+    "phase": {
+      "type": "enumeration",
+      "enum": ["instruction", "maturation", "contractualisation", "suivi"],
+      "default": "maturation",
+      "required": true
+    },
+    "texteDemande": { "type": "text" },
+    "piecesAttendues": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::type-piece.type-piece"
+    },
+    "montantsOuverts": { "type": "boolean", "default": false },
+    "champsOuverts": { "type": "json" },
+    "delaiJoursDefaut": { "type": "integer", "default": 5 },
+    "relances": { "type": "json" },
+    "validationRequise": { "type": "boolean", "default": true },
+    "ordre": { "type": "integer", "default": 0 },
+    "actif": { "type": "boolean", "default": true }
+  }
+}

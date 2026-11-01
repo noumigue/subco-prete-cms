@@ -1,0 +1,53 @@
+{
+  "kind": "collectionType",
+  "collectionName": "demandes_maj",
+  "info": {
+    "singularName": "demande-maj",
+    "pluralName": "demandes-maj",
+    "displayName": "Demande de mise a jour",
+    "description": "Une demande adressee a un operateur sur son dossier deja depose. Son perimetre est fige a la creation depuis le type : l'operateur ne peut modifier que ce qui lui est demande."
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "candidature": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::candidature.candidature",
+      "inversedBy": "demandesMaj"
+    },
+    "type": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::type-demande-maj.type-demande-maj"
+    },
+    "campagne": { "type": "string" },
+    "phase": { "type": "string" },
+    "perimetre": { "type": "json" },
+    "texteDemande": { "type": "text" },
+    "echeance": { "type": "datetime" },
+    "statut": {
+      "type": "enumeration",
+      "enum": ["demandee", "fournie", "validee", "renvoyee", "echue"],
+      "default": "demandee",
+      "required": true
+    },
+    "piecesFournies": { "type": "json" },
+    "montantsProposes": { "type": "json" },
+    "montantsStatut": {
+      "type": "enumeration",
+      "enum": ["non_demande", "attendu", "propose", "valide", "renvoye"],
+      "default": "non_demande"
+    },
+    "soumisLe": { "type": "datetime" },
+    "versionProduite": { "type": "integer" },
+    "demandeePar": { "type": "string" },
+    "demandeeLe": { "type": "datetime" },
+    "validePar": { "type": "string" },
+    "valideParRole": { "type": "string" },
+    "valideLe": { "type": "datetime" },
+    "motifRenvoi": { "type": "text" },
+    "relancesEnvoyees": { "type": "json" },
+    "avisClotureEnvoye": { "type": "boolean", "default": false }
+  }
+}

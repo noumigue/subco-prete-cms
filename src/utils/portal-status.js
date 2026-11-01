@@ -8,6 +8,8 @@ const CANONICAL_STATUS_ORDER = [
   { code: 'eligibilite', libelleCandidat: 'En instruction', groupe: 'en_instruction', phase: 'eligibilite', ordre: 50 },
   { code: 'evaluation', libelleCandidat: 'En instruction', groupe: 'en_instruction', phase: 'evaluation', ordre: 60 },
   { code: 'selectionne', libelleCandidat: 'Selectionne', groupe: 'selectionne', phase: 'decision', ordre: 70 },
+  { code: 'maturation', libelleCandidat: 'En maturation', groupe: 'selectionne', phase: 'maturation', ordre: 72 },
+  { code: 'maturation_non_aboutie', libelleCandidat: 'Maturation non aboutie', groupe: 'selectionne', phase: 'maturation', ordre: 75 },
   { code: 'non_retenu', libelleCandidat: 'Non retenu', groupe: 'non_retenu', phase: 'decision', ordre: 80 },
 ];
 

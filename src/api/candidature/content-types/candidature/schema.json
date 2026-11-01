@@ -54,6 +54,15 @@
       "target": "api::depot-dossier.depot-dossier",
       "mappedBy": "candidature"
     },
+    "demandesMaj": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::demande-maj.demande-maj",
+      "mappedBy": "candidature"
+    },
+    "montantsMatures": { "type": "boolean", "default": false },
+    "montantsMaturesLe": { "type": "datetime" },
+    "versionReference": { "type": "integer" },
     "complements": {
       "type": "relation",
       "relation": "oneToMany",

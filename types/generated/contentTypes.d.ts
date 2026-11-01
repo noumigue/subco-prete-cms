@@ -761,6 +761,10 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     dateDepot: Schema.Attribute.DateTime;
+    demandesMaj: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::demande-maj.demande-maj'
+    >;
     depots: Schema.Attribute.Relation<
       'oneToMany',
       'api::depot-dossier.depot-dossier'
@@ -774,6 +778,9 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
       'api::candidature.candidature'
     > &
       Schema.Attribute.Private;
+    montantsMatures: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    montantsMaturesLe: Schema.Attribute.DateTime;
     motifDecisionCourt: Schema.Attribute.Text;
     notificationDecision: Schema.Attribute.Media<'files' | 'images'>;
     notifications: Schema.Attribute.Relation<
@@ -808,6 +815,7 @@ export interface ApiCandidatureCandidature extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     versionDepot: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<1>;
+    versionReference: Schema.Attribute.Integer;
   };
 }
 
@@ -964,6 +972,8 @@ export interface ApiComplementComplement extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    creeParVersement: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     delaiJours: Schema.Attribute.Integer;
     echeance: Schema.Attribute.Date;
     fichier: Schema.Attribute.Media<'files' | 'images'>;
@@ -976,7 +986,9 @@ export interface ApiComplementComplement extends Struct.CollectionTypeSchema {
     origine: Schema.Attribute.Enumeration<['ugp', 'candidat']> &
       Schema.Attribute.DefaultTo<'ugp'>;
     pieceDemandee: Schema.Attribute.String & Schema.Attribute.Required;
+    precision: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
+    sourceAssistance: Schema.Attribute.String;
     statut: Schema.Attribute.Enumeration<['demande', 'fourni']> &
       Schema.Attribute.DefaultTo<'demande'>;
     updatedAt: Schema.Attribute.DateTime;
@@ -1052,6 +1064,8 @@ export interface ApiConsolidationConsolidation
     draftAndPublish: false;
   };
   attributes: {
+    arbitrageEs: Schema.Attribute.Enumeration<['conforme', 'non_conforme']>;
+    arbitrageEsMotif: Schema.Attribute.Text;
     bande: Schema.Attribute.String;
     bonus: Schema.Attribute.Decimal;
     candidature: Schema.Attribute.Relation<
@@ -1061,6 +1075,8 @@ export interface ApiConsolidationConsolidation
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    ecarteeEvaluation: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     ecarts: Schema.Attribute.JSON;
     figeeLe: Schema.Attribute.DateTime;
     figeePar: Schema.Attribute.Relation<
@@ -1074,6 +1090,9 @@ export interface ApiConsolidationConsolidation
     > &
       Schema.Attribute.Private;
     notesRetenues: Schema.Attribute.JSON;
+    porteEsStatut: Schema.Attribute.Enumeration<
+      ['conforme', 'non_conforme', 'differee']
+    >;
     publishedAt: Schema.Attribute.DateTime;
     statut: Schema.Attribute.Enumeration<['en_cours', 'figee']> &
       Schema.Attribute.DefaultTo<'en_cours'>;
@@ -1314,6 +1333,69 @@ export interface ApiDemandeDecaissementDemandeDecaissement
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDemandeMajDemandeMaj extends Struct.CollectionTypeSchema {
+  collectionName: 'demandes_maj';
+  info: {
+    description: "Une demande adressee a un operateur sur son dossier deja depose. Son perimetre est fige a la creation depuis le type : l'operateur ne peut modifier que ce qui lui est demande.";
+    displayName: 'Demande de mise a jour';
+    pluralName: 'demandes-maj';
+    singularName: 'demande-maj';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    avisClotureEnvoye: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    campagne: Schema.Attribute.String;
+    candidature: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::candidature.candidature'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    demandeeLe: Schema.Attribute.DateTime;
+    demandeePar: Schema.Attribute.String;
+    echeance: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::demande-maj.demande-maj'
+    > &
+      Schema.Attribute.Private;
+    montantsProposes: Schema.Attribute.JSON;
+    montantsStatut: Schema.Attribute.Enumeration<
+      ['non_demande', 'attendu', 'propose', 'valide', 'renvoye']
+    > &
+      Schema.Attribute.DefaultTo<'non_demande'>;
+    motifRenvoi: Schema.Attribute.Text;
+    perimetre: Schema.Attribute.JSON;
+    phase: Schema.Attribute.String;
+    piecesFournies: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    relancesEnvoyees: Schema.Attribute.JSON;
+    soumisLe: Schema.Attribute.DateTime;
+    statut: Schema.Attribute.Enumeration<
+      ['demandee', 'fournie', 'validee', 'renvoyee', 'echue']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'demandee'>;
+    texteDemande: Schema.Attribute.Text;
+    type: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::type-demande-maj.type-demande-maj'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    valideLe: Schema.Attribute.DateTime;
+    validePar: Schema.Attribute.String;
+    valideParRole: Schema.Attribute.String;
+    versionProduite: Schema.Attribute.Integer;
   };
 }
 
@@ -1694,6 +1776,12 @@ export interface ApiFicheScoringFicheScoring
     draftAndPublish: false;
   };
   attributes: {
+    annulationMotif: Schema.Attribute.Text;
+    annuleeLe: Schema.Attribute.DateTime;
+    annuleePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     bonus: Schema.Attribute.JSON;
     candidature: Schema.Attribute.Relation<
       'manyToOne',
@@ -1708,6 +1796,8 @@ export interface ApiFicheScoringFicheScoring
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    faiblesses: Schema.Attribute.JSON;
+    forces: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -1717,12 +1807,18 @@ export interface ApiFicheScoringFicheScoring
     notes: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
     rang: Schema.Attribute.Integer;
+    renvoyeeLe: Schema.Attribute.DateTime;
+    renvoyeeMotif: Schema.Attribute.Text;
+    renvoyeePar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     signeLe: Schema.Attribute.DateTime;
     signePar: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
     >;
-    statut: Schema.Attribute.Enumeration<['brouillon', 'soumise']> &
+    statut: Schema.Attribute.Enumeration<['brouillon', 'soumise', 'annulee']> &
       Schema.Attribute.DefaultTo<'brouillon'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -2039,6 +2135,13 @@ export interface ApiInstructionEligibiliteInstructionEligibilite
       'plugin::users-permissions.user'
     >;
     publishedAt: Schema.Attribute.DateTime;
+    reexamen: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    reexamenLe: Schema.Attribute.DateTime;
+    reexamenMotif: Schema.Attribute.Text;
+    reexamenPar: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2603,6 +2706,8 @@ export interface ApiParametresEvaluationParametresEvaluation
       'api::parametres-evaluation.parametres-evaluation'
     > &
       Schema.Attribute.Private;
+    porteEsMode: Schema.Attribute.Enumeration<['active', 'differee']> &
+      Schema.Attribute.DefaultTo<'active'>;
     publishedAt: Schema.Attribute.DateTime;
     seuilBase: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<60>;
     updatedAt: Schema.Attribute.DateTime;
@@ -3028,7 +3133,14 @@ export interface ApiStatutCandidatureStatutCandidature
       Schema.Attribute.Private;
     ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     phase: Schema.Attribute.Enumeration<
-      ['recu', 'completude', 'eligibilite', 'evaluation', 'decision']
+      [
+        'recu',
+        'completude',
+        'eligibilite',
+        'evaluation',
+        'decision',
+        'maturation',
+      ]
     > &
       Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
@@ -3281,6 +3393,56 @@ export interface ApiTypeContrepartieTypeContrepartie
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiTypeDemandeMajTypeDemandeMaj
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'types_demande_maj';
+  info: {
+    description: 'Referentiel des demandes de mise a jour adressees a un operateur apres le depot : plan de financement revise, piece complementaire, correction de donnees. Un nouveau type se cree ici, sans mise en production.';
+    displayName: 'Type de demande de mise a jour';
+    pluralName: 'types-demande-maj';
+    singularName: 'type-demande-maj';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    actif: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    champsOuverts: Schema.Attribute.JSON;
+    code: Schema.Attribute.UID<'libelle'> & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    delaiJoursDefaut: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<5>;
+    libelle: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::type-demande-maj.type-demande-maj'
+    > &
+      Schema.Attribute.Private;
+    montantsOuverts: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    ordre: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    phase: Schema.Attribute.Enumeration<
+      ['instruction', 'maturation', 'contractualisation', 'suivi']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'maturation'>;
+    piecesAttendues: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::type-piece.type-piece'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    relances: Schema.Attribute.JSON;
+    texteDemande: Schema.Attribute.Text;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    validationRequise: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
   };
 }
 
@@ -4003,6 +4165,7 @@ declare module '@strapi/strapi' {
       'api::critere-evaluation.critere-evaluation': ApiCritereEvaluationCritereEvaluation;
       'api::demande-assistance.demande-assistance': ApiDemandeAssistanceDemandeAssistance;
       'api::demande-decaissement.demande-decaissement': ApiDemandeDecaissementDemandeDecaissement;
+      'api::demande-maj.demande-maj': ApiDemandeMajDemandeMaj;
       'api::depot-dossier.depot-dossier': ApiDepotDossierDepotDossier;
       'api::depouillement-rapport.depouillement-rapport': ApiDepouillementRapportDepouillementRapport;
       'api::document-contractuel.document-contractuel': ApiDocumentContractuelDocumentContractuel;
@@ -4053,6 +4216,7 @@ declare module '@strapi/strapi' {
       'api::success-story.success-story': ApiSuccessStorySuccessStory;
       'api::support-ticket.support-ticket': ApiSupportTicketSupportTicket;
       'api::type-contrepartie.type-contrepartie': ApiTypeContrepartieTypeContrepartie;
+      'api::type-demande-maj.type-demande-maj': ApiTypeDemandeMajTypeDemandeMaj;
       'api::type-piece.type-piece': ApiTypePieceTypePiece;
       'api::type-rapport.type-rapport': ApiTypeRapportTypeRapport;
       'api::valeur-indicateur-saisie.valeur-indicateur-saisie': ApiValeurIndicateurSaisieValeurIndicateurSaisie;

@@ -17,6 +17,7 @@ const { ensureRevalidateWebhook } = require('./utils/portal-webhook');
 const { cloreAppelsEchus } = require('./utils/portal-appel-cloture');
 const { ensureDepotsInitiaux } = require('./utils/portal-depot');
 const { envoyerRappelsModification } = require('./utils/portal-rappel-modification');
+const { passerRelancesEtEcheances } = require('./utils/maturation');
 const { ensureReferentielsDecaissement, ensureSubventionDemo, ensureSubventionUgpDemo } = require('./utils/portal-seed-subvention');
 
 module.exports = {
@@ -151,6 +152,23 @@ module.exports = {
           }
         },
         options: process.env.RAPPEL_MODIFICATION_CRON || '*/15 * * * *',
+      },
+    });
+
+    // Demandes de mise a jour : relances J-3 / J-1, puis basculement des demandes echues.
+    // Toutes les heures. Les paliers se comptent en jours, pas en heures : une passe plus
+    // fine n'apporterait rien, et une passe plus rare ferait arriver le rappel « demain »
+    // le jour meme.
+    strapi.cron.add({
+      relancesEtEcheancesMaturation: {
+        task: async () => {
+          try {
+            await passerRelancesEtEcheances(strapi);
+          } catch (error) {
+            strapi.log.error('[maturation] Echec de la passe de relances et d\'echeances', error);
+          }
+        },
+        options: process.env.MATURATION_CRON || '7 * * * *',
       },
     });
 
