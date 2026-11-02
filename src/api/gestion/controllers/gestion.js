@@ -461,11 +461,17 @@ module.exports = {
     const candidature = await findCandidature(strapi, ctx.params.documentId);
     if (!candidature?.documentId) return ctx.notFound('Dossier introuvable.');
 
-    // Hors evaluation et dossiers clos, l'acces reste celui des regles d'instruction du
-    // 16/09 : l'instructeur en charge et l'UGP. La consultation large ne s'y applique pas.
+    // Hors evaluation, maturation et dossiers clos, l'acces reste celui des regles
+    // d'instruction du 16/09 : l'instructeur en charge et l'UGP. La consultation large ne
+    // s'y applique pas.
+    //
+    // La maturation y est ajoutee le 02/11 : une campagne de mise a jour n'a de sens que si
+    // l'equipe peut LIRE le document qu'elle a reclame, et c'est ici que la piece arrivee
+    // apres le depot s'affiche a cote de celle d'origine. L'arbitrage du 29 octobre ouvre
+    // d'ailleurs la maturation au Cabinet comme a l'UGP, sans condition d'attribution.
     const phase = candidature.statut?.phase || null;
-    if (!['evaluation', 'decision'].includes(phase)) {
-      return ctx.badRequest("Les pieces ne se consultent ainsi qu'a l'evaluation et sur les dossiers clos.");
+    if (!['evaluation', 'maturation', 'decision'].includes(phase)) {
+      return ctx.badRequest("Les pieces ne se consultent ainsi qu'a l'evaluation, en maturation et sur les dossiers clos.");
     }
 
     // Un evaluateur recuse s'est declare en conflit d'interets sur ce dossier : la recusation
@@ -507,6 +513,7 @@ module.exports = {
         statutLibelle: candidature.statut?.libelleCandidat || null,
         pieces: dossierPieces.pieces,
         autres: dossierPieces.autres,
+        maturation: dossierPieces.maturation,
         assistance,
       },
     };

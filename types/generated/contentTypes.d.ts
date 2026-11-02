@@ -3400,7 +3400,7 @@ export interface ApiTypeDemandeMajTypeDemandeMaj
   extends Struct.CollectionTypeSchema {
   collectionName: 'types_demande_maj';
   info: {
-    description: 'Referentiel des demandes de mise a jour adressees a un operateur apres le depot : plan de financement revise, piece complementaire, correction de donnees. Un nouveau type se cree ici, sans mise en production.';
+    description: "Referentiel des demandes de mise a jour adressees a un operateur apres le depot. Un type porte UN SEUL genre : champs du formulaire, piece d'un type nouveau, ou nouvelle version d'une piece existante. Le melange est refuse a la creation de la campagne.";
     displayName: 'Type de demande de mise a jour';
     pluralName: 'types-demande-maj';
     singularName: 'type-demande-maj';
@@ -3416,6 +3416,11 @@ export interface ApiTypeDemandeMajTypeDemandeMaj
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     delaiJoursDefaut: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<5>;
+    genre: Schema.Attribute.Enumeration<
+      ['champs', 'piece_nouvelle', 'piece_revision']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'champs'>;
     libelle: Schema.Attribute.String & Schema.Attribute.Required;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -3435,6 +3440,7 @@ export interface ApiTypeDemandeMajTypeDemandeMaj
       'manyToMany',
       'api::type-piece.type-piece'
     >;
+    piecesLibres: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
     relances: Schema.Attribute.JSON;
     texteDemande: Schema.Attribute.Text;

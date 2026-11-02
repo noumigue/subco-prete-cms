@@ -451,6 +451,8 @@ async function ensurePortalRolesAndSettings(strapi) {
   // campagne reste a l'UGP, qui tient le calendrier du Comite dont depend l'echeance.
   const maturationEquipeActions = [
     'api::gestion.gestion-maturation.types',
+    // Referentiel des pieces, pour designer celle dont on veut une nouvelle version.
+    'api::gestion.gestion-maturation.piecesReferentiel',
     'api::gestion.gestion-maturation.file',
     'api::gestion.gestion-maturation.demande',
     'api::gestion.gestion-maturation.valider',
