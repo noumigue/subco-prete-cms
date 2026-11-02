@@ -704,29 +704,32 @@ async function ensureReferentials(strapi) {
     await upsertDocument(strapi, 'api::statut-candidature.statut-candidature', { code: row.code }, row);
   }
 
-  // Types de demande de mise a jour (maturation). Le referentiel est administrable : ce
-  // seed ne pose que le type qui a motive le dispositif, pour que la premiere campagne
-  // parte sans passer par l'admin. Les suivants se creent a la main, sans deploiement.
-  const piecePlanAffaires = await findOneBy(strapi, 'api::type-piece.type-piece', {
-    libelle: "Plan d'affaires / budget detaille",
-  });
+  // Types de demande de mise a jour (maturation).
+  //
+  // Le referentiel se peuple DESORMAIS TOUT SEUL : l'ecran de campagne cree le type a partir
+  // du genre choisi, sans passer par l'admin ni par un deploiement. Ce seed ne garde donc
+  // qu'une chose a faire — reparer l'entree posee le 29 octobre, qui reclamait a la fois les
+  // montants ET le plan d'affaires. Depuis l'arbitrage du 2 novembre, une campagne ne porte
+  // qu'un seul objet : ce melange est refuse au lancement. On la ramene aux montants seuls,
+  // et le plan d'affaires fait l'objet de sa propre campagne, de genre « nouvelle version ».
+  //
+  // `set: []` et non `disconnect: []` pour detacher la piece : le second est un no-op.
   await upsertDocument(strapi, 'api::type-demande-maj.type-demande-maj', { code: 'plan-financement-revise' }, {
     code: 'plan-financement-revise',
-    libelle: 'Plan de financement revise',
+    genre: 'champs',
+    libelle: 'Montants du plan de financement',
     phase: 'maturation',
     texteDemande: "A la suite de la seance de travail avec le Cabinet et l'Unite de gestion du projet, "
-      + "nous vous demandons de deposer votre plan de financement revise et d'actualiser le budget "
-      + "de votre projet sur la plateforme.",
+      + "nous vous demandons d'actualiser sur la plateforme le budget total de votre projet et votre "
+      + "contrepartie. La subvention demandee en decoule.",
     montantsOuverts: true,
     champsOuverts: ['financement.budgetTotal', 'financement.contrepartie', 'financement.typeContrepartie'],
+    piecesAttendues: { set: [] },
     delaiJoursDefaut: 5,
     relances: ['J-3', 'J-1'],
     validationRequise: true,
     ordre: 10,
     actif: true,
-    ...(piecePlanAffaires?.documentId
-      ? { piecesAttendues: { connect: [piecePlanAffaires.documentId] } }
-      : {}),
   });
 
   // Exemples de types d'infrastructure (3.1.3) : contenu editorial, JAMAIS une liste imposee.

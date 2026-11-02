@@ -18,6 +18,28 @@
 //     n'est PAS terminal : perdre un projet recommande sur un accident de calendrier
 //     serait absurde.
 //
+// UNE CAMPAGNE = UN GENRE, JAMAIS UN MELANGE (arbitrage du 2 novembre 2026)
+// Le Cabinet lance une campagne par element a completer, et chacune suit son cours : sa
+// propre echeance, ses propres relances, sa propre validation. C'est ce qui permet a un
+// operateur de livrer « progressivement » sans qu'aucun etat intermediaire soit a inventer
+// — une campagne se clot quand son objet est servi, independamment des deux autres.
+//
+// Trois genres, et un seul par demande :
+//   champs          — mettre a jour des donnees deja saisies (ce soir : les montants)
+//   piece_nouvelle  — joindre une piece d'un type qui n'existait pas au depot
+//   piece_revision  — joindre une nouvelle version d'une piece existante, SANS ecraser
+//
+// Le melange n'est pas interdit par discipline mais par construction : `verifierGenre`
+// refuse la campagne si le type porte autre chose que ce que son genre autorise. Un type
+// qui reclamerait a la fois des montants et une piece — comme le faisait le premier type
+// seme — ne peut plus partir.
+//
+// RIEN N'EST RECOPIE DANS `donneesProjet` POUR LES GENRES PIECE. La demande EST le
+// registre : elle porte le fichier, sa date, qui l'a validee. « On n'ecrase pas la version
+// precedente » devient vrai par construction, et les donnees des 333 dossiers de la
+// Cohorte 1 ne sont pas touchees. L'onglet « Pieces » lit cette source en plus des deux
+// qu'il connaissait (depot et complement) — voir `piecesValideesParMaturation`.
+//
 // LE PERIMETRE EST FIGE A LA CREATION. On recopie dans la demande ce que le type autorise,
 // au lieu de relire le type a chaque soumission : un referentiel modifie en cours de route
 // ne doit pas elargir retroactivement ce qu'un operateur peut changer sur un dossier dont
@@ -42,6 +64,18 @@ const PALIERS_RELANCE = [
 ];
 
 const STATUTS_OUVERTS = ['demandee', 'renvoyee'];
+
+const GENRES = ['champs', 'piece_nouvelle', 'piece_revision'];
+
+/**
+ * Genre d'un type anterieur au champ. On le DEDUIT du perimetre plutot que d'imposer une
+ * migration : une ligne de code contre un script, et aucun risque sur l'existant.
+ */
+function genreDeduit(type) {
+  if (type?.genre && GENRES.includes(type.genre)) return type.genre;
+  if (type?.montantsOuverts) return 'champs';
+  return 'piece_revision';
+}
 
 // --- Outils -------------------------------------------------------------------------
 
@@ -70,17 +104,104 @@ function echeanceOuvree(joursOuvres, depuis = new Date()) {
  * deja partie.
  */
 function perimetreDepuisType(type) {
-  const pieces = (type?.piecesAttendues || []).map((p) => ({
+  // Deux provenances pour les pieces, et c'est voulu. `piecesAttendues` pointe le
+  // referentiel de candidature (genre piece_revision : on revise une des 15 pieces).
+  // `piecesLibres` porte un libelle seul, hors referentiel (genre piece_nouvelle) : creer
+  // une entree au referentiel partage ferait apparaitre la piece dans l'ecran de
+  // completude des 333 dossiers deposes et dans le formulaire de la cohorte suivante.
+  const duReferentiel = (type?.piecesAttendues || []).map((p) => ({
     libelle: p.libelle,
     groupe: p.groupe || null,
     exigence: p.exigence || 'obligatoire',
+    revision: true,
   }));
+  const libres = (Array.isArray(type?.piecesLibres) ? type.piecesLibres : [])
+    .filter((p) => p && p.libelle)
+    .map((p) => ({
+      libelle: String(p.libelle).trim(),
+      groupe: p.groupe || null,
+      exigence: p.exigence || 'obligatoire',
+      revision: false,
+    }));
   return {
-    pieces,
+    genre: genreDeduit(type),
+    pieces: [...duReferentiel, ...libres],
     montants: Boolean(type?.montantsOuverts),
     champs: Array.isArray(type?.champsOuverts) ? type.champsOuverts : [],
     validationRequise: type?.validationRequise !== false,
   };
+}
+
+/**
+ * Ce qu'une demande reclame, en une cle. C'est l'invariant a proteger : un operateur ne
+ * doit jamais recevoir deux demandes OUVERTES portant sur le meme objet — il ne saurait pas
+ * a laquelle il repond, et l'echeance de l'une ferait basculer son dossier pendant qu'il
+ * traite l'autre. En revanche trois demandes sur trois objets DISTINCTS sont exactement ce
+ * que le Cabinet veut lancer.
+ *
+ * La comparaison porte sur l'objet, pas sur le type : deux types differents qui reclament
+ * la meme piece restent un doublon aux yeux de l'operateur.
+ */
+function cleObjet(perimetre) {
+  if (!perimetre) return 'inconnu';
+  if (perimetre.genre === 'champs' || perimetre.montants) return 'champs:montants';
+  const piece = (perimetre.pieces || [])[0];
+  return `piece:${String(piece?.libelle || '').trim().toLowerCase()}`;
+}
+
+/** Ce que la demande reclame, en clair. Sert au journal et aux ecrans. */
+function libelleObjet(perimetre) {
+  if (!perimetre) return 'mise a jour';
+  if (perimetre.genre === 'champs' || perimetre.montants) return 'montants du plan de financement';
+  const piece = (perimetre.pieces || [])[0];
+  const nom = piece?.libelle || 'piece';
+  return perimetre.genre === 'piece_revision' ? `nouvelle version de « ${nom} »` : `« ${nom} »`;
+}
+
+/**
+ * Refuse un type qui melange. Appelee a la CREATION de la campagne, pas a la soumission :
+ * c'est au lancement qu'il faut arreter une demande mal formee, avant qu'un courriel ne
+ * parte vers un operateur a qui on reclamerait deux choses d'un coup.
+ */
+function verifierGenre(type, perimetre) {
+  const genre = perimetre.genre;
+  const nbPieces = perimetre.pieces.length;
+  const libelle = type?.libelle || 'ce type';
+
+  if (!GENRES.includes(genre)) throw new Error(`Genre inconnu sur « ${libelle} » : ${genre}.`);
+
+  if (genre === 'champs') {
+    if (nbPieces > 0) {
+      throw new Error(
+        `« ${libelle} » demande des champs du formulaire ET ${nbPieces} piece(s). Une campagne ne porte qu'un seul objet : retirez les pieces de ce type, ou lancez une campagne de genre « piece ».`,
+      );
+    }
+    if (!perimetre.montants && perimetre.champs.length === 0) {
+      throw new Error(`« ${libelle} » ne precise aucun champ a mettre a jour.`);
+    }
+    return;
+  }
+
+  if (perimetre.montants) {
+    throw new Error(
+      `« ${libelle} » reclame une piece ET ouvre les montants. Une campagne ne porte qu'un seul objet : lancez deux campagnes.`,
+    );
+  }
+  if (nbPieces === 0) throw new Error(`« ${libelle} » ne precise aucune piece a fournir.`);
+  if (nbPieces > 1) {
+    throw new Error(
+      `« ${libelle} » reclame ${nbPieces} pieces. Une campagne ne porte qu'une piece : lancez-en une par piece.`,
+    );
+  }
+  const piece = perimetre.pieces[0];
+  if (genre === 'piece_revision' && !piece.revision) {
+    throw new Error(`« ${libelle} » revise une piece existante mais la designe hors referentiel.`);
+  }
+  if (genre === 'piece_nouvelle' && piece.revision) {
+    throw new Error(
+      `« ${libelle} » annonce une piece d'un type nouveau mais designe « ${piece.libelle} », qui existe deja au referentiel. Lancez une campagne de genre « nouvelle version ».`,
+    );
+  }
 }
 
 async function statutParCode(strapi, code) {
@@ -117,6 +238,7 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
   if (type.actif === false) throw new Error(`Le type « ${type.libelle} » est desactive.`);
 
   const perimetre = perimetreDepuisType(type);
+  verifierGenre(type, perimetre);
   const echeanceFinale = echeance || echeanceOuvree(joursOuvres || type.delaiJoursDefaut || 5);
   const maintenant = new Date().toISOString();
 
@@ -145,17 +267,21 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
         continue;
       }
 
-      // La seconde interdit deux demandes OUVERTES sur un meme dossier, toutes campagnes
-      // confondues : l'operateur ne saurait pas a laquelle il repond, et l'echeance de
-      // l'une ferait basculer son dossier pendant qu'il traite l'autre.
-      const enCours = await strapi.documents(UID_DEMANDE).findFirst({
+      // La seconde interdit deux demandes ouvertes sur le MEME OBJET. Elle portait jusqu'au
+      // 2 novembre sur le dossier entier, ce qui rendait impossible la decision du Cabinet :
+      // lancer une campagne par element a completer. Trois objets distincts cohabitent
+      // desormais ; le meme objet deux fois, jamais.
+      const ouvertes = await strapi.documents(UID_DEMANDE).findMany({
         filters: { candidature: { documentId }, statut: { $in: [...STATUTS_OUVERTS, 'fournie'] } },
+        fields: ['documentId', 'statut', 'perimetre'],
+        limit: 50,
       });
-      if (enCours?.documentId) {
+      const doublon = ouvertes.find((d) => cleObjet(d.perimetre) === cleObjet(perimetre));
+      if (doublon) {
         erreurs.push({
           documentId,
           numero: candidature.numeroDossier,
-          motif: `une demande est deja en cours (${enCours.statut}) sur ce dossier`,
+          motif: `une demande portant sur le meme objet est deja en cours (${doublon.statut})`,
         });
         continue;
       }
@@ -266,7 +392,7 @@ async function soumettreDemande(strapi, demande, { pieces, montants }) {
     });
   }
 
-  return strapi.documents(UID_DEMANDE).update({
+  const misAJour = await strapi.documents(UID_DEMANDE).update({
     documentId: demande.documentId,
     data: {
       statut: 'fournie',
@@ -277,6 +403,26 @@ async function soumettreDemande(strapi, demande, { pieces, montants }) {
       motifRenvoi: null,
     },
   });
+
+  // La reponse de l'operateur n'etait pas journalisee : on tracait la demande et la
+  // validation, mais pas le depot entre les deux. Avec trois campagnes vivant en parallele
+  // sur un meme dossier, cette ligne est ce qui permet de lire l'ordre reel des faits.
+  const candidatureId = demande.candidature?.documentId || demande.candidature;
+  if (candidatureId) {
+    const quoi = fournies.length > 0
+      ? fournies.map((p) => `« ${p.libelle} »`).join(', ')
+      : null;
+    const montantsTexte = montantsStatut === 'propose' && montantsProposes
+      ? `montants proposes : budget ${montantsProposes.budgetTotal}, contrepartie ${montantsProposes.contrepartie}`
+      : null;
+    await journal(strapi, candidatureId, {
+      auteurLibelle: 'Operateur',
+      type: 'demande_maj_fournie',
+      texte: `Reponse deposee — ${[quoi, montantsTexte].filter(Boolean).join(' · ') || libelleObjet(perimetre)}.`,
+    });
+  }
+
+  return misAJour;
 }
 
 // --- Validation -----------------------------------------------------------------------
@@ -392,7 +538,7 @@ async function validerDemande(strapi, demande, { par, role }) {
   await journal(strapi, candidature.documentId, {
     auteurLibelle: par || 'Equipe SUBCO-PRETE',
     type: 'demande_maj_validee',
-    texte: `Mise a jour validee${role ? ` par ${role}` : ''}.`,
+    texte: `Mise a jour validee${role ? ` par ${role}` : ''} — ${libelleObjet(perimetre)}.`,
   });
 
   await notifier(strapi, candidature, {
@@ -559,5 +705,10 @@ module.exports = {
   passerRelancesEtEcheances,
   echeanceOuvree,
   perimetreDepuisType,
+  verifierGenre,
+  genreDeduit,
+  libelleObjet,
+  cleObjet,
+  GENRES,
   PALIERS_RELANCE,
 };

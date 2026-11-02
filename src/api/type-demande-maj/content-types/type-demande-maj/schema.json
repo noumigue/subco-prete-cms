@@ -5,12 +5,18 @@
     "singularName": "type-demande-maj",
     "pluralName": "types-demande-maj",
     "displayName": "Type de demande de mise a jour",
-    "description": "Referentiel des demandes de mise a jour adressees a un operateur apres le depot : plan de financement revise, piece complementaire, correction de donnees. Un nouveau type se cree ici, sans mise en production."
+    "description": "Referentiel des demandes de mise a jour adressees a un operateur apres le depot. Un type porte UN SEUL genre : champs du formulaire, piece d'un type nouveau, ou nouvelle version d'une piece existante. Le melange est refuse a la creation de la campagne."
   },
   "options": { "draftAndPublish": true },
   "pluginOptions": {},
   "attributes": {
     "code": { "type": "uid", "targetField": "libelle", "required": true },
+    "genre": {
+      "type": "enumeration",
+      "enum": ["champs", "piece_nouvelle", "piece_revision"],
+      "default": "champs",
+      "required": true
+    },
     "libelle": { "type": "string", "required": true },
     "phase": {
       "type": "enumeration",
@@ -24,6 +30,7 @@
       "relation": "manyToMany",
       "target": "api::type-piece.type-piece"
     },
+    "piecesLibres": { "type": "json" },
     "montantsOuverts": { "type": "boolean", "default": false },
     "champsOuverts": { "type": "json" },
     "delaiJoursDefaut": { "type": "integer", "default": 5 },

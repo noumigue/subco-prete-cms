@@ -16,10 +16,101 @@ const {
   renvoyerDemande,
   rouvrirDemande,
   echeanceOuvree,
+  perimetreDepuisType,
+  verifierGenre,
+  libelleObjet,
+  cleObjet,
+  GENRES,
 } = require('../../../utils/maturation');
 
 const UID = 'api::demande-maj.demande-maj';
 const UID_TYPE = 'api::type-demande-maj.type-demande-maj';
+const UID_TYPE_PIECE = 'api::type-piece.type-piece';
+
+// Champs du formulaire ouverts par le genre « champs ». Un seul jeu pour l'instant — les
+// montants, qui sont la demande du Cabinet. La selection libre des champs viendra le jour
+// ou il faudra faire corriger autre chose : `champsOuverts` existe deja dans le modele.
+const CHAMPS_MONTANTS = ['financement.budgetTotal', 'financement.contrepartie', 'financement.typeContrepartie'];
+
+function slug(libelle) {
+  return String(libelle || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'demande';
+}
+
+/**
+ * Le type de demande, decrit depuis le genre choisi a l'ecran — SANS ecrire en base.
+ *
+ * L'equipe ne passe pas par l'admin : elle choisit un genre, nomme son objet, et le type
+ * se deduit. C'est ce qui rend le genre « piece d'un type non existant » reellement
+ * utilisable — sinon chaque nouvelle piece demanderait une intervention technique.
+ *
+ * La simulation s'en sert telle quelle : elle doit pouvoir annoncer ce qui partira sans
+ * rien creer, puisque c'est la promesse faite a l'ecran.
+ */
+async function typeVirtuel(strapi, { genre, libellePiece, typePieceDocumentId, texteDemande, joursOuvres }) {
+  if (!GENRES.includes(genre)) throw new Error(`Genre inconnu : ${genre}.`);
+
+  if (genre === 'champs') {
+    return {
+      genre, libelle: 'Montants du plan de financement',
+      montantsOuverts: true, champsOuverts: CHAMPS_MONTANTS,
+      piecesAttendues: [], piecesLibres: [],
+      texteDemande: texteDemande || null, delaiJoursDefaut: joursOuvres || 5, phase: 'maturation',
+    };
+  }
+
+  if (genre === 'piece_nouvelle') {
+    const nom = String(libellePiece || '').trim();
+    if (!nom) throw new Error('Le libelle de la piece a fournir est requis.');
+    // Refus explicite si le libelle existe deja au referentiel : c'est alors une revision,
+    // pas une piece nouvelle, et les deux ne se rangent pas au meme endroit a l'ecran.
+    const deja = await strapi.documents(UID_TYPE_PIECE).findMany({ fields: ['libelle'], limit: 100 });
+    const normalise = (v) => String(v || '').trim().toLowerCase();
+    if (deja.some((p) => normalise(p.libelle) === normalise(nom))) {
+      throw new Error(`« ${nom} » existe deja au referentiel des pieces. Lancez une campagne « nouvelle version d'une piece existante ».`);
+    }
+    return {
+      genre, libelle: nom, montantsOuverts: false, champsOuverts: [],
+      piecesAttendues: [], piecesLibres: [{ libelle: nom, groupe: 'financier', exigence: 'obligatoire' }],
+      texteDemande: texteDemande || null, delaiJoursDefaut: joursOuvres || 5, phase: 'maturation',
+    };
+  }
+
+  const piece = typePieceDocumentId
+    ? await strapi.documents(UID_TYPE_PIECE).findOne({ documentId: typePieceDocumentId })
+    : null;
+  if (!piece?.documentId) throw new Error('Piece a reviser introuvable au referentiel.');
+  return {
+    genre, libelle: `Nouvelle version — ${piece.libelle}`,
+    montantsOuverts: false, champsOuverts: [],
+    piecesAttendues: [{ documentId: piece.documentId, libelle: piece.libelle, groupe: piece.groupe, exigence: piece.exigence }],
+    piecesLibres: [],
+    texteDemande: texteDemande || null, delaiJoursDefaut: joursOuvres || 5, phase: 'maturation',
+  };
+}
+
+/** Cree le type s'il n'existe pas encore, le reutilise sinon. Idempotent par `code`. */
+async function assurerType(strapi, virtuel) {
+  const code = slug(`${virtuel.genre}-${virtuel.libelle}`);
+  const existant = await strapi.documents(UID_TYPE).findFirst({ filters: { code } });
+  if (existant?.documentId) return existant.documentId;
+
+  const cree = await strapi.documents(UID_TYPE).create({
+    data: {
+      code, genre: virtuel.genre, libelle: virtuel.libelle, phase: 'maturation',
+      texteDemande: virtuel.texteDemande, montantsOuverts: virtuel.montantsOuverts,
+      champsOuverts: virtuel.champsOuverts, piecesLibres: virtuel.piecesLibres,
+      ...(virtuel.piecesAttendues.length
+        ? { piecesAttendues: { connect: virtuel.piecesAttendues.map((p) => p.documentId) } }
+        : {}),
+      delaiJoursDefaut: virtuel.delaiJoursDefaut, validationRequise: true, actif: true,
+    },
+    status: 'published',
+  });
+  return cree.documentId;
+}
 
 const ECRITURE = ['instructeur', 'ugp'];
 const LECTURE = ['instructeur', 'ugp', 'comite'];
@@ -119,6 +210,17 @@ module.exports = {
     ctx.body = { types };
   },
 
+  /** Pieces du referentiel, pour choisir celle dont on veut une nouvelle version. */
+  async piecesReferentiel(ctx) {
+    if (!requireRole(ctx, LECTURE)) return;
+    const pieces = await strapi.documents(UID_TYPE_PIECE).findMany({
+      fields: ['libelle', 'groupe', 'exigence'],
+      sort: ['ordre:asc'],
+      limit: 100,
+    });
+    ctx.body = { pieces: pieces.map((p) => ({ documentId: p.documentId, libelle: p.libelle, groupe: p.groupe })) };
+  },
+
   /** La file des demandes, filtrable. */
   async file(ctx) {
     if (!requireRole(ctx, LECTURE)) return;
@@ -159,8 +261,9 @@ module.exports = {
   async campagne(ctx) {
     const user = requireRole(ctx, ECRITURE);
     if (!user) return;
-    const { typeDocumentId, candidatures, campagne, echeance, joursOuvres } = ctx.request.body?.data || ctx.request.body || {};
-    if (!typeDocumentId) return ctx.badRequest('Type de demande requis.');
+    const corps = ctx.request.body?.data || ctx.request.body || {};
+    const { typeDocumentId, candidatures, campagne, echeance, joursOuvres } = corps;
+    if (!typeDocumentId && !corps.genre) return ctx.badRequest('Genre de campagne requis.');
     if (!Array.isArray(candidatures) || candidatures.length === 0) {
       return ctx.badRequest('Aucun dossier vise.');
     }
@@ -174,8 +277,11 @@ module.exports = {
     }
 
     try {
+      // Un type existant se reutilise tel quel ; un genre choisi a l'ecran se materialise
+      // en type a cet instant seulement — apres la simulation, et une seule fois.
+      const idType = typeDocumentId || await assurerType(strapi, await typeVirtuel(strapi, corps));
       const bilan = await creerDemandes(strapi, {
-        typeDocumentId,
+        typeDocumentId: idType,
         candidatureDocumentIds: documentIds,
         campagne: String(campagne),
         echeance: echeance || null,
@@ -191,11 +297,25 @@ module.exports = {
   /** Simulation : ce que la campagne ferait, sans rien creer. */
   async simulation(ctx) {
     if (!requireRole(ctx, ECRITURE)) return;
-    const { typeDocumentId, candidatures, campagne, joursOuvres } = ctx.request.body?.data || ctx.request.body || {};
-    const type = typeDocumentId
-      ? await strapi.documents(UID_TYPE).findOne({ documentId: typeDocumentId, populate: { piecesAttendues: true } })
-      : null;
-    if (!type?.documentId) return ctx.badRequest('Type de demande introuvable.');
+    const corps = ctx.request.body?.data || ctx.request.body || {};
+    const { typeDocumentId, candidatures, campagne, joursOuvres } = corps;
+
+    // Deux provenances, une seule suite : un type deja au referentiel, ou le genre choisi
+    // a l'ecran. Dans le second cas RIEN n'est ecrit — la simulation promet que rien ne part.
+    let type;
+    let perimetre;
+    try {
+      type = typeDocumentId
+        ? await strapi.documents(UID_TYPE).findOne({ documentId: typeDocumentId, populate: { piecesAttendues: true } })
+        : await typeVirtuel(strapi, corps);
+      if (!type) return ctx.badRequest('Type de demande introuvable.');
+      perimetre = perimetreDepuisType(type);
+      // L'apercu doit refuser ce que la creation refuserait : voir le motif avant l'envoi,
+      // pas apres.
+      verifierGenre(type, perimetre);
+    } catch (error) {
+      return ctx.badRequest(error.message);
+    }
 
     const { documentIds: vises, introuvables } = await resoudreDossiers(strapi, candidatures);
     const deja = campagne
@@ -207,27 +327,31 @@ module.exports = {
       : [];
     const dejaIds = new Set(deja.map((d) => d.candidature?.documentId));
 
-    // Les dossiers portant deja une demande ouverte, toutes campagnes confondues : la
-    // creation les refusera, l'apercu doit le dire avant et non apres.
+    // Les dossiers portant deja une demande ouverte SUR LE MEME OBJET. Une demande ouverte
+    // sur un autre objet ne gene pas : c'est tout l'interet d'une campagne par element.
     const ouvertes = vises.length > 0
       ? await strapi.documents(UID).findMany({
         filters: { candidature: { documentId: { $in: vises } }, statut: { $in: ['demandee', 'renvoyee', 'fournie'] } },
+        fields: ['documentId', 'statut', 'perimetre'],
         populate: { candidature: { fields: ['documentId', 'numeroDossier'] } },
         limit: 1000,
       })
       : [];
-    const ouvertesIds = new Set(ouvertes.map((d) => d.candidature?.documentId));
+    const memeObjet = ouvertes.filter((d) => cleObjet(d.perimetre) === cleObjet(perimetre));
+    const ouvertesIds = new Set(memeObjet.map((d) => d.candidature?.documentId));
 
     ctx.body = {
-      type: { libelle: type.libelle, phase: type.phase },
+      type: { libelle: type.libelle, phase: type.phase, genre: perimetre.genre },
+      objet: libelleObjet(perimetre),
       echeance: echeanceOuvree(joursOuvres || type.delaiJoursDefaut || 5),
       vises: vises.length,
       introuvables,
       aCreer: vises.filter((id) => !dejaIds.has(id) && !ouvertesIds.has(id)).length,
       dejaServis: deja.map((d) => d.candidature?.numeroDossier).filter(Boolean),
-      demandeEnCours: ouvertes.map((d) => d.candidature?.numeroDossier).filter(Boolean),
-      pieces: (type.piecesAttendues || []).map((p) => p.libelle),
-      montantsOuverts: Boolean(type.montantsOuverts),
+      demandeEnCours: memeObjet.map((d) => d.candidature?.numeroDossier).filter(Boolean),
+      autresDemandesOuvertes: ouvertes.length - memeObjet.length,
+      pieces: perimetre.pieces.map((p) => p.libelle),
+      montantsOuverts: perimetre.montants,
     };
   },
 
