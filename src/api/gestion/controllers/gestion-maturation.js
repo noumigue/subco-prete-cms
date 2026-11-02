@@ -32,6 +32,35 @@ function requireRole(ctx, roles) {
   return user;
 }
 
+// Une piece deposee porte un `fileId` brut, pas une relation media : sans resolution,
+// l'ecran affiche un nom de fichier qu'on ne peut pas ouvrir. L'equipe doit lire le plan
+// de financement pour le valider — c'est tout l'objet de l'examen.
+async function resoudrePieces(strapi, demandes) {
+  const liste = Array.isArray(demandes) ? demandes : [demandes];
+  const ids = [...new Set(
+    liste.flatMap((d) => (d?.piecesFournies || []).map((p) => Number(p?.fileId)))
+      .filter((n) => Number.isInteger(n) && n > 0),
+  )];
+  if (ids.length === 0) return demandes;
+
+  const fichiers = await strapi.db.query('plugin::upload.file').findMany({
+    where: { id: { $in: ids } },
+    select: ['id', 'name', 'url', 'mime', 'size'],
+  });
+  const parId = new Map(fichiers.map((f) => [Number(f.id), f]));
+
+  for (const d of liste) {
+    if (!d?.piecesFournies) continue;
+    d.piecesFournies = d.piecesFournies.map((p) => {
+      const f = parId.get(Number(p?.fileId));
+      return f
+        ? { ...p, url: f.url, nomFichier: p.nomFichier || f.name, mime: f.mime || null, tailleKo: f.size ? Math.round(f.size) : null }
+        : p;
+    });
+  }
+  return demandes;
+}
+
 function libelleAuteur(user) {
   return [user?.prenom, user?.nom].filter(Boolean).join(' ').trim() || user?.username || user?.email || 'Equipe';
 }
@@ -110,6 +139,7 @@ module.exports = {
       acc[d.statut] = (acc[d.statut] || 0) + 1;
       return acc;
     }, {});
+    await resoudrePieces(strapi, demandes);
     ctx.body = { demandes, compte, total: demandes.length };
   },
 
@@ -117,6 +147,7 @@ module.exports = {
     if (!requireRole(ctx, LECTURE)) return;
     const demande = await charger(strapi, ctx.params.documentId);
     if (!demande?.documentId) return ctx.notFound('Demande introuvable.');
+    await resoudrePieces(strapi, demande);
     ctx.body = { demande };
   },
 

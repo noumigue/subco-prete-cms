@@ -24,6 +24,32 @@ async function chargerPossedee(strapi, documentId, userId) {
 }
 
 /** Ce que l'operateur a le droit de voir : jamais les champs de decision interne. */
+// Meme raison que cote equipe : `fileId` brut, pas de relation media. Sans resolution,
+// l'operateur ne peut pas relire la piece qu'il a deposee.
+async function resoudrePieces(strapi, vues) {
+  const liste = Array.isArray(vues) ? vues : [vues];
+  const ids = [...new Set(
+    liste.flatMap((v) => (v?.piecesFournies || []).map((p) => Number(p?.fileId)))
+      .filter((n) => Number.isInteger(n) && n > 0),
+  )];
+  if (ids.length === 0) return vues;
+
+  const fichiers = await strapi.db.query('plugin::upload.file').findMany({
+    where: { id: { $in: ids } },
+    select: ['id', 'name', 'url'],
+  });
+  const parId = new Map(fichiers.map((f) => [Number(f.id), f]));
+
+  for (const v of liste) {
+    if (!v?.piecesFournies) continue;
+    v.piecesFournies = v.piecesFournies.map((p) => {
+      const f = parId.get(Number(p?.fileId));
+      return f ? { ...p, url: f.url, nomFichier: p.nomFichier || f.name } : p;
+    });
+  }
+  return vues;
+}
+
 function vueOperateur(demande) {
   return {
     documentId: demande.documentId,
@@ -55,7 +81,9 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
       sort: ['echeance:asc'],
       limit: 100,
     });
-    ctx.body = { demandes: demandes.map(vueOperateur) };
+    const vues = demandes.map(vueOperateur);
+    await resoudrePieces(strapi, vues);
+    ctx.body = { demandes: vues };
   },
 
   async detail(ctx) {
@@ -63,7 +91,9 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
     if (!userId) return ctx.unauthorized('Authentification requise.');
     const demande = await chargerPossedee(strapi, ctx.params.documentId, userId);
     if (!demande) return ctx.notFound('Demande introuvable.');
-    ctx.body = { demande: vueOperateur(demande) };
+    const vue = vueOperateur(demande);
+    await resoudrePieces(strapi, vue);
+    ctx.body = { demande: vue };
   },
 
   /**
@@ -84,7 +114,9 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
     const { pieces, montants } = ctx.request.body || {};
     try {
       const misAJour = await soumettreDemande(strapi, demande, { pieces, montants });
-      ctx.body = { demande: vueOperateur({ ...misAJour, type: demande.type, candidature: demande.candidature }) };
+      const vue = vueOperateur({ ...misAJour, type: demande.type, candidature: demande.candidature });
+      await resoudrePieces(strapi, vue);
+      ctx.body = { demande: vue };
     } catch (error) {
       ctx.badRequest(error.message);
     }
