@@ -453,6 +453,8 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-maturation.types',
     // Referentiel des pieces, pour designer celle dont on veut une nouvelle version.
     'api::gestion.gestion-maturation.piecesReferentiel',
+    // Catalogue des champs du formulaire ouvrables par une campagne.
+    'api::gestion.gestion-maturation.champsReferentiel',
     'api::gestion.gestion-maturation.file',
     'api::gestion.gestion-maturation.demande',
     'api::gestion.gestion-maturation.valider',

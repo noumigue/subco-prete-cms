@@ -1392,6 +1392,7 @@ export interface ApiDemandeMajDemandeMaj extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    valeursProposees: Schema.Attribute.JSON;
     valideLe: Schema.Attribute.DateTime;
     validePar: Schema.Attribute.String;
     valideParRole: Schema.Attribute.String;

@@ -49,6 +49,15 @@ const { buildCandidaturePdf } = require('./portal-pdf');
 const { journal } = require('./portal-instruction');
 const { sendPortalNotification } = require('./portal-notify');
 const { uploadPdfBuffer } = require('./portal-pdf-upload');
+const {
+  normaliserChamps,
+  champsDuPerimetre,
+  validerValeurs,
+  appliquerValeurs,
+  resumerChangements,
+  decrireValeurs,
+  MONTANTS,
+} = require('./maturation-champs');
 
 const UID_DEMANDE = 'api::demande-maj.demande-maj';
 const UID_TYPE = 'api::type-demande-maj.type-demande-maj';
@@ -78,12 +87,6 @@ function genreDeduit(type) {
 }
 
 // --- Outils -------------------------------------------------------------------------
-
-function nombreOuNull(v) {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-}
 
 /** Echeance a J + n jours OUVRES, a 23h59 heure de Bujumbura (UTC+2). */
 function echeanceOuvree(joursOuvres, depuis = new Date()) {
@@ -123,11 +126,18 @@ function perimetreDepuisType(type) {
       exigence: p.exigence || 'obligatoire',
       revision: false,
     }));
+  // Les champs sont normalises contre le catalogue : une cle hors catalogue est refusee ici,
+  // avant que la campagne ne parte, et non au moment ou l'operateur repond.
+  const champs = Array.isArray(type?.champsOuverts) && type.champsOuverts.length
+    ? normaliserChamps(type.champsOuverts)
+    : [];
   return {
     genre: genreDeduit(type),
     pieces: [...duReferentiel, ...libres],
-    montants: Boolean(type?.montantsOuverts),
-    champs: Array.isArray(type?.champsOuverts) ? type.champsOuverts : [],
+    // `montants` reste calcule : il gouverne encore l'indicateur « montants matures » du
+    // dossier, qui ne vaut que pour le budget et la contrepartie, pas pour les autres champs.
+    montants: champs.some((c) => MONTANTS.includes(c)) || (champs.length === 0 && Boolean(type?.montantsOuverts)),
+    champs,
     validationRequise: type?.validationRequise !== false,
   };
 }
@@ -152,7 +162,12 @@ function cleObjet(perimetre) {
 /** Ce que la demande reclame, en clair. Sert au journal et aux ecrans. */
 function libelleObjet(perimetre) {
   if (!perimetre) return 'mise a jour';
-  if (perimetre.genre === 'champs' || perimetre.montants) return 'montants du plan de financement';
+  if (perimetre.genre === 'champs' || perimetre.montants) {
+    const champs = champsDuPerimetre(perimetre);
+    if (champs.length === 0) return 'champs du formulaire';
+    if (champs.length <= 3) return champs.map((c) => c.libelle).join(', ');
+    return `${champs.slice(0, 2).map((c) => c.libelle).join(', ')} et ${champs.length - 2} autre(s) champ(s)`;
+  }
   const piece = (perimetre.pieces || [])[0];
   const nom = piece?.libelle || 'piece';
   return perimetre.genre === 'piece_revision' ? `nouvelle version de « ${nom} »` : `« ${nom} »`;
@@ -176,7 +191,7 @@ function verifierGenre(type, perimetre) {
         `« ${libelle} » demande des champs du formulaire ET ${nbPieces} piece(s). Une campagne ne porte qu'un seul objet : retirez les pieces de ce type, ou lancez une campagne de genre « piece ».`,
       );
     }
-    if (!perimetre.montants && perimetre.champs.length === 0) {
+    if (perimetre.champs.length === 0 && !perimetre.montants) {
       throw new Error(`« ${libelle} » ne precise aucun champ a mettre a jour.`);
     }
     return;
@@ -312,7 +327,7 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
       await journal(strapi, documentId, {
         auteurLibelle: demandeePar || 'Equipe SUBCO-PRETE',
         type: 'demande_maj',
-        texte: `Demande de mise a jour « ${type.libelle} » — echeance le ${String(echeanceFinale).slice(0, 10)}.`,
+        texte: `Demande de mise a jour — ${libelleObjet(perimetre)}, echeance le ${String(echeanceFinale).slice(0, 10)}.`,
       });
 
       await notifier(strapi, candidature, {
@@ -349,7 +364,7 @@ async function notifier(strapi, candidature, { sujet, corps }) {
  * Enregistre ce que l'operateur depose. Ne touche JAMAIS `donneesProjet` : tant que
  * l'equipe n'a pas valide, les montants officiels du dossier restent ceux du depot.
  */
-async function soumettreDemande(strapi, demande, { pieces, montants }) {
+async function soumettreDemande(strapi, demande, { pieces, montants, valeurs }) {
   if (!STATUTS_OUVERTS.includes(demande.statut)) {
     throw new Error('Cette demande n\'est plus ouverte.');
   }
@@ -361,24 +376,36 @@ async function soumettreDemande(strapi, demande, { pieces, montants }) {
   const intruse = fournies.find((p) => !attendues.has(p.libelle));
   if (intruse) throw new Error(`La piece « ${intruse.libelle} » ne fait pas partie de la demande.`);
 
+  // Les valeurs arrivent indexees par cle pointee (`financement.budgetTotal`). L'ancienne
+  // forme — un objet `montants` a plat — reste acceptee : des demandes parties avant le
+  // 2 novembre vivent encore, et leur formulaire poste ainsi.
+  let valeursProposees = demande.valeursProposees || null;
   let montantsProposes = demande.montantsProposes || null;
   let montantsStatut = demande.montantsStatut;
-  if (perimetre.montants && montants) {
-    const budgetTotal = nombreOuNull(montants.budgetTotal);
-    const contrepartie = nombreOuNull(montants.contrepartie);
-    if (budgetTotal === null || contrepartie === null) {
-      throw new Error('Le budget total et la contrepartie sont tous deux requis.');
+
+  const entrant = { ...(valeurs && typeof valeurs === 'object' ? valeurs : {}) };
+  if (montants && typeof montants === 'object') {
+    if (montants.budgetTotal !== undefined) entrant['financement.budgetTotal'] = montants.budgetTotal;
+    if (montants.contrepartie !== undefined) entrant['financement.contrepartie'] = montants.contrepartie;
+    if (montants.typeContrepartie) entrant['financement.typeContrepartie'] = montants.typeContrepartie;
+  }
+
+  if (Object.keys(entrant).length > 0) {
+    const { valeurs: validees } = validerValeurs(perimetre, entrant);
+    if (Object.keys(validees).length > 0) {
+      valeursProposees = { ...(valeursProposees || {}), ...validees };
+      montantsStatut = 'propose';
+      // `montantsProposes` continue d'etre renseigne quand le couple est servi : les ecrans
+      // et les demandes anterieures le lisent encore.
+      if (validees['financement.budgetTotal'] !== undefined && validees['financement.contrepartie'] !== undefined) {
+        montantsProposes = {
+          budgetTotal: validees['financement.budgetTotal'],
+          contrepartie: validees['financement.contrepartie'],
+          typeContrepartie: validees['financement.typeContrepartie'] || montants?.typeContrepartie || null,
+          commentaire: (montants && montants.commentaire) || null,
+        };
+      }
     }
-    if (contrepartie > budgetTotal) {
-      throw new Error('La contrepartie ne peut pas depasser le budget total.');
-    }
-    montantsProposes = {
-      budgetTotal,
-      contrepartie,
-      typeContrepartie: montants.typeContrepartie || null,
-      commentaire: montants.commentaire || null,
-    };
-    montantsStatut = 'propose';
   }
 
   const pieceDeja = new Map((demande.piecesFournies || []).map((p) => [p.libelle, p]));
@@ -398,6 +425,7 @@ async function soumettreDemande(strapi, demande, { pieces, montants }) {
       statut: 'fournie',
       soumisLe: new Date().toISOString(),
       piecesFournies: [...pieceDeja.values()],
+      valeursProposees,
       montantsProposes,
       montantsStatut,
       motifRenvoi: null,
@@ -412,8 +440,8 @@ async function soumettreDemande(strapi, demande, { pieces, montants }) {
     const quoi = fournies.length > 0
       ? fournies.map((p) => `« ${p.libelle} »`).join(', ')
       : null;
-    const montantsTexte = montantsStatut === 'propose' && montantsProposes
-      ? `montants proposes : budget ${montantsProposes.budgetTotal}, contrepartie ${montantsProposes.contrepartie}`
+    const montantsTexte = montantsStatut === 'propose' && valeursProposees
+      ? `valeurs proposees — ${decrireValeurs(valeursProposees).join(' · ')}`
       : null;
     await journal(strapi, candidatureId, {
       auteurLibelle: 'Operateur',
@@ -456,20 +484,24 @@ async function validerDemande(strapi, demande, { par, role }) {
   const perimetre = demande.perimetre || {};
   let versionProduite = null;
 
-  if (perimetre.montants && demande.montantsProposes) {
-    const ancien = candidature.donneesProjet || {};
-    const ancienFin = ancien.financement || {};
-    const nouveau = {
-      ...ancien,
-      financement: {
-        ...ancienFin,
-        budgetTotal: demande.montantsProposes.budgetTotal,
-        contrepartie: demande.montantsProposes.contrepartie,
+  // Valeurs a porter au dossier. Les demandes anterieures au catalogue ne portent qu'un
+  // `montantsProposes` a plat : on le relit sous la forme pointee plutot que de les migrer.
+  const valeursAPorter = demande.valeursProposees && Object.keys(demande.valeursProposees).length
+    ? demande.valeursProposees
+    : (demande.montantsProposes
+      ? {
+        'financement.budgetTotal': demande.montantsProposes.budgetTotal,
+        'financement.contrepartie': demande.montantsProposes.contrepartie,
         ...(demande.montantsProposes.typeContrepartie
-          ? { typeContrepartie: demande.montantsProposes.typeContrepartie }
+          ? { 'financement.typeContrepartie': demande.montantsProposes.typeContrepartie }
           : {}),
-      },
-    };
+      }
+      : {});
+
+  if (Object.keys(valeursAPorter).length > 0) {
+    const ancien = candidature.donneesProjet || {};
+    const changements = resumerChangements(ancien, valeursAPorter);
+    const nouveau = appliquerValeurs(ancien, valeursAPorter);
 
     const versionSuivante = (Number(candidature.versionDepot) || 1) + 1;
     let pdfFile = null;
@@ -496,8 +528,9 @@ async function validerDemande(strapi, demande, { par, role }) {
         dernierDepotLe: maintenant,
         pdfPermanent: pdfFile.id,
         versionReference: versionSuivante,
-        montantsMatures: true,
-        montantsMaturesLe: maintenant,
+        // « Montants matures » ne vaut que pour le budget et la contrepartie : une campagne
+        // qui corrige le nombre d'emplois ne rend pas le plan de financement arrete.
+        ...(perimetre.montants ? { montantsMatures: true, montantsMaturesLe: maintenant } : {}),
       },
     });
 
@@ -517,8 +550,10 @@ async function validerDemande(strapi, demande, { par, role }) {
 
     await journal(strapi, candidature.documentId, {
       auteurLibelle: par || 'Equipe SUBCO-PRETE',
-      type: 'montants_matures',
-      texte: `Montants matures et valides : budget ${ancienFin.budgetTotal ?? '—'} -> ${nouveau.financement.budgetTotal}, contrepartie ${ancienFin.contrepartie ?? '—'} -> ${nouveau.financement.contrepartie} (version ${versionSuivante}).`,
+      type: perimetre.montants ? 'montants_matures' : 'champs_maj_valides',
+      texte: `${perimetre.montants
+        ? (champsDuPerimetre(perimetre).length > 2 ? 'Montants matures et champs mis a jour' : 'Montants matures et valides')
+        : 'Champs mis a jour'} : ${changements.join(', ') || 'aucun changement'} (version ${versionSuivante}).`,
     });
   }
 
@@ -526,7 +561,7 @@ async function validerDemande(strapi, demande, { par, role }) {
     documentId: demande.documentId,
     data: {
       statut: 'validee',
-      montantsStatut: perimetre.montants ? 'valide' : demande.montantsStatut,
+      montantsStatut: Object.keys(valeursAPorter).length ? 'valide' : demande.montantsStatut,
       validePar: par || null,
       valideParRole: role || null,
       valideLe: maintenant,
@@ -543,7 +578,7 @@ async function validerDemande(strapi, demande, { par, role }) {
 
   await notifier(strapi, candidature, {
     sujet: `Mise a jour validee — dossier ${candidature.numeroDossier}`,
-    corps: `La mise a jour de votre dossier ${candidature.numeroDossier} a ete validee.${versionProduite ? ` Les montants de votre projet ont ete actualises (version ${versionProduite}).` : ''}`,
+    corps: `La mise a jour de votre dossier ${candidature.numeroDossier} a ete validee.${versionProduite ? ` Les informations de votre projet ont ete actualisees (version ${versionProduite}).` : ''}`,
   });
 
   return { demande: misAJour, dejaValidee: false };

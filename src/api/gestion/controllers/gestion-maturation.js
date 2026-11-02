@@ -27,10 +27,8 @@ const UID = 'api::demande-maj.demande-maj';
 const UID_TYPE = 'api::type-demande-maj.type-demande-maj';
 const UID_TYPE_PIECE = 'api::type-piece.type-piece';
 
-// Champs du formulaire ouverts par le genre « champs ». Un seul jeu pour l'instant — les
-// montants, qui sont la demande du Cabinet. La selection libre des champs viendra le jour
-// ou il faudra faire corriger autre chose : `champsOuverts` existe deja dans le modele.
-const CHAMPS_MONTANTS = ['financement.budgetTotal', 'financement.contrepartie', 'financement.typeContrepartie'];
+const crypto = require('crypto');
+const { catalogueChamps, normaliserChamps, champsDuPerimetre, CATALOGUE } = require('../../../utils/maturation-champs');
 
 function slug(libelle) {
   return String(libelle || '')
@@ -49,13 +47,24 @@ function slug(libelle) {
  * La simulation s'en sert telle quelle : elle doit pouvoir annoncer ce qui partira sans
  * rien creer, puisque c'est la promesse faite a l'ecran.
  */
-async function typeVirtuel(strapi, { genre, libellePiece, typePieceDocumentId, texteDemande, joursOuvres }) {
+async function typeVirtuel(strapi, { genre, champs, libellePiece, typePieceDocumentId, texteDemande, joursOuvres }) {
   if (!GENRES.includes(genre)) throw new Error(`Genre inconnu : ${genre}.`);
 
   if (genre === 'champs') {
+    // La selection est normalisee ici : une cle hors catalogue est refusee avant que la
+    // campagne ne parte. C'est la garde qui empeche une ecriture arbitraire dans les
+    // donnees d'un dossier deja depose, note et passe au Comite.
+    const cles = normaliserChamps(champs);
+    const libelles = cles.map((c) => CATALOGUE.find((x) => x.cle === c)?.libelle || c);
+    const resume = libelles.join(', ');
     return {
-      genre, libelle: 'Montants du plan de financement',
-      montantsOuverts: true, champsOuverts: CHAMPS_MONTANTS,
+      genre,
+      libelle: `Modifier : ${resume.length > 70 ? `${libelles.slice(0, 2).join(', ')} et ${libelles.length - 2} autre(s)` : resume}`,
+      // Le code identifie la SELECTION, pas son libelle : deux campagnes portant sur des
+      // champs differents ne doivent pas se confondre, et relancer la meme selection doit
+      // reutiliser le meme type plutot qu'en empiler des variantes.
+      codeStable: `champs-${crypto.createHash('md5').update(cles.join('|')).digest('hex').slice(0, 10)}`,
+      montantsOuverts: false, champsOuverts: cles,
       piecesAttendues: [], piecesLibres: [],
       texteDemande: texteDemande || null, delaiJoursDefaut: joursOuvres || 5, phase: 'maturation',
     };
@@ -93,7 +102,7 @@ async function typeVirtuel(strapi, { genre, libellePiece, typePieceDocumentId, t
 
 /** Cree le type s'il n'existe pas encore, le reutilise sinon. Idempotent par `code`. */
 async function assurerType(strapi, virtuel) {
-  const code = slug(`${virtuel.genre}-${virtuel.libelle}`);
+  const code = virtuel.codeStable || slug(`${virtuel.genre}-${virtuel.libelle}`);
   const existant = await strapi.documents(UID_TYPE).findFirst({ filters: { code } });
   if (existant?.documentId) return existant.documentId;
 
@@ -152,6 +161,39 @@ async function resoudrePieces(strapi, demandes) {
   return demandes;
 }
 
+/**
+ * Decrit, pour l'equipe, ce qui est propose champ par champ : l'ancienne valeur et la
+ * nouvelle, cote a cote. Sans ce rapprochement l'ecran afficherait des cles pointees et un
+ * nombre nu — on ne valide pas ce qu'on ne peut pas comparer.
+ */
+async function decrireValeursProposees(strapi, demandes) {
+  const liste = Array.isArray(demandes) ? demandes : [demandes];
+  const concernees = liste.filter((d) => champsDuPerimetre(d?.perimetre).length > 0);
+  if (concernees.length === 0) return demandes;
+  const parCle = new Map((await catalogueChamps(strapi)).map((c) => [c.cle, c]));
+
+  for (const d of concernees) {
+    const proposees = d.valeursProposees || (d.montantsProposes
+      ? {
+        'financement.budgetTotal': d.montantsProposes.budgetTotal,
+        'financement.contrepartie': d.montantsProposes.contrepartie,
+        ...(d.montantsProposes.typeContrepartie ? { 'financement.typeContrepartie': d.montantsProposes.typeContrepartie } : {}),
+      }
+      : {});
+    const donnees = d.candidature?.donneesProjet || {};
+    d.valeursDecrites = champsDuPerimetre(d.perimetre).map((champ) => {
+      const [section, nom] = champ.cle.split('.');
+      return {
+        cle: champ.cle,
+        libelle: parCle.get(champ.cle)?.libelle || champ.libelle,
+        actuelle: donnees?.[section]?.[nom] ?? null,
+        proposee: proposees[champ.cle] ?? null,
+      };
+    });
+  }
+  return demandes;
+}
+
 function libelleAuteur(user) {
   return [user?.prenom, user?.nom].filter(Boolean).join(' ').trim() || user?.username || user?.email || 'Equipe';
 }
@@ -159,7 +201,7 @@ function libelleAuteur(user) {
 const POPULATE = {
   type: { fields: ['code', 'libelle', 'phase'] },
   candidature: {
-    fields: ['documentId', 'numeroDossier', 'titreProjet', 'versionDepot', 'montantsMatures'],
+    fields: ['documentId', 'numeroDossier', 'titreProjet', 'versionDepot', 'montantsMatures', 'donneesProjet'],
     populate: { organisation: { fields: ['nom'] }, statut: { fields: ['code', 'libelleCandidat'] } },
   },
 };
@@ -210,6 +252,12 @@ module.exports = {
     ctx.body = { types };
   },
 
+  /** Champs du formulaire qu'une campagne peut rouvrir, groupes par section. */
+  async champsReferentiel(ctx) {
+    if (!requireRole(ctx, LECTURE)) return;
+    ctx.body = { champs: await catalogueChamps(strapi) };
+  },
+
   /** Pieces du referentiel, pour choisir celle dont on veut une nouvelle version. */
   async piecesReferentiel(ctx) {
     if (!requireRole(ctx, LECTURE)) return;
@@ -242,6 +290,7 @@ module.exports = {
       return acc;
     }, {});
     await resoudrePieces(strapi, demandes);
+    await decrireValeursProposees(strapi, demandes);
     ctx.body = { demandes, compte, total: demandes.length };
   },
 
@@ -250,6 +299,7 @@ module.exports = {
     const demande = await charger(strapi, ctx.params.documentId);
     if (!demande?.documentId) return ctx.notFound('Demande introuvable.');
     await resoudrePieces(strapi, demande);
+    await decrireValeursProposees(strapi, demande);
     ctx.body = { demande };
   },
 

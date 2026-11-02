@@ -7,12 +7,15 @@
 const { createCoreController } = require('@strapi/strapi').factories;
 const { getUserId } = require('../../../utils/portal-owner');
 const { soumettreDemande } = require('../../../utils/maturation');
+const { catalogueChamps, champsDuPerimetre } = require('../../../utils/maturation-champs');
 
 const UID = 'api::demande-maj.demande-maj';
 
 const POPULATE = {
   type: { fields: ['code', 'libelle', 'phase'] },
-  candidature: { fields: ['documentId', 'numeroDossier', 'titreProjet'], populate: { owner: { fields: ['id'] } } },
+  // `donneesProjet` sert a pre-remplir le formulaire avec les valeurs actuelles : sans
+  // elles, l'operateur devrait ressaisir de memoire ce qu'il avait depose.
+  candidature: { fields: ['documentId', 'numeroDossier', 'titreProjet', 'donneesProjet'], populate: { owner: { fields: ['id'] } } },
 };
 
 /** Charge une demande en verifiant qu'elle appartient bien a l'operateur connecte. */
@@ -50,6 +53,30 @@ async function resoudrePieces(strapi, vues) {
   return vues;
 }
 
+/**
+ * Decrit les champs ouverts par la demande : libelle, type, valeurs admises, valeur
+ * actuelle au dossier et valeur deja proposee. Le formulaire ne sait rien du catalogue —
+ * il affiche ce que le CMS lui decrit, ce qui evite deux definitions a tenir d'accord.
+ */
+function decrireChamps(demande, parCle) {
+  const donnees = demande.candidature?.donneesProjet || {};
+  const proposees = demande.valeursProposees || {};
+  return champsDuPerimetre(demande.perimetre).map((champ) => {
+    const [section, nom] = champ.cle.split('.');
+    const enrichi = parCle.get(champ.cle) || champ;
+    return {
+      cle: champ.cle,
+      libelle: enrichi.libelle,
+      section: enrichi.section,
+      type: enrichi.type,
+      options: enrichi.options || null,
+      max: enrichi.max || null,
+      valeurActuelle: donnees?.[section]?.[nom] ?? null,
+      valeurProposee: proposees[champ.cle] ?? null,
+    };
+  });
+}
+
 function vueOperateur(demande) {
   return {
     documentId: demande.documentId,
@@ -59,10 +86,12 @@ function vueOperateur(demande) {
     texteDemande: demande.texteDemande,
     perimetre: demande.perimetre,
     piecesFournies: demande.piecesFournies || [],
+    valeursProposees: demande.valeursProposees || null,
     montantsProposes: demande.montantsProposes || null,
     montantsStatut: demande.montantsStatut,
     motifRenvoi: demande.motifRenvoi || null,
     soumisLe: demande.soumisLe,
+    champs: [],
     type: demande.type ? { libelle: demande.type.libelle, phase: demande.type.phase } : null,
     candidature: demande.candidature
       ? { documentId: demande.candidature.documentId, numeroDossier: demande.candidature.numeroDossier, titreProjet: demande.candidature.titreProjet }
@@ -81,7 +110,8 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
       sort: ['echeance:asc'],
       limit: 100,
     });
-    const vues = demandes.map(vueOperateur);
+    const parCle = new Map((await catalogueChamps(strapi)).map((c) => [c.cle, c]));
+    const vues = demandes.map((d) => ({ ...vueOperateur(d), champs: decrireChamps(d, parCle) }));
     await resoudrePieces(strapi, vues);
     ctx.body = { demandes: vues };
   },
@@ -91,7 +121,8 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
     if (!userId) return ctx.unauthorized('Authentification requise.');
     const demande = await chargerPossedee(strapi, ctx.params.documentId, userId);
     if (!demande) return ctx.notFound('Demande introuvable.');
-    const vue = vueOperateur(demande);
+    const parCle = new Map((await catalogueChamps(strapi)).map((c) => [c.cle, c]));
+    const vue = { ...vueOperateur(demande), champs: decrireChamps(demande, parCle) };
     await resoudrePieces(strapi, vue);
     ctx.body = { demande: vue };
   },
@@ -111,10 +142,12 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
       return ctx.badRequest("L'echeance de cette demande est passee. Ecrivez a candidature@subco-prete.bi pour qu'elle soit rouverte.");
     }
 
-    const { pieces, montants } = ctx.request.body || {};
+    const { pieces, montants, valeurs } = ctx.request.body || {};
     try {
-      const misAJour = await soumettreDemande(strapi, demande, { pieces, montants });
-      const vue = vueOperateur({ ...misAJour, type: demande.type, candidature: demande.candidature });
+      const misAJour = await soumettreDemande(strapi, demande, { pieces, montants, valeurs });
+      const complet = { ...misAJour, type: demande.type, candidature: demande.candidature };
+      const parCle = new Map((await catalogueChamps(strapi)).map((c) => [c.cle, c]));
+      const vue = { ...vueOperateur(complet), champs: decrireChamps(complet, parCle) };
       await resoudrePieces(strapi, vue);
       ctx.body = { demande: vue };
     } catch (error) {
