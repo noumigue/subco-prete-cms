@@ -48,6 +48,35 @@ async function charger(strapi, documentId) {
   return strapi.documents(UID).findOne({ documentId, populate: POPULATE });
 }
 
+
+/**
+ * Resout une liste melee de numeros de dossier et d'identifiants de document vers des
+ * documentId. L'equipe travaille avec des numeros — « PRETE-AP-C1-2026-00127 », ou meme
+ * « 00127 » — et c'est ce qu'elle colle dans le formulaire.
+ */
+async function resoudreDossiers(strapi, entrees) {
+  const brut = (Array.isArray(entrees) ? entrees : [])
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+  const documentIds = [];
+  const introuvables = [];
+
+  for (const entree of brut) {
+    const numero = /^\d{5}$/.test(entree) ? `PRETE-AP-C1-2026-${entree}` : entree;
+    if (/^PRETE-AP-C1-\d{4}-\d{5}$/.test(numero)) {
+      const dossier = await strapi.documents('api::candidature.candidature').findFirst({
+        filters: { numeroDossier: numero },
+        fields: ['documentId'],
+      });
+      if (dossier?.documentId) documentIds.push(dossier.documentId);
+      else introuvables.push(entree);
+    } else {
+      documentIds.push(entree);
+    }
+  }
+  return { documentIds: [...new Set(documentIds)], introuvables };
+}
+
 module.exports = {
   /** Referentiel des types, pour le formulaire de campagne. */
   async types(ctx) {
@@ -108,10 +137,15 @@ module.exports = {
       return ctx.badRequest('Cle de campagne invalide (3 a 49 caracteres : a-z, 0-9, . _ -).');
     }
 
+    const { documentIds, introuvables } = await resoudreDossiers(strapi, candidatures);
+    if (introuvables.length > 0) {
+      return ctx.badRequest(`Dossier(s) introuvable(s) : ${introuvables.join(', ')}`);
+    }
+
     try {
       const bilan = await creerDemandes(strapi, {
         typeDocumentId,
-        candidatureDocumentIds: candidatures,
+        candidatureDocumentIds: documentIds,
         campagne: String(campagne),
         echeance: echeance || null,
         joursOuvres: joursOuvres || null,
@@ -132,7 +166,7 @@ module.exports = {
       : null;
     if (!type?.documentId) return ctx.badRequest('Type de demande introuvable.');
 
-    const vises = Array.isArray(candidatures) ? candidatures : [];
+    const { documentIds: vises, introuvables } = await resoudreDossiers(strapi, candidatures);
     const deja = campagne
       ? await strapi.documents(UID).findMany({
         filters: { campagne, candidature: { documentId: { $in: vises } } },
@@ -142,12 +176,25 @@ module.exports = {
       : [];
     const dejaIds = new Set(deja.map((d) => d.candidature?.documentId));
 
+    // Les dossiers portant deja une demande ouverte, toutes campagnes confondues : la
+    // creation les refusera, l'apercu doit le dire avant et non apres.
+    const ouvertes = vises.length > 0
+      ? await strapi.documents(UID).findMany({
+        filters: { candidature: { documentId: { $in: vises } }, statut: { $in: ['demandee', 'renvoyee', 'fournie'] } },
+        populate: { candidature: { fields: ['documentId', 'numeroDossier'] } },
+        limit: 1000,
+      })
+      : [];
+    const ouvertesIds = new Set(ouvertes.map((d) => d.candidature?.documentId));
+
     ctx.body = {
       type: { libelle: type.libelle, phase: type.phase },
       echeance: echeanceOuvree(joursOuvres || type.delaiJoursDefaut || 5),
       vises: vises.length,
-      aCreer: vises.filter((id) => !dejaIds.has(id)).length,
+      introuvables,
+      aCreer: vises.filter((id) => !dejaIds.has(id) && !ouvertesIds.has(id)).length,
       dejaServis: deja.map((d) => d.candidature?.numeroDossier).filter(Boolean),
+      demandeEnCours: ouvertes.map((d) => d.candidature?.numeroDossier).filter(Boolean),
       pieces: (type.piecesAttendues || []).map((p) => p.libelle),
       montantsOuverts: Boolean(type.montantsOuverts),
     };

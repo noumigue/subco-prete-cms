@@ -135,11 +135,28 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
         continue;
       }
 
+      // Deux gardes distinctes. La premiere dedoublonne la campagne : relancer une
+      // campagne interrompue ne cree pas de seconde demande sur les dossiers deja servis.
       const deja = await strapi.documents(UID_DEMANDE).findFirst({
         filters: { candidature: { documentId }, campagne },
       });
       if (deja?.documentId) {
         ignorees.push(candidature.numeroDossier || documentId);
+        continue;
+      }
+
+      // La seconde interdit deux demandes OUVERTES sur un meme dossier, toutes campagnes
+      // confondues : l'operateur ne saurait pas a laquelle il repond, et l'echeance de
+      // l'une ferait basculer son dossier pendant qu'il traite l'autre.
+      const enCours = await strapi.documents(UID_DEMANDE).findFirst({
+        filters: { candidature: { documentId }, statut: { $in: [...STATUTS_OUVERTS, 'fournie'] } },
+      });
+      if (enCours?.documentId) {
+        erreurs.push({
+          documentId,
+          numero: candidature.numeroDossier,
+          motif: `une demande est deja en cours (${enCours.statut}) sur ce dossier`,
+        });
         continue;
       }
 
