@@ -334,6 +334,9 @@ module.exports = {
         echeance: echeance || null,
         joursOuvres: joursOuvres || null,
         demandeePar: libelleAuteur(user),
+        // Porte par la DEMANDE, pas par le type : deux campagnes portant sur la meme
+        // selection reutilisent le meme type et partageraient sinon le texte de la premiere.
+        texteDemande: corps.texteDemande || null,
       });
       ctx.body = bilan;
     } catch (error) {

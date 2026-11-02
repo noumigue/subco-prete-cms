@@ -237,7 +237,14 @@ function pgesDesormaisAttendu(avant, apres) {
 function decrireValeurs(valeurs) {
   return CATALOGUE
     .filter((c) => Object.prototype.hasOwnProperty.call(valeurs || {}, c.cle))
-    .map((c) => `${c.libelle} : ${valeurs[c.cle]}`);
+    .map((c) => `${c.libelle} : ${pourAffichage(valeurs[c.cle])}`);
+}
+
+/** Une valeur lisible dans une ligne de journal ou de courriel : jamais vide, jamais longue. */
+function pourAffichage(v) {
+  const t = String(v ?? '').trim();
+  if (t === '') return 'non renseigne';
+  return t.length > 80 ? `${t.slice(0, 77)}…` : t;
 }
 
 /** Ce qui a change, en clair, pour le journal. */
@@ -253,7 +260,7 @@ function resumerChangements(avant, valeurs) {
     const champ = PAR_CLE.get(cle);
     const ancien = lireValeur(avant, cle);
     if (String(ancien ?? '') === String(apres)) continue;
-    lignes.push(`${champ?.libelle || cle} : ${ancien ?? '—'} -> ${apres}`);
+    lignes.push(`${champ?.libelle || cle} : ${pourAffichage(ancien)} -> ${pourAffichage(apres)}`);
   }
   return lignes;
 }

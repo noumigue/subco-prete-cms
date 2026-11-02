@@ -160,6 +160,50 @@ function cleObjet(perimetre) {
   return `piece:${String(piece?.libelle || '').trim().toLowerCase()}`;
 }
 
+/** Date en toutes lettres. « 2026-11-09 » dans un courriel a un candidat est illisible. */
+function dateFr(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Bujumbura' });
+}
+
+/**
+ * Objet en quelques mots, pour un SUJET de courriel. Depuis que les campagnes sont
+ * separees, un operateur recoit plusieurs messages le meme jour sur le meme dossier :
+ * s'ils portent tous « Mise a jour demandee sur votre dossier X », il ne peut pas savoir
+ * lequel concerne quoi. L'objet passe donc en tete du sujet.
+ */
+function libelleObjetCourt(perimetre) {
+  if (!perimetre) return 'Mise a jour';
+  if (perimetre.genre === 'champs' || perimetre.montants) {
+    const champs = champsDuPerimetre(perimetre);
+    if (champs.length === 1) return champs[0].libelle;
+    return `${champs.length} informations du projet`;
+  }
+  const piece = (perimetre.pieces || [])[0];
+  const nom = piece?.libelle || 'piece';
+  return perimetre.genre === 'piece_revision' ? `« ${nom} » (nouvelle version)` : `« ${nom} »`;
+}
+
+/**
+ * Ce qui est demande, en une phrase adressee a l'operateur. Le texte libre saisi par
+ * l'equipe le remplace quand il y en a un : elle sait souvent POURQUOI elle demande, et
+ * cette raison vaut mieux qu'une formule.
+ */
+function phraseDemande(perimetre, numero) {
+  if (perimetre?.genre === 'piece_nouvelle') {
+    const nom = (perimetre.pieces || [])[0]?.libelle || 'une piece';
+    return `Il vous est demande de fournir la piece « ${nom} » sur votre dossier ${numero}.`;
+  }
+  if (perimetre?.genre === 'piece_revision') {
+    const nom = (perimetre.pieces || [])[0]?.libelle || 'une piece';
+    return `Il vous est demande de deposer une nouvelle version de « ${nom} » sur votre dossier ${numero}.\n`
+      + 'La version que vous aviez deposee est conservee : la nouvelle s\'y ajoute.';
+  }
+  const champs = champsDuPerimetre(perimetre).map((c) => c.libelle);
+  return `Il vous est demande de mettre a jour les informations suivantes de votre dossier ${numero} :\n`
+    + `${champs.map((c) => `  - ${c}`).join('\n')}`;
+}
+
 /** Ce que la demande reclame, en clair. Sert au journal et aux ecrans. */
 function libelleObjet(perimetre) {
   if (!perimetre) return 'mise a jour';
@@ -245,7 +289,7 @@ async function poserStatut(strapi, candidatureDocumentId, code) {
  *
  * @returns {{creees: number, ignorees: string[], erreurs: Array}}
  */
-async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, campagne, echeance, joursOuvres, demandeePar }) {
+async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, campagne, echeance, joursOuvres, demandeePar, texteDemande }) {
   const type = await strapi.documents(UID_TYPE).findOne({
     documentId: typeDocumentId,
     populate: { piecesAttendues: true },
@@ -255,6 +299,7 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
 
   const perimetre = perimetreDepuisType(type);
   verifierGenre(type, perimetre);
+  const messageEquipe = String(texteDemande || '').trim() || null;
   const echeanceFinale = echeance || echeanceOuvree(joursOuvres || type.delaiJoursDefaut || 5);
   const maintenant = new Date().toISOString();
 
@@ -302,6 +347,8 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
         continue;
       }
 
+      const texteOperateur = messageEquipe || type.texteDemande || phraseDemande(perimetre, candidature.numeroDossier);
+
       const demande = await strapi.documents(UID_DEMANDE).create({
         data: {
           candidature: { connect: [documentId] },
@@ -309,7 +356,7 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
           campagne: campagne || null,
           phase: type.phase || 'maturation',
           perimetre,
-          texteDemande: type.texteDemande || null,
+          texteDemande: messageEquipe || type.texteDemande || null,
           echeance: echeanceFinale,
           statut: 'demandee',
           montantsStatut: perimetre.montants ? 'attendu' : 'non_demande',
@@ -332,8 +379,8 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
       });
 
       await notifier(strapi, candidature, {
-        sujet: `Mise a jour demandee sur votre dossier ${candidature.numeroDossier}`,
-        corps: `${type.texteDemande || `Une mise a jour vous est demandee sur votre dossier ${candidature.numeroDossier}.`}\n\nVous avez jusqu'au ${String(echeanceFinale).slice(0, 10)} pour y repondre depuis votre espace operateur.`,
+        sujet: `${libelleObjetCourt(perimetre)} — mise a jour demandee (dossier ${candidature.numeroDossier})`,
+        corps: `${texteOperateur}\n\nVous avez jusqu'au ${dateFr(echeanceFinale)} pour y repondre depuis votre espace operateur.`,
       });
 
       creees.push(demande.documentId);
@@ -484,6 +531,7 @@ async function validerDemande(strapi, demande, { par, role }) {
   const maintenant = new Date().toISOString();
   const perimetre = demande.perimetre || {};
   let versionProduite = null;
+  let changementsValides = [];
 
   // Valeurs a porter au dossier. Les demandes anterieures au catalogue ne portent qu'un
   // `montantsProposes` a plat : on le relit sous la forme pointee plutot que de les migrer.
@@ -502,6 +550,7 @@ async function validerDemande(strapi, demande, { par, role }) {
   if (Object.keys(valeursAPorter).length > 0) {
     const ancien = candidature.donneesProjet || {};
     const changements = resumerChangements(ancien, valeursAPorter);
+    changementsValides = changements;
     const nouveau = appliquerValeurs(ancien, valeursAPorter);
 
     const versionSuivante = (Number(candidature.versionDepot) || 1) + 1;
@@ -588,9 +637,19 @@ async function validerDemande(strapi, demande, { par, role }) {
     texte: `Mise a jour validee${role ? ` par ${role}` : ''} — ${libelleObjet(perimetre)}.`,
   });
 
+  // Le message dit CE QUI a ete valide. Trois campagnes peuvent courir sur un meme dossier :
+  // « votre mise a jour a ete validee » ne renseigne alors sur rien.
+  const piece = (perimetre.pieces || [])[0];
+  const corpsValidation = piece
+    ? `La piece « ${piece.libelle} » que vous avez fournie sur votre dossier ${candidature.numeroDossier} a ete validee.${
+      perimetre.genre === 'piece_revision' ? '\nElle s\'ajoute a la version precedente, qui reste conservee.' : ''}`
+    : `Les informations suivantes ont ete validees et portees a votre dossier ${candidature.numeroDossier} :\n`
+      + `${changementsValides.map((c) => `  - ${c}`).join('\n') || '  - aucun changement'}`
+      + `${versionProduite ? `\n\nVotre dossier passe en version ${versionProduite}.` : ''}`;
+
   await notifier(strapi, candidature, {
-    sujet: `Mise a jour validee — dossier ${candidature.numeroDossier}`,
-    corps: `La mise a jour de votre dossier ${candidature.numeroDossier} a ete validee.${versionProduite ? ` Les informations de votre projet ont ete actualisees (version ${versionProduite}).` : ''}`,
+    sujet: `${libelleObjetCourt(perimetre)} — valide (dossier ${candidature.numeroDossier})`,
+    corps: corpsValidation,
   });
 
   return { demande: misAJour, dejaValidee: false };
@@ -629,8 +688,8 @@ async function renvoyerDemande(strapi, demande, { motif, joursOuvres, echeance, 
       texte: `Mise a jour renvoyee : ${String(motif).trim()} — nouvelle echeance le ${String(nouvelleEcheance).slice(0, 10)}.`,
     });
     await notifier(strapi, candidature, {
-      sujet: `Complement attendu — dossier ${candidature.numeroDossier}`,
-      corps: `Votre mise a jour appelle une correction :\n\n${String(motif).trim()}\n\nNouvelle echeance : ${String(nouvelleEcheance).slice(0, 10)}.`,
+      sujet: `${libelleObjetCourt(demande.perimetre)} — correction demandee (dossier ${candidature.numeroDossier})`,
+      corps: `Votre reponse concernant ${libelleObjet(demande.perimetre)} appelle une correction :\n\n${String(motif).trim()}\n\nNouvelle echeance : ${dateFr(nouvelleEcheance)}.`,
     });
   }
 
@@ -714,8 +773,8 @@ async function passerRelancesEtEcheances(strapi, now = Date.now()) {
         texte: `Echeance du ${String(demande.echeance).slice(0, 10)} atteinte sans reponse complete : dossier en maturation non aboutie.`,
       });
       await notifier(strapi, candidature, {
-        sujet: `Echeance atteinte — dossier ${candidature.numeroDossier}`,
-        corps: `L'echeance de la mise a jour demandee sur votre dossier ${candidature.numeroDossier} est passee sans reponse complete. Votre dossier est signale au Comite de selection en « maturation non aboutie ».\n\nCette situation n'est pas definitive : ecrivez-nous a candidature@subco-prete.bi si vous etes en mesure de fournir les elements demandes.`,
+        sujet: `${libelleObjetCourt(demande.perimetre)} — echeance atteinte (dossier ${candidature.numeroDossier})`,
+        corps: `L'echeance de la demande concernant ${libelleObjet(demande.perimetre)}, sur votre dossier ${candidature.numeroDossier}, est passee sans reponse. Votre dossier est signale au Comite de selection en « maturation non aboutie ».\n\nCette situation n'est pas definitive : ecrivez-nous a candidature@subco-prete.bi si vous etes en mesure de fournir les elements demandes.`,
       });
       bascules += 1;
       continue;
@@ -727,8 +786,8 @@ async function passerRelancesEtEcheances(strapi, now = Date.now()) {
     if (deja.includes(palier.cle)) continue;
 
     await notifier(strapi, candidature, {
-      sujet: `Rappel — mise a jour attendue sur votre dossier ${candidature.numeroDossier}`,
-      corps: `L'echeance de la mise a jour demandee sur votre dossier ${candidature.numeroDossier} tombe ${palier.libelle}. Sans reponse de votre part, votre dossier sera signale au Comite de selection en « maturation non aboutie ».`,
+      sujet: `${libelleObjetCourt(demande.perimetre)} — rappel, echeance ${palier.libelle} (dossier ${candidature.numeroDossier})`,
+      corps: `L'echeance de la demande concernant ${libelleObjet(demande.perimetre)}, sur votre dossier ${candidature.numeroDossier}, tombe ${palier.libelle} (${dateFr(demande.echeance)}). Sans reponse de votre part, votre dossier sera signale au Comite de selection en « maturation non aboutie ».`,
     });
     await strapi.documents(UID_DEMANDE).update({
       documentId: demande.documentId,
@@ -755,6 +814,7 @@ module.exports = {
   verifierGenre,
   genreDeduit,
   libelleObjet,
+  libelleObjetCourt,
   cleObjet,
   GENRES,
   PALIERS_RELANCE,
