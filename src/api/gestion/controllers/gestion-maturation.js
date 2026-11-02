@@ -275,11 +275,18 @@ module.exports = {
     if (campagne) filters.campagne = campagne;
     if (phase) filters.phase = phase;
 
+    // Ordre chronologique, du plus recent au plus ancien : avec plusieurs campagnes par
+    // dossier, ce qui vient d'etre demande est ce qu'on cherche. L'echeance ne dit plus
+    // l'ordre des faits depuis que trois demandes peuvent partir le meme jour.
+    //
+    // Le plafond doit se VOIR quand il est atteint : une file tronquee en silence a deja
+    // masque deux dossiers a un evaluateur le 08/10. Meme garde que la file des dossiers.
+    const PLAFOND = 2000;
     const demandes = await strapi.documents(UID).findMany({
       filters,
       populate: POPULATE,
-      sort: ['echeance:asc'],
-      limit: 1000,
+      sort: ['createdAt:desc', 'id:desc'],
+      limit: PLAFOND,
     });
 
     const compte = demandes.reduce((acc, d) => {
@@ -288,7 +295,7 @@ module.exports = {
     }, {});
     await resoudrePieces(strapi, demandes);
     await decrireValeursProposees(strapi, demandes);
-    ctx.body = { demandes, compte, total: demandes.length };
+    ctx.body = { demandes, compte, total: demandes.length, tronque: demandes.length >= PLAFOND };
   },
 
   async demande(ctx) {

@@ -347,7 +347,12 @@ async function creerDemandes(strapi, { typeDocumentId, candidatureDocumentIds, c
         continue;
       }
 
-      const texteOperateur = messageEquipe || type.texteDemande || phraseDemande(perimetre, candidature.numeroDossier);
+      // Le message de l'equipe dit POURQUOI ; la phrase automatique dit QUOI. Les deux sont
+      // utiles : un operateur qui lit « merci de reprendre apres la descente du 28 » sans
+      // savoir ce qu'on attend de lui exactement doit ouvrir la plateforme pour le decouvrir.
+      const message = messageEquipe || type.texteDemande || null;
+      const attendu = phraseDemande(perimetre, candidature.numeroDossier);
+      const texteOperateur = message ? `${message}\n\n${attendu}` : attendu;
 
       const demande = await strapi.documents(UID_DEMANDE).create({
         data: {
