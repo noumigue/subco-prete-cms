@@ -28,7 +28,7 @@ const UID_TYPE = 'api::type-demande-maj.type-demande-maj';
 const UID_TYPE_PIECE = 'api::type-piece.type-piece';
 
 const crypto = require('crypto');
-const { catalogueChamps, normaliserChamps, champsDuPerimetre, CATALOGUE } = require('../../../utils/maturation-champs');
+const { catalogueChamps, normaliserChamps, champsDuPerimetre, lireValeur, CATALOGUE } = require('../../../utils/maturation-champs');
 
 function slug(libelle) {
   return String(libelle || '')
@@ -181,15 +181,12 @@ async function decrireValeursProposees(strapi, demandes) {
       }
       : {});
     const donnees = d.candidature?.donneesProjet || {};
-    d.valeursDecrites = champsDuPerimetre(d.perimetre).map((champ) => {
-      const [section, nom] = champ.cle.split('.');
-      return {
-        cle: champ.cle,
-        libelle: parCle.get(champ.cle)?.libelle || champ.libelle,
-        actuelle: donnees?.[section]?.[nom] ?? null,
-        proposee: proposees[champ.cle] ?? null,
-      };
-    });
+    d.valeursDecrites = champsDuPerimetre(d.perimetre).map((champ) => ({
+      cle: champ.cle,
+      libelle: parCle.get(champ.cle)?.libelle || champ.libelle,
+      actuelle: lireValeur(donnees, champ.cle),
+      proposee: proposees[champ.cle] ?? null,
+    }));
   }
   return demandes;
 }

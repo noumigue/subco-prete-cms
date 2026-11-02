@@ -7,7 +7,7 @@
 const { createCoreController } = require('@strapi/strapi').factories;
 const { getUserId } = require('../../../utils/portal-owner');
 const { soumettreDemande } = require('../../../utils/maturation');
-const { catalogueChamps, champsDuPerimetre } = require('../../../utils/maturation-champs');
+const { catalogueChamps, champsDuPerimetre, lireValeur } = require('../../../utils/maturation-champs');
 
 const UID = 'api::demande-maj.demande-maj';
 
@@ -62,7 +62,6 @@ function decrireChamps(demande, parCle) {
   const donnees = demande.candidature?.donneesProjet || {};
   const proposees = demande.valeursProposees || {};
   return champsDuPerimetre(demande.perimetre).map((champ) => {
-    const [section, nom] = champ.cle.split('.');
     const enrichi = parCle.get(champ.cle) || champ;
     return {
       cle: champ.cle,
@@ -71,7 +70,7 @@ function decrireChamps(demande, parCle) {
       type: enrichi.type,
       options: enrichi.options || null,
       max: enrichi.max || null,
-      valeurActuelle: donnees?.[section]?.[nom] ?? null,
+      valeurActuelle: lireValeur(donnees, champ.cle),
       valeurProposee: proposees[champ.cle] ?? null,
     };
   });

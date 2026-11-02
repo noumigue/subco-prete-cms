@@ -54,6 +54,15 @@ const CATALOGUE = [
   { cle: 'impact.porteParFemme', libelle: 'Projet porte par une femme', section: 'Impact et inclusion', type: 'choix', options: OUI_NON },
   { cle: 'impact.zoneRurale', libelle: 'Zone rurale ou fragile', section: 'Impact et inclusion', type: 'choix', options: OUI_NON },
 
+  // --- Environnement et social ---
+  // Integre le 2 novembre a la demande du Cabinet : ces aspects ne se precisent qu'a la
+  // descente sur le terrain, et n'ont donc pas pese dans la selection. Les reponses vivent
+  // dans un TABLEAU `es.reponses[{libelle, reponse}]`, pas dans des champs plats : chaque
+  // entree porte le libelle qui l'y retrouve.
+  { cle: 'es.travaux', libelle: 'Travaux ou construction', section: 'Environnement et social', type: 'choix', options: OUI_NON, esLibelle: 'Travaux ou construction' },
+  { cle: 'es.pollution', libelle: 'Pollution, dechets ou nuisances', section: 'Environnement et social', type: 'choix', options: OUI_NON, esLibelle: 'Pollution, déchets ou nuisances' },
+  { cle: 'es.foncier', libelle: 'Acquisition fonciere ou deplacement', section: 'Environnement et social', type: 'choix', options: OUI_NON, esLibelle: 'Acquisition foncière ou déplacement' },
+
   // --- Operateur ---
   { cle: 'operateur.nif', libelle: "Numero d'identification fiscale (NIF)", section: 'Operateur', type: 'texte' },
   { cle: 'operateur.rc', libelle: 'RC / enregistrement', section: 'Operateur', type: 'texte' },
@@ -112,6 +121,22 @@ function champsDuPerimetre(perimetre) {
   return cles.map((c) => PAR_CLE.get(c)).filter(Boolean);
 }
 
+/**
+ * Valeur actuelle d'un champ au dossier. Un accesseur unique, parce que tous les champs ne
+ * vivent pas au meme endroit : la plupart sont plats (`financement.budgetTotal`), les
+ * reponses E&S sont rangees dans un tableau et se retrouvent par leur libelle.
+ */
+function lireValeur(donneesProjet, cle) {
+  const champ = PAR_CLE.get(cle);
+  if (!champ) return null;
+  if (champ.esLibelle) {
+    const reponses = Array.isArray(donneesProjet?.es?.reponses) ? donneesProjet.es.reponses : [];
+    return reponses.find((r) => r?.libelle === champ.esLibelle)?.reponse ?? null;
+  }
+  const [section, nom] = cle.split('.');
+  return donneesProjet?.[section]?.[nom] ?? null;
+}
+
 function nombreOuNull(v) {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(String(v).replace(/\s/g, '').replace(/ /g, '').replace(',', '.'));
@@ -168,12 +193,44 @@ function validerValeurs(perimetre, proposees) {
 /** Applique les valeurs validees a une copie de `donneesProjet`. Ne mute pas l'original. */
 function appliquerValeurs(donneesProjet, valeurs) {
   const sortie = { ...(donneesProjet || {}) };
+  let esTouche = false;
+
   for (const [cle, valeur] of Object.entries(valeurs || {})) {
-    const [section, champ] = cle.split('.');
-    if (!section || !champ) continue;
-    sortie[section] = { ...(sortie[section] || {}), [champ]: valeur };
+    const champ = PAR_CLE.get(cle);
+
+    if (champ?.esLibelle) {
+      const reponses = Array.isArray(sortie.es?.reponses) ? [...sortie.es.reponses] : [];
+      const i = reponses.findIndex((r) => r?.libelle === champ.esLibelle);
+      if (i >= 0) reponses[i] = { ...reponses[i], reponse: valeur };
+      else reponses.push({ libelle: champ.esLibelle, reponse: valeur });
+      sortie.es = { ...(sortie.es || {}), reponses };
+      esTouche = true;
+      continue;
+    }
+
+    const [section, nom] = cle.split('.');
+    if (!section || !nom) continue;
+    sortie[section] = { ...(sortie[section] || {}), [nom]: valeur };
+  }
+
+  // `risqueDeclare` n'est pas saisi, il se DEDUIT : un « oui » a l'une des trois questions
+  // du screening le leve. Le recalculer ici evite qu'une reponse corrigee laisse derriere
+  // elle un drapeau qui ne correspond plus a ce qui est ecrit juste a cote.
+  if (esTouche) {
+    const reponses = Array.isArray(sortie.es?.reponses) ? sortie.es.reponses : [];
+    sortie.es = { ...sortie.es, risqueDeclare: reponses.some((r) => String(r?.reponse).toLowerCase() === 'oui') };
   }
   return sortie;
+}
+
+/**
+ * Le screening est-il passe a « risque declare » sans qu'un PGES soit au dossier ?
+ * On ne bloque pas la validation — l'equipe a vu la reponse et l'assume — mais le dossier
+ * ne doit pas changer d'etat en silence : un plan de gestion devient attendu.
+ */
+function pgesDesormaisAttendu(avant, apres) {
+  const risque = (d) => Boolean(d?.es?.risqueDeclare);
+  return !risque(avant) && risque(apres) && !apres?.es?.pges?.fileId;
 }
 
 /** Les valeurs proposees, en clair — sans comparaison a l'existant. */
@@ -194,8 +251,7 @@ function resumerChangements(avant, valeurs) {
     .map((c) => [c, valeurs[c]]);
   for (const [cle, apres] of ordonnees) {
     const champ = PAR_CLE.get(cle);
-    const [section, nom] = cle.split('.');
-    const ancien = (avant || {})[section]?.[nom];
+    const ancien = lireValeur(avant, cle);
     if (String(ancien ?? '') === String(apres)) continue;
     lignes.push(`${champ?.libelle || cle} : ${ancien ?? '—'} -> ${apres}`);
   }
@@ -207,6 +263,8 @@ module.exports = {
   MONTANTS,
   catalogueChamps,
   decrireValeurs,
+  lireValeur,
+  pgesDesormaisAttendu,
   normaliserChamps,
   champsDuPerimetre,
   validerValeurs,

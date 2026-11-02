@@ -56,6 +56,7 @@ const {
   appliquerValeurs,
   resumerChangements,
   decrireValeurs,
+  pgesDesormaisAttendu,
   MONTANTS,
 } = require('./maturation-champs');
 
@@ -555,6 +556,17 @@ async function validerDemande(strapi, demande, { par, role }) {
         ? (champsDuPerimetre(perimetre).length > 2 ? 'Montants matures et champs mis a jour' : 'Montants matures et valides')
         : 'Champs mis a jour'} : ${changements.join(', ') || 'aucun changement'} (version ${versionSuivante}).`,
     });
+
+    // Un « oui » au screening leve le risque environnemental et social. On ne bloque pas la
+    // validation — l'equipe a lu la reponse et l'assume — mais le dossier ne change pas
+    // d'etat en silence : le plan de gestion devient attendu, et le journal le dit.
+    if (pgesDesormaisAttendu(ancien, nouveau)) {
+      await journal(strapi, candidature.documentId, {
+        auteurLibelle: par || 'Equipe SUBCO-PRETE',
+        type: 'es_risque_declare',
+        texte: 'Risque environnemental et social desormais declare : un plan de gestion (PGES) est attendu au dossier.',
+      });
+    }
   }
 
   const misAJour = await strapi.documents(UID_DEMANDE).update({
