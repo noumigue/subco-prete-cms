@@ -455,6 +455,8 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-maturation.piecesReferentiel',
     // Catalogue des champs du formulaire ouvrables par une campagne.
     'api::gestion.gestion-maturation.champsReferentiel',
+    // Compte des demandes a examiner, pour le badge de navigation.
+    'api::gestion.gestion-maturation.compte',
     'api::gestion.gestion-maturation.file',
     'api::gestion.gestion-maturation.demande',
     'api::gestion.gestion-maturation.valider',

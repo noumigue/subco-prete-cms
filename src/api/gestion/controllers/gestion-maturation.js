@@ -249,6 +249,18 @@ module.exports = {
     ctx.body = { types };
   },
 
+  /**
+   * Combien de demandes attendent l'examen de l'equipe. Sert le badge de navigation, qui
+   * est lu a CHAQUE page de l'espace de gestion : un simple compte en base, sans charger
+   * les demandes ni resoudre leurs pieces.
+   */
+  async compte(ctx) {
+    if (!requireRole(ctx, LECTURE)) return;
+    const aExaminer = await strapi.db.query(UID).count({ where: { statut: 'fournie' } });
+    const enCours = await strapi.db.query(UID).count({ where: { statut: { $in: ['demandee', 'renvoyee'] } } });
+    ctx.body = { aExaminer, enCours };
+  },
+
   /** Champs du formulaire qu'une campagne peut rouvrir, groupes par section. */
   async champsReferentiel(ctx) {
     if (!requireRole(ctx, LECTURE)) return;
