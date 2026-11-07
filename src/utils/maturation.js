@@ -443,9 +443,11 @@ async function soumettreDemande(strapi, demande, { pieces, montants, valeurs }) 
     if (montants.typeContrepartie) entrant['financement.typeContrepartie'] = montants.typeContrepartie;
   }
 
+  let valeursRetenues = 0;
   if (Object.keys(entrant).length > 0) {
     const { valeurs: validees } = validerValeurs(perimetre, entrant);
-    if (Object.keys(validees).length > 0) {
+    valeursRetenues = Object.keys(validees).length;
+    if (valeursRetenues > 0) {
       valeursProposees = { ...(valeursProposees || {}), ...validees };
       montantsStatut = 'propose';
       // `montantsProposes` continue d'etre renseigne quand le couple est servi : les ecrans
@@ -459,6 +461,20 @@ async function soumettreDemande(strapi, demande, { pieces, montants, valeurs }) 
         };
       }
     }
+  }
+
+  // Garde contre l'envoi a blanc. `soumettreDemande` faisait passer la demande a « fournie »
+  // sans jamais verifier qu'elle apportait quelque chose : trois operateurs de la Cohorte 1
+  // ont valide un envoi sans joindre de fichier (00310 le 3/11, 00036 le 3/11, 00216 le
+  // 4/11). Ils se croyaient en regle, l'equipe voyait une reponse a examiner qui ne
+  // contenait rien, et personne ne pouvait le savoir sans ouvrir la demande. Le controle
+  // porte sur ce que CET envoi ajoute : une piece deja deposee avant un renvoi ne vaut pas
+  // reponse au renvoi, qui demandait justement autre chose.
+  if (fournies.length === 0 && valeursRetenues === 0) {
+    throw new Error(
+      'Votre reponse est vide. Joignez le document demande, ou renseignez les informations '
+      + 'attendues, avant de l\'envoyer.',
+    );
   }
 
   const pieceDeja = new Map((demande.piecesFournies || []).map((p) => [p.libelle, p]));

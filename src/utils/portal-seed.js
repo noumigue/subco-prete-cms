@@ -462,6 +462,8 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-maturation.valider',
     'api::gestion.gestion-maturation.renvoyer',
     'api::gestion.gestion-maturation.rouvrir',
+    // Reouverture en lot, quand une prolongation de delai tombe sur tout ce qui est echu.
+    'api::gestion.gestion-maturation.rouvrirLot',
   ];
   const maturationUgpActions = [
     'api::gestion.gestion-maturation.simulation',

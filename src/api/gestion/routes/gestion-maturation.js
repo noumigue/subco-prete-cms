@@ -12,6 +12,7 @@ module.exports = {
     { method: 'GET', path: '/gestion/maturation', handler: 'gestion-maturation.file', config: { policies: [] } },
     { method: 'POST', path: '/gestion/maturation/simulation', handler: 'gestion-maturation.simulation', config: { policies: [] } },
     { method: 'POST', path: '/gestion/maturation/campagne', handler: 'gestion-maturation.campagne', config: { policies: [] } },
+    { method: 'POST', path: '/gestion/maturation/rouvrir-lot', handler: 'gestion-maturation.rouvrirLot', config: { policies: [] } },
     { method: 'GET', path: '/gestion/maturation/:documentId', handler: 'gestion-maturation.demande', config: { policies: [] } },
     { method: 'POST', path: '/gestion/maturation/:documentId/valider', handler: 'gestion-maturation.valider', config: { policies: [] } },
     { method: 'POST', path: '/gestion/maturation/:documentId/renvoyer', handler: 'gestion-maturation.renvoyer', config: { policies: [] } },

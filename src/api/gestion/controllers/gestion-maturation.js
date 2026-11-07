@@ -465,4 +465,61 @@ module.exports = {
       ctx.badRequest(error.message);
     }
   },
+
+  /**
+   * Reouverture EN LOT des demandes echues, sur une echeance commune.
+   *
+   * Pourquoi en lot. Une prolongation de delai est une decision de calendrier : elle tombe
+   * d'un coup sur tout ce qui est echu, et la rouvrir demande par demande fait dependre une
+   * decision uniforme du nombre de clics. Au soir du 6 novembre 2026, 17 demandes etaient
+   * echues sur 11 dossiers ; le chef de mission a prolonge de cinq jours ouvres. Dix-sept
+   * clics, c'etait dix-sept occasions d'en oublier un.
+   *
+   * La boucle appelle `rouvrirDemande` une par une — surtout pas une mise a jour en masse :
+   * chaque reouverture doit reposer le dossier en « maturation » (il porte sinon le drapeau
+   * « maturation non aboutie » devant le Comite), reinitialiser les relances et laisser sa
+   * ligne au journal. C'est le prix, et il se paie demande par demande.
+   *
+   * Aucun courriel n'est envoye ici : prevenir l'operateur releve de la campagne de
+   * messages, qui dit ce que la plateforme ne sait pas — pourquoi le delai a bouge.
+   */
+  async rouvrirLot(ctx) {
+    const user = requireRole(ctx, ECRITURE);
+    if (!user) return;
+    const { joursOuvres, echeance, campagnes } = ctx.request.body?.data || ctx.request.body || {};
+    if (!echeance && !joursOuvres) {
+      return ctx.badRequest('Precisez une echeance, ou un nombre de jours ouvres.');
+    }
+
+    const filtres = { statut: 'echue' };
+    if (Array.isArray(campagnes) && campagnes.length > 0) filtres.campagne = { $in: campagnes };
+
+    const echues = await strapi.documents(UID).findMany({
+      filters: filtres,
+      populate: { candidature: { fields: ['documentId', 'numeroDossier'] } },
+      limit: 500,
+    });
+
+    const par = libelleAuteur(user);
+    const rouvertes = [];
+    const echecs = [];
+    for (const demande of echues) {
+      try {
+        await rouvrirDemande(strapi, demande, { joursOuvres, echeance, par });
+        rouvertes.push({ documentId: demande.documentId, campagne: demande.campagne, dossier: demande.candidature?.numeroDossier || null });
+      } catch (error) {
+        // Une demande qui resiste ne doit pas emporter les seize autres : on poursuit et on
+        // rend le detail, pour qu'on sache exactement ce qui reste a reprendre a la main.
+        echecs.push({ documentId: demande.documentId, dossier: demande.candidature?.numeroDossier || null, erreur: error.message });
+      }
+    }
+
+    ctx.body = {
+      rouvertes: rouvertes.length,
+      echecs: echecs.length,
+      dossiers: [...new Set(rouvertes.map((r) => r.dossier).filter(Boolean))],
+      detail: rouvertes,
+      erreurs: echecs,
+    };
+  },
 };
