@@ -460,6 +460,8 @@ async function ensurePortalRolesAndSettings(strapi) {
     'api::gestion.gestion-maturation.file',
     'api::gestion.gestion-maturation.demande',
     'api::gestion.gestion-maturation.valider',
+    // Annulation d'une validation prononcee a tort — ouverte au Cabinet, qui valide.
+    'api::gestion.gestion-maturation.devalider',
     'api::gestion.gestion-maturation.renvoyer',
     'api::gestion.gestion-maturation.rouvrir',
     // Reouverture en lot, quand une prolongation de delai tombe sur tout ce qui est echu.

@@ -16,6 +16,7 @@ module.exports = {
     { method: 'GET', path: '/gestion/maturation/:documentId', handler: 'gestion-maturation.demande', config: { policies: [] } },
     { method: 'POST', path: '/gestion/maturation/:documentId/valider', handler: 'gestion-maturation.valider', config: { policies: [] } },
     { method: 'POST', path: '/gestion/maturation/:documentId/renvoyer', handler: 'gestion-maturation.renvoyer', config: { policies: [] } },
+    { method: 'POST', path: '/gestion/maturation/:documentId/devalider', handler: 'gestion-maturation.devalider', config: { policies: [] } },
     { method: 'POST', path: '/gestion/maturation/:documentId/rouvrir', handler: 'gestion-maturation.rouvrir', config: { policies: [] } },
   ],
 };

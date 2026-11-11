@@ -676,6 +676,142 @@ async function validerDemande(strapi, demande, { par, role }) {
   return { demande: misAJour, dejaValidee: false };
 }
 
+/**
+ * Annulation d'une validation prononcee a tort.
+ *
+ * POURQUOI ELLE N'EFFACE RIEN
+ * Le Cabinet valide a six mains : une piece non conforme passe, et il n'existait aucune
+ * marche arriere — le code n'autorisait que `fournie -> validee`. La tentation serait de
+ * supprimer la version fautive du dossier. On ne le fait pas : le journal est protege par
+ * un verrou d'append-only en base, et chaque version est une piece de l'historique qui
+ * documente ce qui a ete decide. Devalider est donc un acte DE PLUS, qui restaure l'etat
+ * anterieur en avancant — pas une gomme.
+ *
+ * CE QU'ELLE DEFAIT, SELON LA CAMPAGNE
+ * Une demande de piece n'a rien ecrit au dossier : il suffit de rendre la demande a
+ * l'examen. Une demande de champs, elle, a porte des valeurs, produit une version N+1 et
+ * un PDF. On relit alors les donnees de la version N dans son depot — conserve — et on
+ * produit une version N+2 qui les restaure.
+ *
+ * LA GARDE D'ORDRE
+ * On ne devalide que la DERNIERE version du dossier. Si une autre validation est passee
+ * depuis, restaurer l'avant-derniere effacerait silencieusement la plus recente ; il faut
+ * alors devalider dans l'ordre inverse. Le refus le dit.
+ */
+async function devaliderDemande(strapi, demande, { motif, par, role }) {
+  if (demande.statut !== 'validee') throw new Error('Seule une demande validee peut etre devalidee.');
+  const raison = String(motif || '').trim();
+  if (!raison) throw new Error('Un motif est requis : il part au journal et a l\'operateur.');
+
+  const candidature = await strapi.documents(UID_CANDIDATURE).findOne({
+    documentId: demande.candidature?.documentId || demande.candidature,
+    populate: { organisation: true, appel: true, owner: { fields: ['id', 'email'] } },
+  });
+  if (!candidature?.documentId) throw new Error('Dossier introuvable.');
+
+  const maintenant = new Date().toISOString();
+  const perimetre = demande.perimetre || {};
+  let versionRestauree = null;
+
+  if (demande.versionProduite) {
+    const courante = Number(candidature.versionDepot) || 0;
+    if (courante !== Number(demande.versionProduite)) {
+      throw new Error(
+        `Ce dossier est en version ${courante} alors que cette validation avait produit la version ${demande.versionProduite} : `
+        + 'une autre validation est passee depuis. Annulez-la d\'abord, puis revenez a celle-ci.',
+      );
+    }
+    const precedente = Number(demande.versionProduite) - 1;
+    const depots = await strapi.documents(UID_DEPOT).findMany({
+      filters: { candidature: { documentId: candidature.documentId }, version: precedente },
+      fields: ['version', 'donneesProjet'],
+      limit: 1,
+    });
+    const donneesAvant = depots?.[0]?.donneesProjet;
+    if (!donneesAvant) {
+      throw new Error(`La version ${precedente} du dossier est introuvable : les valeurs anterieures ne peuvent pas etre restaurees.`);
+    }
+
+    const versionSuivante = Number(demande.versionProduite) + 1;
+    let pdfFile = null;
+    try {
+      const buffer = await buildCandidaturePdf({
+        candidature: { ...candidature, donneesProjet: donneesAvant },
+        organisation: candidature.organisation,
+        appel: candidature.appel,
+        mode: 'permanent',
+      });
+      pdfFile = await uploadPdfBuffer(buffer, `${candidature.numeroDossier}-v${versionSuivante}.pdf`);
+    } catch (error) {
+      strapi.log.error('[maturation] Echec de generation du PDF a la devalidation', error);
+    }
+    if (!pdfFile?.id) {
+      throw new Error("Le document de candidature n'a pas pu etre regenere. Le dossier reste en l'etat ; reessayez dans un instant.");
+    }
+
+    await strapi.documents(UID_CANDIDATURE).update({
+      documentId: candidature.documentId,
+      data: {
+        donneesProjet: donneesAvant,
+        versionDepot: versionSuivante,
+        versionReference: versionSuivante,
+        dernierDepotLe: maintenant,
+        pdfPermanent: pdfFile.id,
+        // Le plan de financement n'est plus arrete : le drapeau retombe avec la validation.
+        ...(perimetre.montants ? { montantsMatures: false, montantsMaturesLe: null } : {}),
+      },
+    });
+
+    await strapi.documents(UID_DEPOT).create({
+      data: {
+        candidature: { connect: [candidature.documentId] },
+        version: versionSuivante,
+        deposeLe: maintenant,
+        pdf: pdfFile.id,
+        donneesProjet: donneesAvant,
+        titreProjet: candidature.titreProjet || null,
+        auteurLibelle: `Annulation de validation — ${par || 'equipe'}`,
+      },
+    });
+    versionRestauree = versionSuivante;
+  }
+
+  const misAJour = await strapi.documents(UID_DEMANDE).update({
+    documentId: demande.documentId,
+    data: {
+      statut: 'fournie',
+      validePar: null,
+      valideParRole: null,
+      valideLe: null,
+      versionProduite: null,
+      // La reponse de l'operateur reste en l'etat : c'est son examen qui recommence.
+      montantsStatut: (demande.valeursProposees && Object.keys(demande.valeursProposees).length) || demande.montantsProposes
+        ? 'propose' : demande.montantsStatut,
+      piecesFournies: (demande.piecesFournies || []).map((p) => ({ ...p, statut: 'fournie' })),
+    },
+  });
+
+  await journal(strapi, candidature.documentId, {
+    auteurLibelle: par || 'Equipe SUBCO-PRETE',
+    type: 'demande_maj_devalidee',
+    texte: `Validation annulee${role ? ` par ${role}` : ''} — ${libelleObjet(perimetre)} : ${raison}.`
+      + (versionRestauree ? ` Les valeurs anterieures sont restaurees (version ${versionRestauree}).` : ''),
+  });
+
+  await notifier(strapi, candidature, {
+    sujet: `${libelleObjetCourt(perimetre)} — validation annulee (dossier ${candidature.numeroDossier})`,
+    corps: `La validation prononcee sur ${libelleObjet(perimetre)}, pour votre dossier ${candidature.numeroDossier}, est annulee.\n\n`
+      + `Motif : ${raison}\n\n`
+      + (versionRestauree
+        ? `Les informations portees a cette occasion ont ete retirees : votre dossier revient a son contenu anterieur.\n\n`
+        : '')
+      + `Ce que vous avez transmis reste en place et va etre reexamine. Vous n'avez rien a faire pour l'instant : `
+      + `l'equipe reviendra vers vous si une correction est necessaire.`,
+  });
+
+  return { demande: misAJour, versionRestauree };
+}
+
 /** Renvoi motive. Porte TOUJOURS une nouvelle echeance : sans elle, l'operateur renvoye
  *  serait hors delai a l'instant meme ou il recoit le renvoi. */
 async function renvoyerDemande(strapi, demande, { motif, joursOuvres, echeance, par }) {
@@ -827,6 +963,7 @@ module.exports = {
   creerDemandes,
   soumettreDemande,
   validerDemande,
+  devaliderDemande,
   renvoyerDemande,
   rouvrirDemande,
   passerRelancesEtEcheances,

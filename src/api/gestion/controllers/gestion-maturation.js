@@ -13,6 +13,7 @@
 const {
   creerDemandes,
   validerDemande,
+  devaliderDemande,
   renvoyerDemande,
   rouvrirDemande,
   echeanceOuvree,
@@ -448,6 +449,25 @@ module.exports = {
     const { motif, joursOuvres, echeance } = ctx.request.body?.data || ctx.request.body || {};
     try {
       ctx.body = { demande: await renvoyerDemande(strapi, demande, { motif, joursOuvres, echeance, par: libelleAuteur(user) }) };
+    } catch (error) {
+      ctx.badRequest(error.message);
+    }
+  },
+
+  /**
+   * Annulation d'une validation. Ouverte au Cabinet comme a l'UGP : c'est le Cabinet qui
+   * valide, à six mains, et lui faire passer par l'UGP pour corriger sa propre erreur
+   * couterait plus de temps que l'erreur elle-meme.
+   */
+  async devalider(ctx) {
+    const user = requireRole(ctx, ECRITURE);
+    if (!user) return;
+    const demande = await charger(strapi, ctx.params.documentId);
+    if (!demande?.documentId) return ctx.notFound('Demande introuvable.');
+    const { motif } = ctx.request.body?.data || ctx.request.body || {};
+    try {
+      const r = await devaliderDemande(strapi, demande, { motif, par: libelleAuteur(user), role: user.role?.type === 'ugp' ? 'UGP' : 'Cabinet' });
+      ctx.body = { demande: r.demande, versionRestauree: r.versionRestauree };
     } catch (error) {
       ctx.badRequest(error.message);
     }
